@@ -35,19 +35,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-using Content.Server.Store.Systems;
 using Content.Goobstation.Maths.FixedPoint;
+using Content.Server.Stack;
+using Content.Server.Store.Systems;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Implants;
 using Content.Shared.Inventory;
 using Content.Shared.Mind;
 using Content.Shared.PDA;
 using Content.Shared.Preferences;
+using Content.Shared.Storage.EntitySystems;
 using Content.Shared.Store;
 using Content.Shared.Store.Components;
-using Content.Shared.Storage.EntitySystems;
 using Robust.Shared.Prototypes;
-using Content.Server.Stack;
 
 namespace Content.Server.Traitor.Uplink;
 
@@ -87,7 +87,7 @@ public sealed class UplinkSystem : EntitySystem
     /// <param name="uplinkEntity">The entity that will actually have the uplink functionality. Defaults to the PDA if null.</param>
     /// <param name="uplinkPreference">The preferred type of uplink. Defaults to PDA if not specified.</param>
     /// <returns>Whether or not the uplink was added successfully</returns>
-    public bool AddUplink(EntityUid user, FixedPoint2 balance, EntityUid? uplinkEntity = null, UplinkPreference uplinkPreference = UplinkPreference.Pda) // Orion-Edit | Add uplinkPreference
+    public bool AddUplink(EntityUid user, FixedPoint2 balance, EntityUid? uplinkEntity = null, UplinkPreference uplinkPreference = UplinkPreference.Pda) // Orion-Edit: Add uplinkPreference
     {
         // Orion-Start
         switch (uplinkPreference)

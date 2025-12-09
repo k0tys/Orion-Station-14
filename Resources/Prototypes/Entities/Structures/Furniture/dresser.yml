@@ -115,7 +115,7 @@
         prob: 0.005
         orGroup: dressermainloot
       # Orion-End
-#      - id: ClothingNeckLGBTPin # Orion-Remove
+#      - id: ClothingNeckLGBTPin # Orion-Edit: Removed
 #        prob: 0.06
 #        orGroup: dressermainloot
       - id: ClothingUniformJumpsuitColorGrey

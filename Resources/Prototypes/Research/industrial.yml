@@ -369,7 +369,7 @@
   - PowerCellBluespaceReactor
   - PowerCellVortex
   # Orion-End
-#  - PowerCellMicroreactor # Orion-Edit | Replaced with PowerCellBluespaceReactor
+#  - PowerCellMicroreactor # Orion-Edit: Replaced with PowerCellBluespaceReactor
   - PowerCellHyper
   technologyPrerequisites:
   - AdvancedToolsTechnology  # Goobstation R&D Console rework

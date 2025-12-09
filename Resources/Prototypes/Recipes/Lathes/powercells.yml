@@ -62,7 +62,7 @@
     Gold: 200
     Silver: 300
 
-#- type: latheRecipe # Orion-Edit | Replaced with PowerCellBluespaceReactor
+#- type: latheRecipe # Orion-Edit: Replaced with PowerCellBluespaceReactor
 #  id: PowerCellMicroreactor
 #  result: PowerCellMicroreactorPrinted
 #  categories:

@@ -65,7 +65,7 @@
 - type: latheRecipePack
   id: PowerCells
   recipes:
-#  - PowerCellMicroreactor # Orion-Edit | Replaced with PowerCellBluespaceReactor
+#  - PowerCellMicroreactor # Orion-Edit: Replaced with PowerCellBluespaceReactor
   - PowerCellHigh
   - PowerCellHyper
   # Orion-Start

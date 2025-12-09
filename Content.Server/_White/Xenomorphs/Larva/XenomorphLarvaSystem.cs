@@ -78,6 +78,6 @@ public sealed class XenomorphLarvaSystem : EntitySystem
 
         _container.Remove(uid, container);
         _mobState.ChangeMobState(victim, MobState.Dead); // Orion
-//        _body.GibBody(victim); // Orion-Edit | Fuck you.
+//        _body.GibBody(victim); // Orion-Edit: Fuck you.
     }
 }

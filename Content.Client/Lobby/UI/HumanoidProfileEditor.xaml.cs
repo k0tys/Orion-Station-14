@@ -445,10 +445,8 @@ namespace Content.Client.Lobby.UI
                     _speciesWindow = new(
                         Profile,
                         prototypeManager,
-                        entManager,
                         _controller,
-                        _resManager,
-                        _parsingMan);
+                        _resManager);
 
                     _speciesWindow.OpenCenteredLeft();
                     var oldProfile = Profile.Clone();

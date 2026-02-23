@@ -669,6 +669,40 @@ binds:
 - function: Arcade3
   type: State
   key: Z
+# Orion-Start
+- function: DeepMaintenanceMoveUp
+  type: State
+  key: W
+  priority: -2
+- function: DeepMaintenanceMoveDown
+  type: State
+  key: S
+  priority: -2
+- function: DeepMaintenanceMoveLeft
+  type: State
+  key: A
+  priority: -2
+- function: DeepMaintenanceMoveRight
+  type: State
+  key: D
+  priority: -2
+- function: DeepMaintenanceShootUp
+  type: State
+  key: Up
+  priority: -2
+- function: DeepMaintenanceShootDown
+  type: State
+  key: Down
+  priority: -2
+- function: DeepMaintenanceShootLeft
+  type: State
+  key: Left
+  priority: -2
+- function: DeepMaintenanceShootRight
+  type: State
+  key: Right
+  priority: -2
+# Orion-End
 - function: ToggleKnockdown
   type: State
   key: C

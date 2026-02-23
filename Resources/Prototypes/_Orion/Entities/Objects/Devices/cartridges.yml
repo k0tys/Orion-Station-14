@@ -1,0 +1,20 @@
+- type: entity
+  parent: BaseItem
+  id: DeepMaintenanceCartridge
+  name: Deep Maintenance cartridge
+  description: A tiny roguelike dungeon crawler optimized for PDA controls.
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-nav
+  - type: UIFragment
+    ui: !type:DeepMaintenanceUi
+  - type: Cartridge
+    programName: deep-maintenance-program-name
+    icon:
+      sprite: Interface/Misc/program_icons.rsi
+      state: crew_manifest
+    screenState:
+      sprite: _Orion/Objects/Devices/pda.rsi
+      state: arcade
+  - type: DeepMaintenanceCartridge

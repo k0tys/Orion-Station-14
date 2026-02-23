@@ -162,7 +162,17 @@ namespace Content.Client.Input
             human.AddFunction(ContentKeyFunctions.Arcade1);
             human.AddFunction(ContentKeyFunctions.Arcade2);
             human.AddFunction(ContentKeyFunctions.Arcade3);
-            human.AddFunction(ContentKeyFunctions.TogglePosing); // Orion
+            // Orion-Start
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceMoveUp);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceMoveDown);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceMoveLeft);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceMoveRight);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceShootUp);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceShootDown);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceShootLeft);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceShootRight);
+            human.AddFunction(ContentKeyFunctions.TogglePosing);
+            // Orion-End
             // Shitmed Change Start - TODO: Add hands, feet and groin targeting.
             human.AddFunction(ContentKeyFunctions.TargetHead);
             human.AddFunction(ContentKeyFunctions.TargetChest);

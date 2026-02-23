@@ -221,6 +221,17 @@ namespace Content.Shared.Input
         public static readonly BoundKeyFunction Arcade2 = "Arcade2";
         public static readonly BoundKeyFunction Arcade3 = "Arcade3";
 
+        // Orion-Start
+        public static readonly BoundKeyFunction DeepMaintenanceMoveUp = "DeepMaintenanceMoveUp";
+        public static readonly BoundKeyFunction DeepMaintenanceMoveDown = "DeepMaintenanceMoveDown";
+        public static readonly BoundKeyFunction DeepMaintenanceMoveLeft = "DeepMaintenanceMoveLeft";
+        public static readonly BoundKeyFunction DeepMaintenanceMoveRight = "DeepMaintenanceMoveRight";
+        public static readonly BoundKeyFunction DeepMaintenanceShootUp = "DeepMaintenanceShootUp";
+        public static readonly BoundKeyFunction DeepMaintenanceShootDown = "DeepMaintenanceShootDown";
+        public static readonly BoundKeyFunction DeepMaintenanceShootLeft = "DeepMaintenanceShootLeft";
+        public static readonly BoundKeyFunction DeepMaintenanceShootRight = "DeepMaintenanceShootRight";
+        // Orion-End
+
         public static readonly BoundKeyFunction OpenActionsMenu = "OpenAbilitiesMenu";
         public static readonly BoundKeyFunction ShuttleStrafeLeft = "ShuttleStrafeLeft";
         public static readonly BoundKeyFunction ShuttleStrafeUp = "ShuttleStrafeUp";

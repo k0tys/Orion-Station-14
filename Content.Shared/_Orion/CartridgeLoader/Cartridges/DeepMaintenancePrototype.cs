@@ -68,6 +68,9 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     public float ProjectileSpeed = 6f;
 
     [DataField]
+    public string? ProjectileEntityId;
+
+    [DataField]
     public string? SpritePath;
 
     [DataField]

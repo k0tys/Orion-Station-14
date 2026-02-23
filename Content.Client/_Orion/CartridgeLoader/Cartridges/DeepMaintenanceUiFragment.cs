@@ -459,17 +459,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     if (hit)
                     {
                         projectiles.RemoveAt(i);
-                        continue;
                     }
                 }
                 else if (Vector2.Distance(projectile.Position, _playerPos) <= projectile.Radius + _playerProto.Radius)
                 {
                     DamagePlayer();
                     projectiles.RemoveAt(i);
-                    continue;
                 }
-
-                projectiles[i] = projectile;
             }
         }
 
@@ -573,8 +569,12 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             {
                 var basePos = positions[_random.Next(positions.Count)];
                 var newPos = basePos + CardinalDirections()[_random.Next(4)];
+                var attempts = 0;
                 while (indicesByPos.ContainsKey(newPos))
                 {
+                    if (++attempts > 100)
+                        break;
+
                     basePos = positions[_random.Next(positions.Count)];
                     newPos = basePos + CardinalDirections()[_random.Next(4)];
                 }
@@ -596,7 +596,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     _ => RoomType.Normal,
                 };
 
-            var room = new RoomData(type, positions[i], BuildTileMap(type));
+                var room = new RoomData(type, positions[i], BuildTileMap(type));
                 SpawnEnemies(room);
                 _rooms.Add(room);
             }
@@ -674,18 +674,6 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 for (var x = 0; x < GridWidth; x++)
                 {
                     var tile = CurrentRoom.Tiles[x, y];
-                    var color = tile switch
-                    {
-                        TileType.Floor => _floorProto.Color,
-                        TileType.Wall => _wallProto.Color,
-                        TileType.Obstacle => _obstacleProto.Color,
-                        _ => _floorProto.Color
-                    };
-
-                    var box = UIBox2.FromDimensions(
-                        mapOffset + new Vector2(x * tilePixel, y * tilePixel),
-                        new Vector2(tilePixel, tilePixel) - Vector2.One);
-
                     var tileProto = tile switch
                     {
                         TileType.Floor => _floorProto,
@@ -694,10 +682,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                         _ => _floorProto,
                     };
 
+                    var box = UIBox2.FromDimensions(
+                        mapOffset + new Vector2(x * tilePixel, y * tilePixel),
+                        new Vector2(tilePixel, tilePixel) - Vector2.One);
+
                     if (GetSprite(tileProto.SpritePath, tileProto.SpriteState) is { } tileTexture)
                         handle.DrawTextureRect(tileTexture, box);
                     else
-                        handle.DrawRect(box, color);
+                        handle.DrawRect(box, tileProto.Color);
                 }
             }
 
@@ -781,27 +773,30 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             var resolved = target;
 
-            var checks = new[]
+            for (var pass = 0; pass < 2; pass++)
             {
-                resolved with { X = resolved.X + radius },
-                resolved with { X = resolved.X - radius },
-                resolved with { Y = resolved.Y + radius },
-                resolved with { Y = resolved.Y - radius },
-            };
+                var probes = new[]
+                {
+                    resolved with { X = resolved.X + radius },
+                    resolved with { X = resolved.X - radius },
+                    resolved with { Y = resolved.Y + radius },
+                    resolved with { Y = resolved.Y - radius },
+                };
 
-            foreach (var check in checks)
-            {
-                if (!IsSolid(check, tiles))
-                    continue;
+                foreach (var check in probes)
+                {
+                    if (!IsSolid(check, tiles))
+                        continue;
 
-                var tx = Math.Clamp((int) MathF.Floor(check.X), 0, GridWidth - 1);
-                var ty = Math.Clamp((int) MathF.Floor(check.Y), 0, GridHeight - 1);
-                var center = new Vector2(tx + 0.5f, ty + 0.5f);
-                var away = NormalizeSafe(resolved - center);
-                if (away == Vector2.Zero)
-                    away = new Vector2(1, 0);
+                    var tx = Math.Clamp((int) MathF.Floor(check.X), 0, GridWidth - 1);
+                    var ty = Math.Clamp((int) MathF.Floor(check.Y), 0, GridHeight - 1);
+                    var center = new Vector2(tx + 0.5f, ty + 0.5f);
+                    var away = NormalizeSafe(resolved - center);
+                    if (away == Vector2.Zero)
+                        away = new Vector2(1, 0);
 
-                resolved = center + away * 0.52f;
+                    resolved = center + away * 0.52f;
+                }
             }
 
             resolved.X = Math.Clamp(resolved.X, radius, GridWidth - radius);

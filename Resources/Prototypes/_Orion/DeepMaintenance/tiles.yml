@@ -8,15 +8,12 @@
 - type: deepMaintenanceTile
   parent: DeepMaintenanceTileBase
   id: DeepMaintenanceFloor
-  color: "#1A1A24"
-  solid: false
   spritePath: /Textures/Tiles/Planet/dirt.rsi
   spriteState: dirt
 
 - type: deepMaintenanceTile
   parent: DeepMaintenanceTileBase
   id: DeepMaintenanceWall
-  color: "#3B3B4C"
   solid: true
   spritePath: /Textures/Structures/Walls/solid_rust.rsi
   spriteState: full

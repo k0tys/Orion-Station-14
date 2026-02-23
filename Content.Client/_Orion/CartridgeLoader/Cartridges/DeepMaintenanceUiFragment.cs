@@ -4,6 +4,7 @@ using Content.Shared._Orion.CartridgeLoader.Cartridges;
 using Content.Shared.Input;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
+using Robust.Client.Input;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Shared.Input;
@@ -83,6 +84,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
     {
         [Dependency] private readonly IPrototypeManager _prototype = default!;
         [Dependency] private readonly IEntityManager _entity = default!;
+        [Dependency] private readonly IInputManager _input = default!;
 
         private readonly SpriteSystem _sprite;
         private readonly Random _random = new();
@@ -93,6 +95,25 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private readonly List<ProjectileData> _enemyProjectiles = new();
 
         private readonly HashSet<BoundKeyFunction> _heldKeys = new();
+        private static readonly BoundKeyFunction[] SupportedKeyFunctions =
+        [
+            ContentKeyFunctions.DeepMaintenanceMoveUp,
+            ContentKeyFunctions.DeepMaintenanceMoveDown,
+            ContentKeyFunctions.DeepMaintenanceMoveLeft,
+            ContentKeyFunctions.DeepMaintenanceMoveRight,
+            ContentKeyFunctions.DeepMaintenanceShootUp,
+            ContentKeyFunctions.DeepMaintenanceShootDown,
+            ContentKeyFunctions.DeepMaintenanceShootLeft,
+            ContentKeyFunctions.DeepMaintenanceShootRight,
+            EngineKeyFunctions.MoveUp,
+            EngineKeyFunctions.MoveDown,
+            EngineKeyFunctions.MoveLeft,
+            EngineKeyFunctions.MoveRight,
+            ContentKeyFunctions.ArcadeUp,
+            ContentKeyFunctions.ArcadeDown,
+            ContentKeyFunctions.ArcadeLeft,
+            ContentKeyFunctions.ArcadeRight,
+        ];
 
         private DeepMaintenanceEntityPrototype _playerProto = default!;
         private DeepMaintenanceEntityPrototype _chaserProto = default!;
@@ -151,6 +172,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         protected override void EnteredTree()
         {
             base.EnteredTree();
+            _input.FirstChanceOnKeyEvent += OnFirstChanceKeyEvent;
             EnsureInputFocus();
         }
 
@@ -158,9 +180,78 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             base.ExitedTree();
 
+            _input.FirstChanceOnKeyEvent -= OnFirstChanceKeyEvent;
             _heldKeys.Clear();
             if (HasKeyboardFocus())
                 ReleaseKeyboardFocus();
+        }
+
+        private void OnFirstChanceKeyEvent(KeyEventArgs keyEvent, KeyEventType type)
+        {
+            if (!IsInsideTree || !HasKeyboardFocus() || _paused || _gameOver || _victory)
+                return;
+
+            if (keyEvent.Handled)
+                return;
+
+            if (!TryGetBoundFunction(keyEvent, out var function))
+                return;
+
+            switch (type)
+            {
+                case KeyEventType.Down:
+                    _heldKeys.Add(function);
+
+                    if (TryGetShootDirection(function, out var shootDirection))
+                        TryShoot(shootDirection);
+
+                    keyEvent.Handle();
+                    break;
+                case KeyEventType.Up:
+                    _heldKeys.Remove(function);
+                    keyEvent.Handle();
+                    break;
+            }
+        }
+
+        private bool TryGetBoundFunction(KeyEventArgs keyEvent, out BoundKeyFunction function)
+        {
+            foreach (var keyFunction in SupportedKeyFunctions)
+            {
+                if (!IsKeyBindingMatch(keyFunction, keyEvent))
+                    continue;
+
+                function = keyFunction;
+                return true;
+            }
+
+            function = default!;
+            return false;
+        }
+
+        private bool IsKeyBindingMatch(BoundKeyFunction function, KeyEventArgs keyEvent)
+        {
+            if (!_input.TryGetKeyBinding(function, out var binding))
+                return false;
+
+            if (binding.BaseKey != keyEvent.Key)
+                return false;
+
+            if (keyEvent.Shift && !HasModifier(binding, Keyboard.Key.Shift))
+                return false;
+
+            if (keyEvent.Alt && !HasModifier(binding, Keyboard.Key.Alt))
+                return false;
+
+            if (keyEvent.Control && !HasModifier(binding, Keyboard.Key.Control))
+                return false;
+
+            return true;
+        }
+
+        private static bool HasModifier(IKeyBinding binding, Keyboard.Key key)
+        {
+            return binding.Mod1 == key || binding.Mod2 == key || binding.Mod3 == key;
         }
 
         public void EnsureInputFocus()

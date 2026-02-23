@@ -2,12 +2,15 @@ using System.Linq;
 using System.Numerics;
 using Content.Shared._Orion.CartridgeLoader.Cartridges;
 using Content.Shared.Input;
+using Robust.Client.Audio;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
 using Robust.Client.Input;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
+using Robust.Shared.Audio;
 using Robust.Shared.Input;
+using Robust.Shared.Player;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 using Robust.Shared.Utility;
@@ -87,6 +90,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         [Dependency] private readonly IInputManager _input = default!;
 
         private readonly SpriteSystem _sprite;
+        private readonly AudioSystem _audio;
         private readonly Random _random = new();
         private readonly Dictionary<(string, string), Texture> _spriteCache = new();
 
@@ -136,8 +140,17 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const int GridHeight = 8;
         private const float TickSeconds = 0.1f;
         private const float ProjectileRadius = 0.09f;
-        private const float PlayerShootCooldownSeconds = 0.28f;
         private const int InvulnerabilityTicks = 10;
+        private const float DoorTransitionMargin = 0.05f;
+        private const float EntitySpriteTileSize = 1f;
+        private const float EnemyHitKnockback = 0.22f;
+
+        private const string SfxPlayerShoot = "/Audio/Weapons/pop.ogg";
+        private const string SfxEnemyShoot = "/Audio/Weapons/emitter.ogg";
+        private const string SfxProjectileHit = "/Audio/Effects/weak_hit1.ogg";
+        private const string SfxPlayerDamage = "/Audio/Effects/hit_kick.ogg";
+        private const string SfxEnemyDeath = "/Audio/Effects/bodyfall1.ogg";
+        private const string SfxPlayerDeath = "/Audio/Effects/tesla_collapse.ogg";
 
         public event Action? StateChanged;
 
@@ -161,6 +174,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             IoCManager.InjectDependencies(this);
             _sprite = _entity.System<SpriteSystem>();
+            _audio = _entity.System<AudioSystem>();
 
             CanKeyboardFocus = true;
             KeyboardFocusOnClick = true;
@@ -339,6 +353,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (_paused || _gameOver || _victory)
                 return;
 
+            MovePlayer(args.DeltaSeconds);
+
             _accumulator += args.DeltaSeconds;
             while (_accumulator >= TickSeconds)
             {
@@ -355,7 +371,6 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (_invulnerabilityTicks > 0)
                 _invulnerabilityTicks--;
 
-            MovePlayer(dt);
             HandleHeldShootKeys();
             TickEnemies(dt);
             TickProjectiles(_playerProjectiles, true, dt);
@@ -374,7 +389,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
 
             var target = _playerPos + moveDirection * _playerProto.MoveSpeed * dt;
-            _playerPos = ResolveCircleTileCollision(target, _playerProto.Radius, CurrentRoom.Tiles);
+            _playerPos = ResolveCircleTileCollision(target, _playerProto.Radius, CurrentRoom);
             TryRoomTransition();
         }
 
@@ -482,6 +497,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 var toPlayer = _playerPos - enemy.Position;
                 var directionToPlayer = NormalizeSafe(toPlayer);
 
+                enemy.PreviousPosition = enemy.Position;
+
                 if (enemy.Prototype.Shooter)
                 {
                     if (enemy.ShootCooldownTicks <= 0)
@@ -491,18 +508,19 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                             directionToPlayer * enemy.Prototype.ProjectileSpeed,
                             ProjectileRadius,
                             1));
+                        PlaySfx(SfxEnemyShoot, -10f);
 
                         enemy.ShootCooldownTicks = enemy.Prototype.ShootCooldownTicks;
                     }
 
                     var strafe = new Vector2(-directionToPlayer.Y, directionToPlayer.X);
                     var target = enemy.Position + strafe * enemy.Prototype.MoveSpeed * 0.45f * dt;
-                    enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom.Tiles);
+                    enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
                     continue;
                 }
 
                 var chase = enemy.Position + directionToPlayer * enemy.Prototype.MoveSpeed * dt;
-                enemy.Position = ResolveCircleTileCollision(chase, enemy.Prototype.Radius, CurrentRoom.Tiles);
+                enemy.Position = ResolveCircleTileCollision(chase, enemy.Prototype.Radius, CurrentRoom);
             }
         }
 
@@ -511,10 +529,12 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             for (var i = projectiles.Count - 1; i >= 0; i--)
             {
                 var projectile = projectiles[i];
+                projectile.PreviousPosition = projectile.Position;
                 projectile.Position += projectile.Velocity * dt;
 
-                if (!InsideMap(projectile.Position) || IsSolid(projectile.Position, CurrentRoom.Tiles))
+                if (!InsideMap(projectile.Position) || IsSolid(projectile.Position, CurrentRoom))
                 {
+                    PlaySfx(SfxProjectileHit, -12f);
                     projectiles.RemoveAt(i);
                     continue;
                 }
@@ -532,6 +552,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     continue;
 
                 DamagePlayer();
+                PlaySfx(SfxProjectileHit, -10f);
                 projectiles.RemoveAt(i);
             }
         }
@@ -547,6 +568,19 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     continue;
 
                 enemy.Hp -= projectile.Damage;
+
+                var knockbackDir = NormalizeSafe(enemy.Position - projectile.Position);
+                if (knockbackDir != Vector2.Zero)
+                {
+                    var knockbackTarget = enemy.Position + knockbackDir * EnemyHitKnockback;
+                    enemy.Position = ResolveCircleTileCollision(knockbackTarget, enemy.Prototype.Radius, CurrentRoom);
+                }
+
+                if (enemy.Hp <= 0)
+                    PlaySfx(SfxEnemyDeath, -7f);
+                else
+                    PlaySfx(SfxProjectileHit, -11f);
+
                 return true;
             }
 
@@ -578,8 +612,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             PlayerHp--;
             _invulnerabilityTicks = InvulnerabilityTicks;
+
             if (PlayerHp <= 0)
+            {
                 _gameOver = true;
+                PlaySfx(SfxPlayerDeath, -4f);
+                return;
+            }
+
+            PlaySfx(SfxPlayerDamage, -8f);
         }
 
         private void HandleRoomState()
@@ -602,7 +643,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (!room.Cleared)
                 return;
 
-            const float threshold = 0.25f;
+            var threshold = _playerProto.Radius + DoorTransitionMargin;
             if (_playerPos.X < threshold && room.Neighbors.TryGetValue(new Vector2i(-1, 0), out var left))
             {
                 EnterRoom(left, false);
@@ -697,8 +738,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                         continue;
 
                     room.Neighbors[direction] = neighborIndex;
-                    OpenDoorway(room.Tiles, direction);
+                    AddDoorway(room, direction);
                 }
+            }
+
+            foreach (var room in _rooms)
+            {
+                if (room.Type == RoomType.Start)
+                    room.Cleared = true;
             }
         }
 
@@ -734,28 +781,30 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             return tiles;
         }
 
-        private static void OpenDoorway(TileType[,] tiles, Vector2i direction)
+        private static void AddDoorway(RoomData room, Vector2i direction)
         {
             if (direction == new Vector2i(-1, 0))
             {
-                tiles[0, GridHeight / 2] = TileType.Floor;
+                room.Tiles[0, GridHeight / 2] = TileType.Door;
                 return;
             }
 
             if (direction == new Vector2i(1, 0))
             {
-                tiles[GridWidth - 1, GridHeight / 2] = TileType.Floor;
+                room.Tiles[GridWidth - 1, GridHeight / 2] = TileType.Door;
                 return;
             }
 
             if (direction == new Vector2i(0, -1))
             {
-                tiles[GridWidth / 2, 0] = TileType.Floor;
+                room.Tiles[GridWidth / 2, 0] = TileType.Door;
                 return;
             }
 
             if (direction == new Vector2i(0, 1))
-                tiles[GridWidth / 2, GridHeight - 1] = TileType.Floor;
+            {
+                room.Tiles[GridWidth / 2, GridHeight - 1] = TileType.Door;
+            }
         }
 
         private void SpawnEnemies(RoomData room)
@@ -798,44 +847,55 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                         TileType.Floor => _floorProto,
                         TileType.Wall => _wallProto,
                         TileType.Obstacle => _obstacleProto,
+                        TileType.Door => _floorProto,
                         _ => _floorProto,
                     };
 
                     var box = UIBox2.FromDimensions(
                         mapOffset + new Vector2(x * tilePixel, y * tilePixel),
-                        new Vector2(tilePixel, tilePixel) - Vector2.One);
+                        new Vector2(tilePixel, tilePixel));
 
                     if (GetSprite(tileProto.SpritePath, tileProto.SpriteState) is { } texture)
                         handle.DrawTextureRect(texture, box);
                     else
                         handle.DrawRect(box, tileProto.Color);
+
+                    if (CurrentRoom.Tiles[x, y] == TileType.Door)
+                    {
+                        DrawDoor(handle, box, CurrentRoom.Cleared);
+                    }
                 }
             }
 
+            var tickAlpha = Math.Clamp(_accumulator / TickSeconds, 0f, 1f);
+
             foreach (var enemy in CurrentRoom.Enemies.Where(enemy => enemy.Hp > 0))
             {
-                DrawEntity(handle, enemy.Position, enemy.Prototype.Radius, enemy.Prototype.Color, enemy.Prototype.SpritePath, enemy.Prototype.SpriteState, tilePixel, mapOffset);
+                var drawPos = Vector2.Lerp(enemy.PreviousPosition, enemy.Position, tickAlpha);
+                DrawEntity(handle, drawPos, enemy.Prototype.Color, enemy.Prototype.SpritePath, enemy.Prototype.SpriteState, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _playerProjectiles)
             {
-                DrawCircle(handle, projectile.Position, projectile.Radius, Color.Cyan, tilePixel, mapOffset);
+                var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
+                DrawCircle(handle, drawPos, projectile.Radius, Color.Cyan, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _enemyProjectiles)
             {
-                DrawCircle(handle, projectile.Position, projectile.Radius, Color.Yellow, tilePixel, mapOffset);
+                var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
+                DrawCircle(handle, drawPos, projectile.Radius, Color.Yellow, tilePixel, mapOffset);
             }
 
             var playerColor = _invulnerabilityTicks > 0 ? Color.LightPink : _playerProto.Color;
-            DrawEntity(handle, _playerPos, _playerProto.Radius, playerColor, _playerProto.SpritePath, _playerProto.SpriteState, tilePixel, mapOffset);
+            DrawEntity(handle, _playerPos, playerColor, _playerProto.SpritePath, _playerProto.SpriteState, tilePixel, mapOffset);
         }
 
-        private void DrawEntity(DrawingHandleScreen handle, Vector2 pos, float radius, Color color, string? spritePath, string? spriteState, float tilePixel, Vector2 mapOffset)
+        private void DrawEntity(DrawingHandleScreen handle, Vector2 pos, Color color, string? spritePath, string? spriteState, float tilePixel, Vector2 mapOffset)
         {
             var center = mapOffset + pos * tilePixel;
-            var pxRadius = radius * tilePixel;
-            var box = UIBox2.FromDimensions(center - new Vector2(pxRadius, pxRadius), new Vector2(pxRadius * 2, pxRadius * 2));
+            var size = tilePixel * EntitySpriteTileSize;
+            var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
 
             if (GetSprite(spritePath, spriteState) is { } texture)
             {
@@ -843,7 +903,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
             }
 
-            handle.DrawCircle(center, pxRadius, color);
+            handle.DrawCircle(center, tilePixel * 0.35f, color);
+        }
+
+        private void DrawDoor(DrawingHandleScreen handle, UIBox2 box, bool opened)
+        {
+            const string doorSprite = "/Textures/Structures/Doors/Airlocks/Standard/maint.rsi";
+            var state = opened ? "open" : "closed";
+
+            if (GetSprite(doorSprite, state) is { } texture)
+            {
+                handle.DrawTextureRect(texture, box);
+                return;
+            }
+
+            handle.DrawRect(box, opened ? Color.DarkSlateGray : Color.DarkRed);
         }
 
         private static void DrawCircle(DrawingHandleScreen handle, Vector2 pos, float radius, Color color, float tilePixel, Vector2 mapOffset)
@@ -871,6 +945,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             WarmupSprite(_chaserProto.SpritePath, _chaserProto.SpriteState);
             WarmupSprite(_shooterProto.SpritePath, _shooterProto.SpriteState);
             WarmupSprite(_bossProto.SpritePath, _bossProto.SpriteState);
+            WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "closed");
+            WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "open");
         }
 
         private void WarmupSprite(string? spritePath, string? spriteState)
@@ -904,7 +980,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
 
             _playerProjectiles.Add(new ProjectileData(_playerPos, normalized * _playerProto.ProjectileSpeed, ProjectileRadius, 1));
-            _playerShootCooldown = PlayerShootCooldownSeconds;
+            _playerShootCooldown = GetShootCooldown(_playerProto);
+            PlaySfx(SfxPlayerShoot, -6f);
+        }
+
+        private float GetShootCooldown(DeepMaintenanceEntityPrototype prototype)
+        {
+            if (prototype.ShootCooldownSeconds is { } cooldownSeconds)
+                return cooldownSeconds;
+
+            return MathF.Max(0.05f, prototype.ShootCooldownTicks * TickSeconds);
+        }
+
+        private void PlaySfx(string path, float volume)
+        {
+            _audio.PlayGlobal(path, Filter.Local(), false, AudioParams.Default.WithVolume(volume));
         }
 
         private static bool IsRelevantKey(BoundKeyFunction function)
@@ -982,44 +1072,55 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             return pos is { X: >= 0 and <= GridWidth, Y: >= 0 and <= GridHeight };
         }
 
-        private static bool IsSolid(Vector2 pos, TileType[,] tiles)
+        private static bool IsSolidTile(RoomData room, int tx, int ty)
         {
-            var tx = (int) MathF.Floor(pos.X);
-            var ty = (int) MathF.Floor(pos.Y);
             if (tx < 0 || ty < 0 || tx >= GridWidth || ty >= GridHeight)
                 return true;
 
-            return tiles[tx, ty] != TileType.Floor;
+            if (room.Tiles[tx, ty] == TileType.Door)
+                return !room.Cleared;
+
+            return room.Tiles[tx, ty] != TileType.Floor;
         }
 
-        private static Vector2 ResolveCircleTileCollision(Vector2 target, float radius, TileType[,] tiles)
+        private static bool IsSolid(Vector2 pos, RoomData room)
+        {
+            var tx = (int) MathF.Floor(pos.X);
+            var ty = (int) MathF.Floor(pos.Y);
+            return IsSolidTile(room, tx, ty);
+        }
+
+        private static Vector2 ResolveCircleTileCollision(Vector2 target, float radius, RoomData room)
         {
             var resolved = target;
 
-            for (var pass = 0; pass < 2; pass++)
-            {
-                var probes = new[]
-                {
-                    resolved with { X = resolved.X + radius },
-                    resolved with { X = resolved.X - radius },
-                    resolved with { Y = resolved.Y + radius },
-                    resolved with { Y = resolved.Y - radius },
-                };
+            var minX = Math.Max(0, (int)MathF.Floor(resolved.X - radius) - 1);
+            var maxX = Math.Min(GridWidth - 1, (int)MathF.Floor(resolved.X + radius) + 1);
+            var minY = Math.Max(0, (int)MathF.Floor(resolved.Y - radius) - 1);
+            var maxY = Math.Min(GridHeight - 1, (int)MathF.Floor(resolved.Y + radius) + 1);
 
-                foreach (var check in probes)
+            for (var y = minY; y <= maxY; y++)
+            {
+                for (var x = minX; x <= maxX; x++)
                 {
-                    if (!IsSolid(check, tiles))
+                    if (!IsSolidTile(room, x, y))
                         continue;
 
-                    var tx = Math.Clamp((int)MathF.Floor(check.X), 0, GridWidth - 1);
-                    var ty = Math.Clamp((int)MathF.Floor(check.Y), 0, GridHeight - 1);
-                    var center = new Vector2(tx + 0.5f, ty + 0.5f);
-                    var away = NormalizeSafe(resolved - center);
+                    var nearestX = Math.Clamp(resolved.X, x, x + 1f);
+                    var nearestY = Math.Clamp(resolved.Y, y, y + 1f);
+                    var delta = resolved - new Vector2(nearestX, nearestY);
+                    var distance = delta.Length();
 
-                    if (away == Vector2.Zero)
-                        away = new Vector2(1, 0);
+                    if (distance >= radius)
+                        continue;
 
-                    resolved = center + away * 0.52f;
+                    if (distance <= 0.0001f)
+                    {
+                        delta = new Vector2(1, 0);
+                        distance = 1f;
+                    }
+
+                    resolved += delta / distance * (radius - distance);
                 }
             }
 
@@ -1033,6 +1134,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             Floor,
             Wall,
             Obstacle,
+            Door,
         }
 
         private enum RoomType : byte
@@ -1064,6 +1166,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             public readonly DeepMaintenanceEntityPrototype Prototype;
             public Vector2 Position;
+            public Vector2 PreviousPosition;
             public int Hp;
             public int ShootCooldownTicks;
 
@@ -1071,6 +1174,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             {
                 Prototype = prototype;
                 Position = position;
+                PreviousPosition = position;
                 Hp = prototype.MaxHp;
                 ShootCooldownTicks = prototype.ShootCooldownTicks;
             }
@@ -1079,6 +1183,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private sealed class ProjectileData
         {
             public Vector2 Position;
+            public Vector2 PreviousPosition;
             public readonly Vector2 Velocity;
             public readonly float Radius;
             public readonly int Damage;
@@ -1086,6 +1191,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public ProjectileData(Vector2 position, Vector2 velocity, float radius, int damage)
             {
                 Position = position;
+                PreviousPosition = position;
                 Velocity = velocity;
                 Radius = radius;
                 Damage = damage;

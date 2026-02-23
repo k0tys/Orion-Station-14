@@ -11,6 +11,7 @@
   spritePath: /Textures/Tiles/Planet/dirt.rsi
   spriteState: dirt
 
+# Walls of the edge of the field
 - type: deepMaintenanceTile
   parent: DeepMaintenanceTileBase
   id: DeepMaintenanceWall
@@ -18,8 +19,11 @@
   spritePath: /Textures/Structures/Walls/solid_rust.rsi
   spriteState: full
 
+# Walls on the field
 - type: deepMaintenanceTile
   parent: DeepMaintenanceTileBase
   id: DeepMaintenanceObstacle
   color: "#57576E"
   solid: true
+  spritePath: /Textures/Structures/Walls/solid_rust.rsi
+  spriteState: full

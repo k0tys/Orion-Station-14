@@ -65,6 +65,9 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     public int ShootCooldownTicks = 8;
 
     [DataField]
+    public float? ShootCooldownSeconds;
+
+    [DataField]
     public float ProjectileSpeed = 6f;
 
     [DataField]

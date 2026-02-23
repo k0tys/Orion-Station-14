@@ -1,0 +1,33 @@
+- type: deepMaintenanceProjectile
+  id: DeepMaintenanceProjectileBase
+  abstract: true
+  radius: 0.09
+  speed: 5
+  damage: 1
+  lifetime: 2.2
+  spritePath: /Textures/Effects/sparks.rsi
+  spriteState: spark
+
+- type: deepMaintenanceProjectile
+  parent: DeepMaintenanceProjectileBase
+  id: DeepMaintenanceProjectilePlayer
+  speed: 5
+  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi
+  spriteState: bullet
+
+- type: deepMaintenanceProjectile
+  parent: DeepMaintenanceProjectileBase
+  id: DeepMaintenanceProjectileEnemy
+  speed: 5
+  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi
+  spriteState: heavy_bullet
+
+- type: deepMaintenanceProjectile
+  parent: DeepMaintenanceProjectileBase
+  id: DeepMaintenanceProjectileBoss
+  radius: 0.11
+  speed: 5
+  damage: 1
+  lifetime: 3.0
+  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi
+  spriteState: pulse

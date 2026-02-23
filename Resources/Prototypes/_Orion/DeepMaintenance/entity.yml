@@ -1,16 +1,20 @@
 - type: deepMaintenanceEntity
   id: DeepMaintenanceEntityBase
   abstract: true
-  color: "#FFFFFF"
   radius: 0.28
   moveSpeed: 2.4
   maxHp: 1
   contactDamage: 1
   shooter: false
   shootCooldownTicks: 8
-  projectileSpeed: 6.0
+  projectilePrototype: DeepMaintenanceProjectileEnemy
+  canStrafe: false
+  isBoss: false
   spritePath: /Textures/Mobs/Ghosts/ghost_human.rsi
   spriteState: animated
+  bodySpriteState: animated
+  headSpriteState: animated
+  shootSpriteState: animated
   spriteLayer: 0
 
 # Player entity
@@ -19,11 +23,11 @@
   id: DeepMaintenancePlayer
   radius: 0.27
   moveSpeed: 2.5
-  maxHp: 3
+  maxHp: 6
   contactDamage: 0
   shooter: false
   shootCooldownSeconds: 0.73
-  projectileSpeed: 5.0
+  projectilePrototype: DeepMaintenanceProjectilePlayer
 
 # Chaser
 - type: deepMaintenanceEntity
@@ -32,8 +36,6 @@
   radius: 0.27
   moveSpeed: 2
   maxHp: 2
-  contactDamage: 1
-  shooter: false
 
 # Shooter
 - type: deepMaintenanceEntity
@@ -42,10 +44,10 @@
   radius: 0.30
   moveSpeed: 2
   maxHp: 3
-  contactDamage: 1
   shooter: true
+  canStrafe: true
   shootCooldownTicks: 15
-  projectileSpeed: 5.0
+  projectilePrototype: DeepMaintenanceProjectileEnemy
 
 # Boss
 - type: deepMaintenanceEntity
@@ -53,8 +55,9 @@
   id: DeepMaintenanceBoss
   radius: 0.36
   moveSpeed: 2.3
-  maxHp: 8
-  contactDamage: 1
+  maxHp: 10
   shooter: true
-  shootCooldownTicks: 15
-  projectileSpeed: 5.0
+  canStrafe: true
+  isBoss: true
+  shootCooldownTicks: 13
+  projectilePrototype: DeepMaintenanceProjectileBoss

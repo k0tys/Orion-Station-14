@@ -15,20 +15,48 @@ public sealed class DeepMaintenanceTilePrototype : IPrototype, IInheritingProtot
 
     [IdDataField] public string ID { get; } = default!;
 
-    [DataField(required: true)]
-    public Color Color = Color.Black;
-
     [DataField]
     public bool Solid;
 
-    [DataField]
-    public string? SpritePath;
+    [DataField(required: true)]
+    public string SpritePath = default!;
 
     [DataField]
     public string? SpriteState;
 
     [DataField]
     public int SpriteLayer;
+}
+
+[Prototype("deepMaintenanceProjectile")]
+public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheritingPrototype
+{
+    [ParentDataField(typeof(AbstractPrototypeIdArraySerializer<DeepMaintenanceProjectilePrototype>))]
+    public string[]? Parents { get; }
+
+    [NeverPushInheritance]
+    [AbstractDataField]
+    public bool Abstract { get; }
+
+    [IdDataField] public string ID { get; } = default!;
+
+    [DataField]
+    public float Radius = 0.09f;
+
+    [DataField]
+    public float Speed = 6f;
+
+    [DataField]
+    public int Damage = 1;
+
+    [DataField]
+    public float Lifetime = 2.2f;
+
+    [DataField(required: true)]
+    public string SpritePath = default!;
+
+    [DataField(required: true)]
+    public string SpriteState = default!;
 }
 
 [Prototype("deepMaintenanceEntity")]
@@ -42,9 +70,6 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     public bool Abstract { get; }
 
     [IdDataField] public string ID { get; } = default!;
-
-    [DataField(required: true)]
-    public Color Color = Color.White;
 
     [DataField]
     public float Radius = 0.28f;
@@ -68,17 +93,29 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     public float? ShootCooldownSeconds;
 
     [DataField]
-    public float ProjectileSpeed = 6f;
+    public string ProjectilePrototype = "DeepMaintenanceProjectilePlayer";
 
     [DataField]
-    public string? ProjectileEntityId;
+    public bool CanStrafe;
 
     [DataField]
-    public string? SpritePath;
+    public bool IsBoss;
 
-    [DataField]
-    public string? SpriteState;
+    [DataField(required: true)]
+    public string SpritePath = default!;
+
+    [DataField(required: true)]
+    public string SpriteState = default!;
 
     [DataField]
     public int SpriteLayer;
+
+    [DataField]
+    public string? BodySpriteState;
+
+    [DataField]
+    public string? HeadSpriteState;
+
+    [DataField]
+    public string? ShootSpriteState;
 }

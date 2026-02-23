@@ -59,8 +59,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             Margin = new Thickness(4),
         };
 
-        controls.AddChild(MakeButton("Pause", _game.TogglePause));
-        controls.AddChild(MakeButton("Restart", _game.Restart));
+        controls.AddChild(MakeButton(Loc.GetString("deep-maintenance-ui-button-pause"), _game.TogglePause));
+        controls.AddChild(MakeButton(Loc.GetString("deep-maintenance-ui-button-restart"), _game.Restart));
 
         return controls;
 
@@ -74,7 +74,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
     private void UpdateHud()
     {
-        _hud.Text = $"HP: {_game.PlayerHp}/{_game.MaxPlayerHp} | Room: {_game.RoomIndex + 1}/{_game.RoomCount} | Enemies: {_game.AliveEnemies}";
+        _hud.Text = Loc.GetString("deep-maintenance-ui-hud", ("room", _game.RoomIndex + 1), ("rooms", _game.RoomCount), ("enemies", _game.AliveEnemies));
         _status.Text = _game.Status;
     }
 
@@ -97,6 +97,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private readonly List<RoomData> _rooms = new();
         private readonly List<ProjectileData> _playerProjectiles = new();
         private readonly List<ProjectileData> _enemyProjectiles = new();
+        private readonly HashSet<int> _visitedRooms = new();
 
         private readonly HashSet<BoundKeyFunction> _heldKeys = new();
         private static readonly BoundKeyFunction[] SupportedKeyFunctions =
@@ -135,15 +136,20 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private bool _gameOver;
         private bool _victory;
         private float _accumulator;
+        private float _heartDamageFlash;
 
         private const int GridWidth = 12;
         private const int GridHeight = 8;
         private const float TickSeconds = 0.1f;
-        private const float ProjectileRadius = 0.09f;
         private const int InvulnerabilityTicks = 10;
         private const float DoorTransitionMargin = 0.05f;
         private const float EntitySpriteTileSize = 1f;
         private const float EnemyHitKnockback = 0.22f;
+
+        private const string HeartSpritePath = "/Textures/Mobs/Species/Human/organs.rsi";
+        private const string HeartFullState = "heart-on";
+        private const string HeartEmptyState = "heart-off";
+        private const float HeartDamageFlashDuration = 0.35f;
 
         private const string SfxPlayerShoot = "/Audio/Weapons/pop.ogg";
         private const string SfxEnemyShoot = "/Audio/Weapons/emitter.ogg";
@@ -161,12 +167,12 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         public int AliveEnemies => CurrentRoom.Enemies.Count(e => e.Hp > 0);
 
         public string Status => _victory
-            ? "Victory!"
+            ? Loc.GetString("deep-maintenance-ui-status-victory")
             : _gameOver
-                ? "Game over. Press Restart."
+                ? Loc.GetString("deep-maintenance-ui-status-game-over")
                 : _paused
-                    ? "Paused"
-                    : "WASD = move, Arrows = shoot";
+                    ? Loc.GetString("deep-maintenance-ui-status-paused")
+                    : Loc.GetString("deep-maintenance-ui-status-controls");
 
         private RoomData CurrentRoom => _rooms[RoomIndex];
 
@@ -282,6 +288,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         public void Restart()
         {
             _rooms.Clear();
+            _visitedRooms.Clear();
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
             _heldKeys.Clear();
@@ -296,6 +303,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _gameOver = false;
             _victory = false;
             _accumulator = 0f;
+            _heartDamageFlash = 0f;
 
             GenerateMap();
             EnterRoom(0, true);
@@ -354,6 +362,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
 
             MovePlayer(args.DeltaSeconds);
+
+            if (_heartDamageFlash > 0f)
+                _heartDamageFlash = MathF.Max(0f, _heartDamageFlash - args.DeltaSeconds);
 
             _accumulator += args.DeltaSeconds;
             while (_accumulator >= TickSeconds)
@@ -503,24 +514,70 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 {
                     if (enemy.ShootCooldownTicks <= 0)
                     {
+                        var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(enemy.Prototype.ProjectilePrototype);
+
                         _enemyProjectiles.Add(new ProjectileData(
                             enemy.Position,
-                            directionToPlayer * enemy.Prototype.ProjectileSpeed,
-                            ProjectileRadius,
-                            1));
+                            directionToPlayer * projectilePrototype.Speed,
+                            projectilePrototype.Radius,
+                            projectilePrototype.Damage,
+                            projectilePrototype.Lifetime,
+                            projectilePrototype.SpritePath,
+                            projectilePrototype.SpriteState));
                         PlaySfx(SfxEnemyShoot, -10f);
 
                         enemy.ShootCooldownTicks = enemy.Prototype.ShootCooldownTicks;
                     }
 
-                    var strafe = new Vector2(-directionToPlayer.Y, directionToPlayer.X);
-                    var target = enemy.Position + strafe * enemy.Prototype.MoveSpeed * 0.45f * dt;
-                    enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+                    if (enemy.Prototype.CanStrafe)
+                    {
+                        var strafe = new Vector2(-directionToPlayer.Y, directionToPlayer.X);
+                        var target = enemy.Position + strafe * enemy.Prototype.MoveSpeed * 0.45f * dt;
+                        enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+                    }
+
                     continue;
                 }
 
                 var chase = enemy.Position + directionToPlayer * enemy.Prototype.MoveSpeed * dt;
                 enemy.Position = ResolveCircleTileCollision(chase, enemy.Prototype.Radius, CurrentRoom);
+            }
+
+            ResolveEntityCollisions(CurrentRoom.Enemies);
+        }
+
+        private void ResolveEntityCollisions(List<EnemyData> enemies)
+        {
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var left = enemies[i];
+                if (left.Hp <= 0)
+                    continue;
+
+                for (var j = i + 1; j < enemies.Count; j++)
+                {
+                    var right = enemies[j];
+                    if (right.Hp <= 0)
+                        continue;
+
+                    var delta = right.Position - left.Position;
+                    var distance = delta.Length();
+                    var minDistance = left.Prototype.Radius + right.Prototype.Radius;
+
+                    if (distance <= 0.0001f)
+                    {
+                        delta = new Vector2(1f, 0f);
+                        distance = 1f;
+                    }
+
+                    if (distance >= minDistance)
+                        continue;
+
+                    var normal = delta / distance;
+                    var correction = (minDistance - distance) * 0.5f;
+                    left.Position = ResolveCircleTileCollision(left.Position - normal * correction, left.Prototype.Radius, CurrentRoom);
+                    right.Position = ResolveCircleTileCollision(right.Position + normal * correction, right.Prototype.Radius, CurrentRoom);
+                }
             }
         }
 
@@ -531,6 +588,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 var projectile = projectiles[i];
                 projectile.PreviousPosition = projectile.Position;
                 projectile.Position += projectile.Velocity * dt;
+                projectile.Lifetime -= dt;
+
+                if (projectile.Lifetime <= 0f)
+                {
+                    projectiles.RemoveAt(i);
+                    continue;
+                }
 
                 if (!InsideMap(projectile.Position) || IsSolid(projectile.Position, CurrentRoom))
                 {
@@ -612,6 +676,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             PlayerHp--;
             _invulnerabilityTicks = InvulnerabilityTicks;
+            _heartDamageFlash = HeartDamageFlashDuration;
 
             if (PlayerHp <= 0)
             {
@@ -675,6 +740,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private void EnterRoom(int roomIndex, bool centerPlayer)
         {
             RoomIndex = roomIndex;
+            _visitedRooms.Add(roomIndex);
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
             if (centerPlayer)
@@ -742,6 +808,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 }
             }
 
+            EnsureBossRoomSingleConnection();
+
             foreach (var room in _rooms)
             {
                 if (room.Type == RoomType.Start)
@@ -807,6 +875,46 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             }
         }
 
+        private void EnsureBossRoomSingleConnection()
+        {
+            var bossIndex = _rooms.FindIndex(room => room.Type == RoomType.Boss);
+            if (bossIndex < 0)
+                return;
+
+            var boss = _rooms[bossIndex];
+            if (boss.Neighbors.Count <= 1)
+                return;
+
+            var keepDirection = boss.Neighbors.Keys.First();
+            var removeDirections = boss.Neighbors.Keys.Where(direction => direction != keepDirection).ToArray();
+
+            foreach (var direction in removeDirections)
+            {
+                var neighborIndex = boss.Neighbors[direction];
+                boss.Neighbors.Remove(direction);
+                boss.Tiles = SetDoorTile(boss.Tiles, direction, TileType.Wall);
+
+                var neighbor = _rooms[neighborIndex];
+                var reverse = new Vector2i(-direction.X, -direction.Y);
+                neighbor.Neighbors.Remove(reverse);
+                neighbor.Tiles = SetDoorTile(neighbor.Tiles, reverse, TileType.Wall);
+            }
+        }
+
+        private static TileType[,] SetDoorTile(TileType[,] tiles, Vector2i direction, TileType tile)
+        {
+            if (direction == new Vector2i(-1, 0))
+                tiles[0, GridHeight / 2] = tile;
+            else if (direction == new Vector2i(1, 0))
+                tiles[GridWidth - 1, GridHeight / 2] = tile;
+            else if (direction == new Vector2i(0, -1))
+                tiles[GridWidth / 2, 0] = tile;
+            else if (direction == new Vector2i(0, 1))
+                tiles[GridWidth / 2, GridHeight - 1] = tile;
+
+            return tiles;
+        }
+
         private void SpawnEnemies(RoomData room)
         {
             room.Enemies.Clear();
@@ -858,7 +966,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     if (GetSprite(tileProto.SpritePath, tileProto.SpriteState) is { } texture)
                         handle.DrawTextureRect(texture, box);
                     else
-                        handle.DrawRect(box, tileProto.Color);
+                        handle.DrawRect(box, Color.DimGray);
 
                     if (CurrentRoom.Tiles[x, y] == TileType.Door)
                     {
@@ -872,26 +980,27 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             foreach (var enemy in CurrentRoom.Enemies.Where(enemy => enemy.Hp > 0))
             {
                 var drawPos = Vector2.Lerp(enemy.PreviousPosition, enemy.Position, tickAlpha);
-                DrawEntity(handle, drawPos, enemy.Prototype.Color, enemy.Prototype.SpritePath, enemy.Prototype.SpriteState, tilePixel, mapOffset);
+                DrawEntity(handle, drawPos, enemy.Prototype.SpritePath, enemy.Prototype.SpriteState, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _playerProjectiles)
             {
                 var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
-                DrawCircle(handle, drawPos, projectile.Radius, Color.Cyan, tilePixel, mapOffset);
+                DrawProjectile(handle, drawPos, projectile, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _enemyProjectiles)
             {
                 var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
-                DrawCircle(handle, drawPos, projectile.Radius, Color.Yellow, tilePixel, mapOffset);
+                DrawProjectile(handle, drawPos, projectile, tilePixel, mapOffset);
             }
 
-            var playerColor = _invulnerabilityTicks > 0 ? Color.LightPink : _playerProto.Color;
-            DrawEntity(handle, _playerPos, playerColor, _playerProto.SpritePath, _playerProto.SpriteState, tilePixel, mapOffset);
+            DrawEntity(handle, _playerPos, _playerProto.SpritePath, _playerProto.SpriteState, tilePixel, mapOffset);
+            DrawHealthHearts(handle);
+            DrawMinimap(handle);
         }
 
-        private void DrawEntity(DrawingHandleScreen handle, Vector2 pos, Color color, string? spritePath, string? spriteState, float tilePixel, Vector2 mapOffset)
+        private void DrawEntity(DrawingHandleScreen handle, Vector2 pos, string spritePath, string spriteState, float tilePixel, Vector2 mapOffset)
         {
             var center = mapOffset + pos * tilePixel;
             var size = tilePixel * EntitySpriteTileSize;
@@ -903,7 +1012,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
             }
 
-            handle.DrawCircle(center, tilePixel * 0.35f, color);
+            handle.DrawRect(box, Color.White);
         }
 
         private void DrawDoor(DrawingHandleScreen handle, UIBox2 box, bool opened)
@@ -920,11 +1029,103 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             handle.DrawRect(box, opened ? Color.DarkSlateGray : Color.DarkRed);
         }
 
-        private static void DrawCircle(DrawingHandleScreen handle, Vector2 pos, float radius, Color color, float tilePixel, Vector2 mapOffset)
+        private void DrawProjectile(DrawingHandleScreen handle, Vector2 pos, ProjectileData projectile, float tilePixel, Vector2 mapOffset)
         {
             var center = mapOffset + pos * tilePixel;
-            var pxRadius = radius * tilePixel;
-            handle.DrawCircle(center, pxRadius, color);
+            var size = tilePixel * projectile.Radius * 3f;
+            var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
+
+            if (GetSprite(projectile.SpritePath, projectile.SpriteState) is { } texture)
+            {
+                handle.DrawTextureRect(texture, box);
+                return;
+            }
+
+            handle.DrawRect(box, Color.Orange);
+        }
+
+        private void DrawHealthHearts(DrawingHandleScreen handle)
+        {
+            const float size = 26f;
+            const float gap = 4f;
+
+            var maxHearts = (int) MathF.Ceiling(MaxPlayerHp / 2f);
+            var damagePulse = _heartDamageFlash > 0f;
+            var pulseScale = damagePulse ? 1f + 0.22f * (_heartDamageFlash / HeartDamageFlashDuration) : 1f;
+
+            for (var i = 0; i < maxHearts; i++)
+            {
+                var hpOnHeart = PlayerHp - i * 2;
+                var state = hpOnHeart > 0 ? HeartFullState : HeartEmptyState;
+                var basePos = new Vector2(6 + i * (size + gap), 6);
+                var drawSize = new Vector2(size * pulseScale, size * pulseScale);
+                var drawPos = basePos - (drawSize - new Vector2(size, size)) * 0.5f;
+                var box = UIBox2.FromDimensions(drawPos, drawSize);
+
+                if (GetSprite(HeartSpritePath, state) is not { } texture)
+                    continue;
+
+                if (damagePulse && hpOnHeart > 0)
+                    handle.DrawTextureRect(texture, box, Color.IndianRed);
+                else
+                    handle.DrawTextureRect(texture, box);
+            }
+        }
+
+        private void DrawMinimap(DrawingHandleScreen handle)
+        {
+            const float roomSize = 10f;
+            const float spacing = 6f;
+            var current = CurrentRoom.MapPosition;
+            var origin = new Vector2(PixelSize.X - 96f, 8f);
+
+            for (var i = 0; i < _rooms.Count; i++)
+            {
+                var room = _rooms[i];
+                if (room.IsSecret && !_visitedRooms.Contains(i))
+                    continue;
+
+                var rel = room.MapPosition - current;
+                var start = origin + new Vector2(rel.X * (roomSize + spacing), rel.Y * (roomSize + spacing)) + new Vector2(roomSize * 0.5f, roomSize * 0.5f);
+
+                foreach (var (direction, neighborIndex) in room.Neighbors)
+                {
+                    if (neighborIndex <= i)
+                        continue;
+
+                    var neighbor = _rooms[neighborIndex];
+                    if (neighbor.IsSecret && !_visitedRooms.Contains(neighborIndex))
+                        continue;
+
+                    var end = start + new Vector2(direction.X * (roomSize + spacing), direction.Y * (roomSize + spacing));
+                    handle.DrawLine(start, end, Color.DarkSlateGray);
+                }
+            }
+
+            for (var i = 0; i < _rooms.Count; i++)
+            {
+                var room = _rooms[i];
+
+                if (room.IsSecret && !_visitedRooms.Contains(i))
+                    continue;
+
+                var rel = room.MapPosition - current;
+                var center = origin + new Vector2(rel.X * (roomSize + spacing), rel.Y * (roomSize + spacing));
+                var box = UIBox2.FromDimensions(center, new Vector2(roomSize, roomSize));
+
+                var discovered = _visitedRooms.Contains(i);
+                var color = room.Type switch
+                {
+                    RoomType.Boss => discovered ? Color.Red : new Color(110, 35, 35),
+                    RoomType.Treasure => discovered ? Color.Gold : new Color(110, 95, 32),
+                    _ => discovered ? Color.LightGray : new Color(55, 55, 55),
+                };
+
+                if (i == RoomIndex)
+                    color = Color.White;
+
+                handle.DrawRect(box, color);
+            }
         }
 
         private void LoadPrototypes()
@@ -941,10 +1142,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             WarmupSprite(_floorProto.SpritePath, _floorProto.SpriteState);
             WarmupSprite(_wallProto.SpritePath, _wallProto.SpriteState);
             WarmupSprite(_obstacleProto.SpritePath, _obstacleProto.SpriteState);
+
             WarmupSprite(_playerProto.SpritePath, _playerProto.SpriteState);
             WarmupSprite(_chaserProto.SpritePath, _chaserProto.SpriteState);
             WarmupSprite(_shooterProto.SpritePath, _shooterProto.SpriteState);
             WarmupSprite(_bossProto.SpritePath, _bossProto.SpriteState);
+
+            WarmupSprite(HeartSpritePath, HeartFullState);
+            WarmupSprite(HeartSpritePath, HeartEmptyState);
+
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "closed");
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "open");
         }
@@ -979,7 +1185,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (normalized == Vector2.Zero)
                 return;
 
-            _playerProjectiles.Add(new ProjectileData(_playerPos, normalized * _playerProto.ProjectileSpeed, ProjectileRadius, 1));
+            var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
+            _playerProjectiles.Add(new ProjectileData(
+                _playerPos,
+                normalized * projectilePrototype.Speed,
+                projectilePrototype.Radius,
+                projectilePrototype.Damage,
+                projectilePrototype.Lifetime,
+                projectilePrototype.SpritePath,
+                projectilePrototype.SpriteState));
             _playerShootCooldown = GetShootCooldown(_playerProto);
             PlaySfx(SfxPlayerShoot, -6f);
         }
@@ -1149,10 +1363,11 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             public readonly RoomType Type;
             public readonly Vector2i MapPosition;
-            public readonly TileType[,] Tiles;
+            public TileType[,] Tiles;
             public readonly List<EnemyData> Enemies = new();
             public readonly Dictionary<Vector2i, int> Neighbors = new();
             public bool Cleared;
+            public bool IsSecret;
 
             public RoomData(RoomType type, Vector2i mapPosition, TileType[,] tiles)
             {
@@ -1187,14 +1402,20 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public readonly Vector2 Velocity;
             public readonly float Radius;
             public readonly int Damage;
+            public float Lifetime;
+            public readonly string SpritePath;
+            public readonly string SpriteState;
 
-            public ProjectileData(Vector2 position, Vector2 velocity, float radius, int damage)
+            public ProjectileData(Vector2 position, Vector2 velocity, float radius, int damage, float lifetime, string spritePath, string spriteState)
             {
                 Position = position;
                 PreviousPosition = position;
                 Velocity = velocity;
                 Radius = radius;
                 Damage = damage;
+                Lifetime = lifetime;
+                SpritePath = spritePath;
+                SpriteState = spriteState;
             }
         }
     }

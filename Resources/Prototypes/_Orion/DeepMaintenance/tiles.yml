@@ -1,7 +1,6 @@
 - type: deepMaintenanceTile
   id: DeepMaintenanceTileBase
   abstract: true
-  color: "#1A1A24"
   solid: false
   spriteLayer: 0
 
@@ -23,7 +22,6 @@
 - type: deepMaintenanceTile
   parent: DeepMaintenanceTileBase
   id: DeepMaintenanceObstacle
-  color: "#57576E"
   solid: true
   spritePath: /Textures/Structures/Walls/solid_rust.rsi
   spriteState: full

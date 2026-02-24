@@ -153,8 +153,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const float EntitySpriteTileSize = 1f;
         private const float EnemyHitKnockback = 0.22f;
         private const float BossSpreadAngleDegrees = 22f;
+        private const int EnemyAggroDelayTicksMin = 3;
+        private const int EnemyAggroDelayTicksMax = 7;
+        private const int EnemyEscapeWallContactThreshold = 6;
+        private const int EnemyEscapeTicks = 8;
+        private const float EnemyEscapeSpeedMultiplier = 1.22f;
 
         private const float TreasureObjectRadius = 0.34f;
+        private const string TreasureCrateSpritePath = "/Textures/_Orion/DeepMaintenance/Crates/treasure.rsi";
 
         private const string EntityPlayerPrototypeId = "DeepMaintenancePlayer";
         private const string EntityChaserPrototypeId = "DeepMaintenanceChaser";
@@ -179,6 +185,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const string HeartHalfState = "heart-inhand-left";
         private const string HeartEmptyState = "heart-off";
         private const float HeartDamageFlashDuration = 0.35f;
+        private const float HeartRowsStartY = 6f;
+        private const int HeartsPerRow = 8;
 
         public event Action? StateChanged;
 
@@ -543,13 +551,23 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             foreach (var enemy in CurrentRoom.Enemies.Where(enemy => enemy.Hp > 0))
             {
+                enemy.PreviousPosition = enemy.Position;
+
+                if (enemy.AggroDelayTicks > 0)
+                {
+                    enemy.AggroDelayTicks--;
+                    continue;
+                }
+
                 if (enemy.ShootCooldownTicks > 0)
                     enemy.ShootCooldownTicks--;
 
                 var toPlayer = _playerPos - enemy.Position;
                 var directionToPlayer = NormalizeSafe(toPlayer);
 
-                enemy.PreviousPosition = enemy.Position;
+                var escaped = TryEscapeWallTrap(enemy, dt);
+                if (escaped)
+                    continue;
 
                 if (enemy.Prototype.Shooter)
                 {
@@ -576,6 +594,49 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             }
 
             ResolveEntityCollisions(CurrentRoom.Enemies);
+        }
+
+        private bool TryEscapeWallTrap(EnemyData enemy, float dt)
+        {
+            var pushAway = GetWallPushDirection(enemy.Position, enemy.Prototype.Radius, CurrentRoom);
+            if (pushAway == Vector2.Zero)
+            {
+                enemy.WallContactTicks = 0;
+                enemy.EscapeTicksRemaining = 0;
+                return false;
+            }
+
+            enemy.WallContactTicks++;
+            if (enemy.WallContactTicks >= EnemyEscapeWallContactThreshold)
+                enemy.EscapeTicksRemaining = EnemyEscapeTicks;
+
+            if (enemy.EscapeTicksRemaining <= 0)
+                return false;
+
+            enemy.EscapeTicksRemaining--;
+            var velocity = pushAway * enemy.Prototype.MoveSpeed * EnemyEscapeSpeedMultiplier * dt;
+            var target = enemy.Position + velocity;
+            enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+            return true;
+        }
+
+        private static Vector2 GetWallPushDirection(Vector2 position, float radius, RoomData room)
+        {
+            var push = Vector2.Zero;
+
+            if (TouchesBlockedTile(position + new Vector2(-radius, 0f), room))
+                push.X += 1f;
+
+            if (TouchesBlockedTile(position + new Vector2(radius, 0f), room))
+                push.X -= 1f;
+
+            if (TouchesBlockedTile(position + new Vector2(0f, -radius), room))
+                push.Y += 1f;
+
+            if (TouchesBlockedTile(position + new Vector2(0f, radius), room))
+                push.Y -= 1f;
+
+            return NormalizeSafe(push);
         }
 
         private void FireEnemyProjectiles(EnemyData enemy, Vector2 directionToPlayer)
@@ -746,14 +807,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private void OpenTreasureBox()
         {
             _treasureBoxOpened = true;
-            _treasureBoxPosition = null;
             CurrentRoom.TreasureBoxOpened = true;
 
             if (_random.NextDouble() < 0.5)
             {
                 var pos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
                 var proto = _random.NextDouble() < 0.5 ? _chaserProto : _shooterProto;
-                CurrentRoom.Enemies.Add(new EnemyData(proto, pos));
+                CurrentRoom.Enemies.Add(new EnemyData(proto, pos, _random.Next(EnemyAggroDelayTicksMin, EnemyAggroDelayTicksMax + 1)));
                 return;
             }
 
@@ -855,9 +915,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             }
 
             _treasureBoxOpened = room.TreasureBoxOpened;
-            _treasureBoxPosition = room.TreasureBoxOpened
-                ? null
-                : new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
+            _treasureBoxPosition = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
             _treasureToolboxPosition = room.HasTreasureToolbox && !room.TreasureToolboxTaken
                 ? new Vector2(GridWidth * 0.5f, GridHeight * 0.5f)
                 : null;
@@ -1045,7 +1103,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 case RoomType.Treasure:
                     return;
                 case RoomType.Boss:
-                    room.Enemies.Add(new EnemyData(_bossProto, new Vector2(GridWidth * 0.5f, 2.5f)));
+                    room.Enemies.Add(new EnemyData(_bossProto, new Vector2(GridWidth * 0.5f, 2.5f), _random.Next(EnemyAggroDelayTicksMin, EnemyAggroDelayTicksMax + 1)));
                     return;
             }
 
@@ -1054,7 +1112,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             {
                 var pos = new Vector2(_random.NextSingle() * (GridWidth - 4) + 2f, _random.NextSingle() * (GridHeight - 4) + 2f);
                 var proto = _random.NextDouble() < 0.25 ? _shooterProto : _chaserProto;
-                room.Enemies.Add(new EnemyData(proto, pos));
+                room.Enemies.Add(new EnemyData(proto, pos, _random.Next(EnemyAggroDelayTicksMin, EnemyAggroDelayTicksMax + 1)));
             }
         }
 
@@ -1145,7 +1203,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private void DrawDoor(DrawingHandleScreen handle, UIBox2 box, bool opened)
         {
-            const string doorSprite = "/Textures/Structures/Doors/Airlocks/Standard/maint.rsi";
+            var doorSprite = GetDoorSpritePath(CurrentRoom.Type);
             var state = opened ? "open" : "closed";
 
             if (GetSprite(doorSprite, state) is { } texture)
@@ -1155,6 +1213,16 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             }
 
             handle.DrawRect(box, opened ? Color.DarkSlateGray : Color.DarkRed);
+        }
+
+        private static string GetDoorSpritePath(RoomType roomType)
+        {
+            return roomType switch
+            {
+                RoomType.Boss => "/Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi",
+                RoomType.Treasure => "/Textures/Structures/Doors/Airlocks/Standard/command.rsi",
+                _ => "/Textures/Structures/Doors/Airlocks/Standard/maint.rsi",
+            };
         }
 
         private void DrawProjectile(DrawingHandleScreen handle, Vector2 pos, ProjectileData projectile, float tilePixel, Vector2 mapOffset)
@@ -1170,7 +1238,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private void DrawTreasureObjects(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
         {
             if (_treasureBoxPosition is { } boxPos)
-                DrawEntity(handle, boxPos, "/Textures/Objects/Storage/boxes.rsi", "box", tilePixel, mapOffset);
+            {
+                var state = _treasureBoxOpened ? "open" : "closed";
+                DrawEntity(handle, boxPos, TreasureCrateSpritePath, state, tilePixel, mapOffset);
+            }
 
             if (_treasureToolboxPosition is { } toolboxPos)
                 DrawEntity(handle, toolboxPos, "/Textures/Objects/Tools/Toolboxes/toolbox_red.rsi", "icon", tilePixel, mapOffset);
@@ -1192,6 +1263,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             const float size = 26f;
             const float gap = 4f;
+            const float rowGap = 6f;
 
             var maxHearts = (int) MathF.Ceiling(MaxPlayerHp / 2f);
             var damagePulse = _heartDamageFlash > 0f;
@@ -1206,7 +1278,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     1 => HeartHalfState,
                     _ => HeartEmptyState,
                 };
-                var basePos = new Vector2(6 + i * (size + gap), 6);
+                var column = i % HeartsPerRow;
+                var row = i / HeartsPerRow;
+                var basePos = new Vector2(6 + column * (size + gap), HeartRowsStartY + row * (size + rowGap));
                 var drawSize = new Vector2(size * pulseScale, size * pulseScale);
                 var drawPos = basePos - (drawSize - new Vector2(size, size)) * 0.5f;
                 var box = UIBox2.FromDimensions(drawPos, drawSize);
@@ -1310,8 +1384,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "closed");
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "open");
+            WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/command.rsi", "closed");
+            WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/command.rsi", "open");
+            WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi", "closed");
+            WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi", "open");
 
-            WarmupSprite("/Textures/Objects/Storage/boxes.rsi", "box");
+            WarmupSprite(TreasureCrateSpritePath, "closed");
+            WarmupSprite(TreasureCrateSpritePath, "open");
             WarmupSprite("/Textures/Objects/Tools/Toolboxes/toolbox_red.rsi", "icon");
         }
 
@@ -1374,9 +1453,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             return _projectileGrowthBuff ? _projectileGrowthModifier.ProjectileScaleMultiplier : 1f;
         }
 
-        private float GetPlayerVisualScale()
+        private static float GetPlayerVisualScale()
         {
-            return _projectileGrowthBuff ? _projectileGrowthModifier.PlayerScaleMultiplier : 1f;
+            return 1f;
         }
 
         private float GetShootCooldown(DeepMaintenanceEntityPrototype prototype)
@@ -1492,6 +1571,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             return IsSolidTile(room, tx, ty);
         }
 
+        private static bool TouchesBlockedTile(Vector2 pos, RoomData room)
+        {
+            var tx = (int) MathF.Floor(pos.X);
+            var ty = (int) MathF.Floor(pos.Y);
+            return IsSolidTile(room, tx, ty);
+        }
+
         private static Vector2 ResolveCircleTileCollision(Vector2 target, float radius, RoomData room)
         {
             var resolved = target;
@@ -1577,14 +1663,18 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public Vector2 PreviousPosition;
             public int Hp;
             public int ShootCooldownTicks;
+            public int AggroDelayTicks;
+            public int WallContactTicks;
+            public int EscapeTicksRemaining;
 
-            public EnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position)
+            public EnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, int aggroDelayTicks)
             {
                 Prototype = prototype;
                 Position = position;
                 PreviousPosition = position;
                 Hp = prototype.MaxHp;
                 ShootCooldownTicks = prototype.ShootCooldownTicks;
+                AggroDelayTicks = aggroDelayTicks;
             }
         }
 

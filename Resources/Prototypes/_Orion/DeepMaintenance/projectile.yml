@@ -7,6 +7,7 @@
   lifetime: 2.2
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/blood.rsi
   spriteState: icon
+  spriteScale: 0.7
 
 - type: deepMaintenanceProjectile
   parent: DeepMaintenanceProjectileBase

@@ -57,6 +57,9 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
 
     [DataField(required: true)]
     public string SpriteState = default!;
+
+    [DataField]
+    public float SpriteScale = 1f;
 }
 
 [Prototype("deepMaintenanceEntity")]
@@ -106,6 +109,9 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
 
     [DataField(required: true)]
     public string SpriteState = default!;
+
+    [DataField]
+    public float SpriteScale = 1f;
 
     [DataField]
     public int SpriteLayer;

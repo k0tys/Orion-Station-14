@@ -11,6 +11,7 @@
   canStrafe: false
   isBoss: false
   spriteLayer: 0
+  spriteScale: 1
 
 # Player entity
 - type: deepMaintenanceEntity

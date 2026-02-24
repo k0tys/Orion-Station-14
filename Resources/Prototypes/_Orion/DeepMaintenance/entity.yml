@@ -36,8 +36,11 @@
   radius: 0.27
   moveSpeed: 2
   maxHp: 2
-  spritePath: /Textures/Mobs/Ghosts/ghost_human.rsi
-  spriteState: animated
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/chaser.rsi
+  spriteState: body
+  bodySpriteState: body
+  headSpriteState: head
+  shootSpriteState: head
 
 # Shooter
 - type: deepMaintenanceEntity
@@ -50,8 +53,11 @@
   canStrafe: true
   shootCooldownTicks: 15
   projectilePrototype: DeepMaintenanceProjectileEnemy
-  spritePath: /Textures/Mobs/Ghosts/ghost_human.rsi
-  spriteState: animated
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/shooter.rsi
+  spriteState: body
+  bodySpriteState: body
+  headSpriteState: head
+  shootSpriteState: head
 
 # Boss
 - type: deepMaintenanceEntity
@@ -65,5 +71,8 @@
   isBoss: true
   shootCooldownTicks: 13
   projectilePrototype: DeepMaintenanceProjectileBoss
-  spritePath: /Textures/Mobs/Ghosts/ghost_human.rsi
-  spriteState: animated
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/boss.rsi
+  spriteState: body
+  bodySpriteState: body
+  headSpriteState: head
+  shootSpriteState: head

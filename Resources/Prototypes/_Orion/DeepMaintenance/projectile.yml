@@ -5,22 +5,20 @@
   speed: 5
   damage: 1
   lifetime: 2.2
-  spritePath: /Textures/Effects/sparks.rsi
-  spriteState: spark
+  spritePath: /Textures/_Orion/DeepMaintenance/Projectile/blood.rsi
+  spriteState: icon
 
 - type: deepMaintenanceProjectile
   parent: DeepMaintenanceProjectileBase
   id: DeepMaintenanceProjectilePlayer
   speed: 5
-  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/magic.rsi
-  spriteState: magicm_cyan
+  spritePath: /Textures/_Orion/DeepMaintenance/Projectile/tear.rsi
+  spriteState: icon
 
 - type: deepMaintenanceProjectile
   parent: DeepMaintenanceProjectileBase
   id: DeepMaintenanceProjectileEnemy
   speed: 5
-  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/magic.rsi
-  spriteState: magicm_red
 
 - type: deepMaintenanceProjectile
   parent: DeepMaintenanceProjectileBase
@@ -29,5 +27,3 @@
   speed: 5
   damage: 1
   lifetime: 3.0
-  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/magic.rsi
-  spriteState: blastwave

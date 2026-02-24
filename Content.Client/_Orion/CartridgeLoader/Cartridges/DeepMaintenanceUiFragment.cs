@@ -6,9 +6,11 @@ using Robust.Client.Audio;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
 using Robust.Client.Input;
+using Robust.Client.ResourceManagement;
 using Robust.Client.UserInterface;
 using Robust.Client.UserInterface.Controls;
 using Robust.Shared.Audio;
+using Robust.Shared.Graphics.RSI;
 using Robust.Shared.Input;
 using Robust.Shared.Player;
 using Robust.Shared.Prototypes;
@@ -88,11 +90,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         [Dependency] private readonly IPrototypeManager _prototype = default!;
         [Dependency] private readonly IEntityManager _entity = default!;
         [Dependency] private readonly IInputManager _input = default!;
+        [Dependency] private readonly IResourceCache _resourceCache = default!;
 
         private readonly SpriteSystem _sprite;
         private readonly AudioSystem _audio;
         private readonly Random _random = new();
         private readonly Dictionary<(string, string), Texture> _spriteCache = new();
+        private readonly Dictionary<(string, string, RsiDirection), Texture> _directionalSpriteCache = new();
 
         private readonly List<RoomData> _rooms = new();
         private readonly List<ProjectileData> _playerProjectiles = new();
@@ -132,6 +136,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private DeepMaintenanceTilePrototype _obstacleProto = default!;
 
         private Vector2 _playerPos;
+        private FacingDirection _playerBodyFacing = FacingDirection.Down;
+        private FacingDirection _playerShootFacing = FacingDirection.Down;
         private float _playerShootCooldown;
         private int _invulnerabilityTicks;
         private bool _paused;
@@ -448,6 +454,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (moveDirection == Vector2.Zero)
                 return;
 
+            _playerBodyFacing = FacingFromVector(moveDirection, _playerBodyFacing);
+
             var target = _playerPos + moveDirection * _playerProto.MoveSpeed * dt;
             _playerPos = ResolveCircleTileCollision(target, _playerProto.Radius, CurrentRoom);
             TryRoomTransition();
@@ -553,6 +561,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             {
                 enemy.PreviousPosition = enemy.Position;
 
+                var toPlayer = _playerPos - enemy.Position;
+                var directionToPlayer = NormalizeSafe(toPlayer);
+                enemy.ShootFacing = FacingFromVector(directionToPlayer, enemy.ShootFacing);
+
                 if (enemy.AggroDelayTicks > 0)
                 {
                     enemy.AggroDelayTicks--;
@@ -561,9 +573,6 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
                 if (enemy.ShootCooldownTicks > 0)
                     enemy.ShootCooldownTicks--;
-
-                var toPlayer = _playerPos - enemy.Position;
-                var directionToPlayer = NormalizeSafe(toPlayer);
 
                 var escaped = TryEscapeWallTrap(enemy, dt);
                 if (escaped)
@@ -582,6 +591,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     if (enemy.Prototype.CanStrafe)
                     {
                         var strafe = new Vector2(-directionToPlayer.Y, directionToPlayer.X);
+                        enemy.BodyFacing = FacingFromVector(strafe, enemy.BodyFacing);
                         var target = enemy.Position + strafe * enemy.Prototype.MoveSpeed * 0.45f * dt;
                         enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
                     }
@@ -589,6 +599,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     continue;
                 }
 
+                enemy.BodyFacing = FacingFromVector(directionToPlayer, enemy.BodyFacing);
                 var chase = enemy.Position + directionToPlayer * enemy.Prototype.MoveSpeed * dt;
                 enemy.Position = ResolveCircleTileCollision(chase, enemy.Prototype.Radius, CurrentRoom);
             }
@@ -615,6 +626,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             enemy.EscapeTicksRemaining--;
             var velocity = pushAway * enemy.Prototype.MoveSpeed * EnemyEscapeSpeedMultiplier * dt;
+            enemy.BodyFacing = FacingFromVector(pushAway, enemy.BodyFacing);
             var target = enemy.Position + velocity;
             enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
             return true;
@@ -1164,7 +1176,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             foreach (var enemy in CurrentRoom.Enemies.Where(enemy => enemy.Hp > 0))
             {
                 var drawPos = Vector2.Lerp(enemy.PreviousPosition, enemy.Position, tickAlpha);
-                DrawEntity(handle, drawPos, enemy.Prototype.SpritePath, enemy.Prototype.SpriteState, tilePixel, mapOffset);
+                DrawCharacter(handle, drawPos, enemy.Prototype, enemy.BodyFacing, enemy.ShootFacing, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _playerProjectiles)
@@ -1179,11 +1191,43 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 DrawProjectile(handle, drawPos, projectile, tilePixel, mapOffset);
             }
 
-            DrawEntity(handle, _playerPos, _playerProto.SpritePath, _playerProto.SpriteState, tilePixel * GetPlayerVisualScale(), mapOffset);
+            DrawPlayer(handle, tilePixel * GetPlayerVisualScale(), mapOffset);
             DrawTreasureObjects(handle, tilePixel, mapOffset);
             DrawHealthHearts(handle);
             DrawBuffIcons(handle);
             DrawMinimap(handle);
+        }
+
+        private void DrawPlayer(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
+        {
+            DrawCharacter(handle, _playerPos, _playerProto, _playerBodyFacing, _playerShootFacing, tilePixel, mapOffset);
+        }
+
+        private void DrawCharacter(DrawingHandleScreen handle, Vector2 pos, DeepMaintenanceEntityPrototype prototype, FacingDirection bodyFacing, FacingDirection shootFacing, float tilePixel, Vector2 mapOffset)
+        {
+            var bodyState = prototype.BodySpriteState ?? prototype.SpriteState;
+            DrawDirectionalEntityLayer(handle, pos, prototype.SpritePath, bodyState, bodyFacing, tilePixel, mapOffset, Color.White);
+
+            var headState = prototype.HeadSpriteState ?? prototype.ShootSpriteState;
+            if (string.IsNullOrWhiteSpace(headState) || headState == bodyState)
+                return;
+
+            DrawDirectionalEntityLayer(handle, pos, prototype.SpritePath, headState, shootFacing, tilePixel, mapOffset, Color.White);
+        }
+
+        private void DrawDirectionalEntityLayer(DrawingHandleScreen handle, Vector2 pos, string spritePath, string spriteState, FacingDirection facing, float tilePixel, Vector2 mapOffset, Color color)
+        {
+            var center = mapOffset + pos * tilePixel;
+            var size = tilePixel * EntitySpriteTileSize;
+            var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
+
+            if (GetDirectionalSprite(spritePath, spriteState, facing) is not { } texture)
+            {
+                handle.DrawRect(box, color);
+                return;
+            }
+
+            handle.DrawTextureRect(texture, box, color);
         }
 
         private void DrawEntity(DrawingHandleScreen handle, Vector2 pos, string spritePath, string spriteState, float tilePixel, Vector2 mapOffset)
@@ -1372,6 +1416,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             WarmupSprite(_obstacleProto.SpritePath, _obstacleProto.SpriteState);
 
             WarmupSprite(_playerProto.SpritePath, _playerProto.SpriteState);
+            WarmupSprite(_playerProto.SpritePath, _playerProto.BodySpriteState);
+            WarmupSprite(_playerProto.SpritePath, _playerProto.HeadSpriteState);
+            WarmupSprite(_playerProto.SpritePath, _playerProto.ShootSpriteState);
             WarmupSprite(_chaserProto.SpritePath, _chaserProto.SpriteState);
             WarmupSprite(_shooterProto.SpritePath, _shooterProto.SpriteState);
             WarmupSprite(_bossProto.SpritePath, _bossProto.SpriteState);
@@ -1428,6 +1475,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             var normalized = NormalizeSafe(direction);
             if (normalized == Vector2.Zero)
                 return;
+
+            _playerShootFacing = FacingFromVector(normalized, _playerShootFacing);
 
             var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
             SpawnProjectile(_playerProjectiles, _playerPos, normalized * projectilePrototype.Speed, projectilePrototype, GetProjectileScaleMultiplier());
@@ -1519,6 +1568,52 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             direction = Vector2.Zero;
             return false;
+        }
+
+        private static FacingDirection FacingFromVector(Vector2 direction, FacingDirection fallback)
+        {
+            if (direction == Vector2.Zero)
+                return fallback;
+
+            if (MathF.Abs(direction.X) > MathF.Abs(direction.Y))
+                return direction.X > 0f ? FacingDirection.Right : FacingDirection.Left;
+
+            return direction.Y > 0f ? FacingDirection.Down : FacingDirection.Up;
+        }
+
+        private Texture? GetDirectionalSprite(string? spritePath, string? spriteState, FacingDirection facing)
+        {
+            if (string.IsNullOrWhiteSpace(spritePath) || string.IsNullOrWhiteSpace(spriteState))
+                return null;
+
+            var direction = FacingToRsiDirection(facing);
+            var key = (spritePath, spriteState, direction);
+            if (_directionalSpriteCache.TryGetValue(key, out var texture))
+                return texture;
+
+            if (_resourceCache.TryGetResource<RSIResource>(new ResPath(spritePath), out var resource) && resource.RSI.TryGetState(new RSI.StateId(spriteState), out var state))
+            {
+                var frames = state.GetFrames(direction);
+                if (frames.Length > 0)
+                {
+                    texture = frames[0];
+                    _directionalSpriteCache[key] = texture;
+                    return texture;
+                }
+            }
+
+            return GetSprite(spritePath, spriteState);
+        }
+
+        private static RsiDirection FacingToRsiDirection(FacingDirection facing)
+        {
+            return facing switch
+            {
+                FacingDirection.Up => RsiDirection.North,
+                FacingDirection.Left => RsiDirection.West,
+                FacingDirection.Right => RsiDirection.East,
+                _ => RsiDirection.South,
+            };
         }
 
         private static Vector2 NormalizeSafe(Vector2 value)
@@ -1619,6 +1714,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         #endregion
 
+        private enum FacingDirection : byte
+        {
+            Down,
+            Left,
+            Right,
+            Up,
+        }
+
         private enum TileType : byte
         {
             Floor,
@@ -1666,6 +1769,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public int AggroDelayTicks;
             public int WallContactTicks;
             public int EscapeTicksRemaining;
+            public FacingDirection BodyFacing = FacingDirection.Down;
+            public FacingDirection ShootFacing = FacingDirection.Down;
 
             public EnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, int aggroDelayTicks)
             {

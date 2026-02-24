@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Numerics;
 using Content.Shared._Orion.CartridgeLoader.Cartridges;
+using Content.Shared.EntityTable;
 using Content.Shared.Input;
 using Robust.Client.Audio;
 using Robust.Client.GameObjects;
@@ -94,6 +95,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private readonly SpriteSystem _sprite;
         private readonly AudioSystem _audio;
+        private readonly EntityTableSystem _entityTable;
         private readonly Random _random = new();
         private readonly Dictionary<(string, string), Texture> _spriteCache = new();
         private readonly Dictionary<(string, string, RsiDirection), Texture> _directionalSpriteCache = new();
@@ -103,33 +105,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private readonly List<ProjectileData> _enemyProjectiles = new();
         private readonly HashSet<int> _visitedRooms = new();
 
-        private readonly HashSet<BoundKeyFunction> _heldKeys = new();
-        private static readonly BoundKeyFunction[] SupportedKeyFunctions =
-        [
-            ContentKeyFunctions.DeepMaintenanceMoveUp,
-            ContentKeyFunctions.DeepMaintenanceMoveDown,
-            ContentKeyFunctions.DeepMaintenanceMoveLeft,
-            ContentKeyFunctions.DeepMaintenanceMoveRight,
-            ContentKeyFunctions.DeepMaintenanceShootUp,
-            ContentKeyFunctions.DeepMaintenanceShootDown,
-            ContentKeyFunctions.DeepMaintenanceShootLeft,
-            ContentKeyFunctions.DeepMaintenanceShootRight,
-            EngineKeyFunctions.MoveUp,
-            EngineKeyFunctions.MoveDown,
-            EngineKeyFunctions.MoveLeft,
-            EngineKeyFunctions.MoveRight,
-            ContentKeyFunctions.ArcadeUp,
-            ContentKeyFunctions.ArcadeDown,
-            ContentKeyFunctions.ArcadeLeft,
-            ContentKeyFunctions.ArcadeRight,
-        ];
+        private readonly DeepMaintenanceInputState _inputState;
 
         private DeepMaintenanceEntityPrototype _playerProto = default!;
         private DeepMaintenanceEntityPrototype _chaserProto = default!;
         private DeepMaintenanceEntityPrototype _shooterProto = default!;
         private DeepMaintenanceEntityPrototype _bossProto = default!;
 
-        private DeepMaintenanceModifierPrototype _projectileGrowthModifier = default!;
+        private DeepMaintenanceTreasurePrototype _treasurePrototype = default!;
+        private readonly List<DeepMaintenanceRelicPrototype> _activeRelics = new();
 
         private DeepMaintenanceTilePrototype _floorProto = default!;
         private DeepMaintenanceTilePrototype _wallProto = default!;
@@ -149,11 +133,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private float _accumulator;
         private float _heartDamageFlash;
         private float _playerDamageFlash;
-        private bool _projectileGrowthBuff;
+        private int _tripleShotIndex;
+        private float _meleeSwingTimer;
+        private FacingDirection _meleeSwingFacing = FacingDirection.Down;
 
         private Vector2? _treasureBoxPosition;
         private bool _treasureBoxOpened;
-        private Vector2? _treasureToolboxPosition;
+        private Vector2? _treasureRelicPosition;
+        private string? _treasureRelicId;
 
         private const int GridWidth = 12;
         private const int GridHeight = 13;
@@ -171,7 +158,11 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const float EnemyEscapeSpeedMultiplier = 1.22f;
 
         private const float TreasureObjectRadius = 0.34f;
-        private const string TreasureCrateSpritePath = "/Textures/_Orion/DeepMaintenance/Crates/treasure.rsi";
+        private const double TreasureEnemySpawnChance = 0.1;
+        private const double TreasureShooterSpawnChance = 0.5;
+        private const string TreasurePrototypeId = "DeepMaintenanceTreasureConfig";
+        private const float MeleeSwingDuration = 0.12f;
+        private static readonly Color PinkProjectileColor = new(1f, 0.56f, 0.83f);
 
         private const string EntityPlayerPrototypeId = "DeepMaintenancePlayer";
         private const string EntityChaserPrototypeId = "DeepMaintenanceChaser";
@@ -181,8 +172,6 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const string TileFloorPrototypeId = "DeepMaintenanceFloor";
         private const string TileWallPrototypeId = "DeepMaintenanceWall";
         private const string TileObstaclePrototypeId = "DeepMaintenanceObstacle";
-
-        private const string ModifierProjectileGrowthPrototypeId = "DeepMaintenanceModifierProjectileGrowth";
 
         private static readonly SoundSpecifier SfxPlayerShoot = new SoundPathSpecifier("/Audio/Weapons/pop.ogg");
         private static readonly SoundSpecifier SfxEnemyShoot = new SoundPathSpecifier("/Audio/Weapons/emitter.ogg");
@@ -234,6 +223,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             IoCManager.InjectDependencies(this);
             _sprite = _entity.System<SpriteSystem>();
             _audio = _entity.System<AudioSystem>();
+            _entityTable = _entity.System<EntityTableSystem>();
+            _inputState = new DeepMaintenanceInputState(_input);
 
             CanKeyboardFocus = true;
             KeyboardFocusOnClick = true;
@@ -254,7 +245,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             base.ExitedTree();
 
             _input.FirstChanceOnKeyEvent -= OnFirstChanceKeyEvent;
-            _heldKeys.Clear();
+            _inputState.Clear();
             if (HasKeyboardFocus())
                 ReleaseKeyboardFocus();
         }
@@ -271,64 +262,24 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (keyEvent.Handled)
                 return;
 
-            if (!TryGetBoundFunction(keyEvent, out var function))
+            if (!_inputState.TryGetBoundFunction(keyEvent, out var function))
                 return;
 
             switch (type)
             {
                 case KeyEventType.Down:
-                    _heldKeys.Add(function);
+                    _inputState.Add(function);
 
-                    if (TryGetShootDirection(function, out var shootDirection))
+                    if (DeepMaintenanceInputState.TryGetShootDirection(function, out var shootDirection))
                         TryShoot(shootDirection);
 
                     keyEvent.Handle();
                     break;
                 case KeyEventType.Up:
-                    _heldKeys.Remove(function);
+                    _inputState.Remove(function);
                     keyEvent.Handle();
                     break;
             }
-        }
-
-        private bool TryGetBoundFunction(KeyEventArgs keyEvent, out BoundKeyFunction function)
-        {
-            foreach (var keyFunction in SupportedKeyFunctions)
-            {
-                if (!IsKeyBindingMatch(keyFunction, keyEvent))
-                    continue;
-
-                function = keyFunction;
-                return true;
-            }
-
-            function = default!;
-            return false;
-        }
-
-        private bool IsKeyBindingMatch(BoundKeyFunction function, KeyEventArgs keyEvent)
-        {
-            if (!_input.TryGetKeyBinding(function, out var binding))
-                return false;
-
-            if (binding.BaseKey != keyEvent.Key)
-                return false;
-
-            if (keyEvent.Shift && !HasModifier(binding, Keyboard.Key.Shift))
-                return false;
-
-            if (keyEvent.Alt && !HasModifier(binding, Keyboard.Key.Alt))
-                return false;
-
-            if (keyEvent.Control && !HasModifier(binding, Keyboard.Key.Control))
-                return false;
-
-            return true;
-        }
-
-        private static bool HasModifier(IKeyBinding binding, Keyboard.Key key)
-        {
-            return binding.Mod1 == key || binding.Mod2 == key || binding.Mod3 == key;
         }
 
         public void EnsureInputFocus()
@@ -348,7 +299,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _visitedRooms.Clear();
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
-            _heldKeys.Clear();
+            _activeRelics.Clear();
+            _inputState.Clear();
 
             RoomIndex = 0;
             SetPlayerHealth(_playerProto.MaxHp, _playerProto.MaxHp);
@@ -366,6 +318,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _accumulator = 0f;
             _heartDamageFlash = 0f;
             _playerDamageFlash = 0f;
+            _tripleShotIndex = 0;
+            _meleeSwingTimer = 0f;
 
             GenerateMap();
             EnterRoom(0, true);
@@ -394,12 +348,12 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             base.KeyBindDown(args);
             EnsureInputFocus();
 
-            if (!IsRelevantKey(args.Function))
+            if (!_inputState.IsRelevantKey(args.Function))
                 return;
 
-            _heldKeys.Add(args.Function);
+            _inputState.Add(args.Function);
 
-            if (TryGetShootDirection(args.Function, out var shootDirection))
+            if (DeepMaintenanceInputState.TryGetShootDirection(args.Function, out var shootDirection))
                 TryShoot(shootDirection);
 
             args.Handle();
@@ -409,10 +363,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             base.KeyBindUp(args);
 
-            if (!IsRelevantKey(args.Function))
+            if (!_inputState.IsRelevantKey(args.Function))
                 return;
 
-            _heldKeys.Remove(args.Function);
+            _inputState.Remove(args.Function);
             args.Handle();
         }
 
@@ -454,6 +408,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             HandleHeldShootKeys();
             UpdateFacingResetTimers(dt);
             TickDamageFlashes(dt);
+            TickMeleeSwing(dt);
             TickEnemies(dt);
             TickProjectiles(_playerProjectiles, true, dt);
             TickProjectiles(_enemyProjectiles, false, dt);
@@ -474,6 +429,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
                 enemy.DamageFlash = MathF.Max(0f, enemy.DamageFlash - dt);
             }
+        }
+
+        private void TickMeleeSwing(float dt)
+        {
+            if (_meleeSwingTimer <= 0f)
+                return;
+
+            _meleeSwingTimer = MathF.Max(0f, _meleeSwingTimer - dt);
         }
 
         private void MovePlayer(float dt)
@@ -508,7 +471,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private void UpdateFacingResetTimers(float dt)
         {
-            if (_heldKeys.Any(IsShootKeyHeld))
+            if (_inputState.AnyShootKeyHeld())
             {
                 _playerShootFacingResetTimer = FacingResetDelaySeconds;
             }
@@ -529,18 +492,6 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 if (_playerBodyFacingResetTimer <= 0f)
                     _playerBodyFacing = FacingDirection.Down;
             }
-        }
-
-        private static bool IsShootKeyHeld(BoundKeyFunction function)
-        {
-            return function == ContentKeyFunctions.DeepMaintenanceShootUp ||
-                   function == ContentKeyFunctions.DeepMaintenanceShootDown ||
-                   function == ContentKeyFunctions.DeepMaintenanceShootLeft ||
-                   function == ContentKeyFunctions.DeepMaintenanceShootRight ||
-                   function == ContentKeyFunctions.ArcadeUp ||
-                   function == ContentKeyFunctions.ArcadeDown ||
-                   function == ContentKeyFunctions.ArcadeLeft ||
-                   function == ContentKeyFunctions.ArcadeRight;
         }
 
         private Vector2 GetMoveDirection()
@@ -579,50 +530,42 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private bool IsMoveUpHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveUp) ||
-                   _heldKeys.Contains(EngineKeyFunctions.MoveUp);
+            return _inputState.IsMoveUpHeld();
         }
 
         private bool IsMoveDownHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveDown) ||
-                   _heldKeys.Contains(EngineKeyFunctions.MoveDown);
+            return _inputState.IsMoveDownHeld();
         }
 
         private bool IsMoveLeftHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveLeft) ||
-                   _heldKeys.Contains(EngineKeyFunctions.MoveLeft);
+            return _inputState.IsMoveLeftHeld();
         }
 
         private bool IsMoveRightHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveRight) ||
-                   _heldKeys.Contains(EngineKeyFunctions.MoveRight);
+            return _inputState.IsMoveRightHeld();
         }
 
         private bool IsShootUpHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootUp) ||
-                   _heldKeys.Contains(ContentKeyFunctions.ArcadeUp);
+            return _inputState.IsShootUpHeld();
         }
 
         private bool IsShootDownHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootDown) ||
-                   _heldKeys.Contains(ContentKeyFunctions.ArcadeDown);
+            return _inputState.IsShootDownHeld();
         }
 
         private bool IsShootLeftHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootLeft) ||
-                   _heldKeys.Contains(ContentKeyFunctions.ArcadeLeft);
+            return _inputState.IsShootLeftHeld();
         }
 
         private bool IsShootRightHeld()
         {
-            return _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootRight) ||
-                   _heldKeys.Contains(ContentKeyFunctions.ArcadeRight);
+            return _inputState.IsShootRightHeld();
         }
 
         private void TickEnemies(float dt)
@@ -759,7 +702,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(enemy.Prototype.ProjectilePrototype);
             var baseVelocity = directionToPlayer * projectilePrototype.Speed;
 
-            SpawnProjectile(_enemyProjectiles, enemy.Position, baseVelocity, projectilePrototype, 1f);
+            SpawnProjectile(_enemyProjectiles, enemy.Position, baseVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
 
             if (!enemy.Prototype.IsBoss)
                 return;
@@ -767,8 +710,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             const float angle = MathF.PI * BossSpreadAngleDegrees / 180f;
             var leftVelocity = Rotate(baseVelocity, -angle);
             var rightVelocity = Rotate(baseVelocity, angle);
-            SpawnProjectile(_enemyProjectiles, enemy.Position, leftVelocity, projectilePrototype, 1f);
-            SpawnProjectile(_enemyProjectiles, enemy.Position, rightVelocity, projectilePrototype, 1f);
+            SpawnProjectile(_enemyProjectiles, enemy.Position, leftVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+            SpawnProjectile(_enemyProjectiles, enemy.Position, rightVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
         }
 
         private void ResolveEntityCollisions(List<EnemyData> enemies)
@@ -856,7 +799,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 if (Vector2.Distance(projectile.Position, enemy.Position) > projectile.Radius + enemy.Prototype.Radius)
                     continue;
 
-                enemy.Hp -= projectile.Damage;
+                enemy.Hp -= (int) MathF.Ceiling(projectile.Damage);
                 enemy.DamageFlash = EntityDamageFlashDuration;
 
                 var knockbackDir = NormalizeSafe(enemy.Position - projectile.SourcePosition);
@@ -903,20 +846,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (!_treasureBoxOpened && _treasureBoxPosition is { } boxPosition)
             {
                 if (Vector2.Distance(_playerPos, boxPosition) <= _playerProto.Radius + TreasureObjectRadius)
-                {
                     OpenTreasureBox();
-                }
             }
 
-            if (_treasureToolboxPosition is not { } toolboxPosition)
+            if (_treasureRelicPosition is not { } relicPosition || string.IsNullOrWhiteSpace(_treasureRelicId))
                 return;
 
-            if (Vector2.Distance(_playerPos, toolboxPosition) > _playerProto.Radius + TreasureObjectRadius)
+            if (Vector2.Distance(_playerPos, relicPosition) > _playerProto.Radius + TreasureObjectRadius)
                 return;
 
-            _treasureToolboxPosition = null;
-            CurrentRoom.TreasureToolboxTaken = true;
-            _projectileGrowthBuff = true;
+            if (!_prototype.TryIndex<DeepMaintenanceRelicPrototype>(_treasureRelicId, out var relicPrototype))
+                return;
+
+            PickupRelic(relicPrototype);
+            _treasureRelicPosition = null;
+            CurrentRoom.TreasureRelicTaken = true;
             StateChanged?.Invoke();
         }
 
@@ -925,16 +869,40 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _treasureBoxOpened = true;
             CurrentRoom.TreasureBoxOpened = true;
 
-            if (_random.NextDouble() < 0.5)
+            if (_random.NextDouble() < TreasureEnemySpawnChance)
             {
                 var pos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
-                var proto = _random.NextDouble() < 0.5 ? _chaserProto : _shooterProto;
+                var proto = _random.NextDouble() < TreasureShooterSpawnChance ? _chaserProto : _shooterProto;
                 CurrentRoom.Enemies.Add(new EnemyData(proto, pos, _random.Next(EnemyAggroDelayTicksMin, EnemyAggroDelayTicksMax + 1)));
                 return;
             }
 
-            _treasureToolboxPosition = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
-            CurrentRoom.HasTreasureToolbox = true;
+            var relicId = RollTreasureRelicId();
+            if (string.IsNullOrWhiteSpace(relicId))
+                return;
+
+            _treasureRelicId = relicId;
+            CurrentRoom.TreasureRelicId = relicId;
+            CurrentRoom.HasTreasureRelic = true;
+            _treasureRelicPosition = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
+        }
+
+        private string? RollTreasureRelicId()
+        {
+            var lootTable = _prototype.Index(_treasurePrototype.LootTable);
+            var rolls = _entityTable.GetSpawns(lootTable, _random).ToList();
+            return rolls.Count == 0 ? null : rolls[0].ToString();
+        }
+
+        private void PickupRelic(DeepMaintenanceRelicPrototype relic)
+        {
+            if (_activeRelics.Any(active => active.ID == relic.ID))
+                return;
+
+            _activeRelics.Add(relic);
+            WarmupSprite(relic.HudIconSpritePath, relic.HudIconSpriteState);
+            WarmupSprite(relic.VisualEffectSpritePath, relic.VisualEffectSpriteState);
+            WarmupSprite(relic.MeleeArcSpritePath, relic.MeleeArcSpriteState);
         }
 
         private void DamagePlayer()
@@ -943,6 +911,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
 
             SetPlayerHealth(PlayerHp - 1, MaxPlayerHp);
+
+            if (TryRollHalfHeartRestore())
+                SetPlayerHealth(PlayerHp + 1, MaxPlayerHp);
+
             _invulnerabilityTicks = InvulnerabilityTicks;
             _heartDamageFlash = HeartDamageFlashDuration;
             _playerDamageFlash = EntityDamageFlashDuration;
@@ -955,6 +927,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             }
 
             PlaySfx(SfxPlayerDamage, -8f);
+        }
+
+        private bool TryRollHalfHeartRestore()
+        {
+            var totalChance = _activeRelics.Sum(relic => relic.HalfHeartRestoreChanceOnDamage);
+            if (totalChance <= 0f)
+                return false;
+
+            return _random.NextDouble() < totalChance;
         }
 
         private void SetPlayerHealth(int current, int max)
@@ -1026,14 +1007,16 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (room.Type != RoomType.Treasure)
             {
                 _treasureBoxOpened = false;
-                _treasureToolboxPosition = null;
+                _treasureRelicPosition = null;
+                _treasureRelicId = null;
                 _treasureBoxPosition = null;
                 return;
             }
 
             _treasureBoxOpened = room.TreasureBoxOpened;
             _treasureBoxPosition = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
-            _treasureToolboxPosition = room.HasTreasureToolbox && !room.TreasureToolboxTaken
+            _treasureRelicId = room.TreasureRelicId;
+            _treasureRelicPosition = room.HasTreasureRelic && !room.TreasureRelicTaken
                 ? new Vector2(GridWidth * 0.5f, GridHeight * 0.5f)
                 : null;
         }
@@ -1316,6 +1299,30 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             var color = _playerDamageFlash > 0f ? Color.IndianRed : Color.White;
             DrawCharacter(handle, _playerPos, _playerProto, _playerBodyFacing, _playerShootFacing, tilePixel, mapOffset, color);
+
+            foreach (var relic in _activeRelics)
+            {
+                if (string.IsNullOrWhiteSpace(relic.VisualEffectSpritePath) || string.IsNullOrWhiteSpace(relic.VisualEffectSpriteState))
+                    continue;
+
+                DrawEntity(handle, _playerPos, relic.VisualEffectSpritePath, relic.VisualEffectSpriteState, tilePixel, mapOffset);
+            }
+
+            DrawMeleeSwing(handle, tilePixel, mapOffset);
+        }
+
+        private void DrawMeleeSwing(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
+        {
+            if (_meleeSwingTimer <= 0f)
+                return;
+
+            var meleeRelic = _activeRelics.FirstOrDefault(relic => relic.MeleeOnShoot && !string.IsNullOrWhiteSpace(relic.MeleeArcSpritePath) && !string.IsNullOrWhiteSpace(relic.MeleeArcSpriteState));
+            if (meleeRelic == null)
+                return;
+
+            var dir = FacingToUnitVector(_meleeSwingFacing);
+            var pos = _playerPos + dir * 0.85f;
+            DrawEntity(handle, pos, meleeRelic.MeleeArcSpritePath!, meleeRelic.MeleeArcSpriteState!, tilePixel, mapOffset);
         }
 
         private void DrawCharacter(DrawingHandleScreen handle, Vector2 pos, DeepMaintenanceEntityPrototype prototype, FacingDirection bodyFacing, FacingDirection shootFacing, float tilePixel, Vector2 mapOffset, Color color)
@@ -1520,31 +1527,41 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
 
             if (GetSprite(projectile.SpritePath, projectile.SpriteState) is { } texture)
-                handle.DrawTextureRect(texture, box);
+                handle.DrawTextureRect(texture, box, projectile.Tint);
         }
 
         private void DrawTreasureObjects(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
         {
             if (_treasureBoxPosition is { } boxPos)
             {
-                var state = _treasureBoxOpened ? "open" : "closed";
-                DrawEntity(handle, boxPos, TreasureCrateSpritePath, state, tilePixel, mapOffset);
+                var state = _treasureBoxOpened ? _treasurePrototype.OpenCrateSpriteState : _treasurePrototype.ClosedCrateSpriteState;
+                DrawEntity(handle, boxPos, _treasurePrototype.ClosedCrateSpritePath, state, tilePixel, mapOffset);
             }
 
-            if (_treasureToolboxPosition is { } toolboxPos)
-                DrawEntity(handle, toolboxPos, "/Textures/Objects/Tools/Toolboxes/toolbox_red.rsi", "icon", tilePixel, mapOffset);
+            if (_treasureRelicPosition is not { } relicPos || string.IsNullOrWhiteSpace(_treasureRelicId))
+                return;
+
+            if (_prototype.TryIndex<DeepMaintenanceRelicPrototype>(_treasureRelicId, out var relic))
+                DrawEntity(handle, relicPos, relic.HudIconSpritePath ?? string.Empty, relic.HudIconSpriteState ?? string.Empty, tilePixel, mapOffset);
         }
 
         private void DrawBuffIcons(DrawingHandleScreen handle)
         {
-            if (!_projectileGrowthBuff)
+            if (_activeRelics.Count == 0)
                 return;
 
-            if (GetSprite(_projectileGrowthModifier.HudIconSpritePath, _projectileGrowthModifier.HudIconSpriteState) is not { } texture)
-                return;
+            const float iconSize = 24f;
+            const float gap = 4f;
+            for (var i = 0; i < _activeRelics.Count; i++)
+            {
+                var relic = _activeRelics[i];
+                if (GetSprite(relic.HudIconSpritePath, relic.HudIconSpriteState) is not { } texture)
+                    continue;
 
-            var box = UIBox2.FromDimensions(new Vector2(6f, 38f), new Vector2(24f, 24f));
-            handle.DrawTextureRect(texture, box);
+                var x = 6f + i * (iconSize + gap);
+                var box = UIBox2.FromDimensions(new Vector2(x, 38f), new Vector2(iconSize, iconSize));
+                handle.DrawTextureRect(texture, box);
+            }
         }
 
         private void DrawHealthHearts(DrawingHandleScreen handle)
@@ -1654,7 +1671,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _floorProto = _prototype.Index<DeepMaintenanceTilePrototype>(TileFloorPrototypeId);
             _wallProto = _prototype.Index<DeepMaintenanceTilePrototype>(TileWallPrototypeId);
             _obstacleProto = _prototype.Index<DeepMaintenanceTilePrototype>(TileObstaclePrototypeId);
-            _projectileGrowthModifier = _prototype.Index<DeepMaintenanceModifierPrototype>(ModifierProjectileGrowthPrototypeId);
+            _treasurePrototype = _prototype.Index<DeepMaintenanceTreasurePrototype>(TreasurePrototypeId);
 
             WarmupSprite(_floorProto.SpritePath, _floorProto.SpriteState);
             WarmupSprite(_wallProto.SpritePath, _wallProto.SpriteState);
@@ -1681,8 +1698,6 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             WarmupSprite(HeartSpritePath, HeartHalfState);
             WarmupSprite(HeartSpritePath, HeartEmptyState);
 
-            WarmupSprite(_projectileGrowthModifier.HudIconSpritePath, _projectileGrowthModifier.HudIconSpriteState);
-
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "closed");
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/maint.rsi", "open");
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/command.rsi", "closed");
@@ -1690,9 +1705,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi", "closed");
             WarmupSprite("/Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi", "open");
 
-            WarmupSprite(TreasureCrateSpritePath, "closed");
-            WarmupSprite(TreasureCrateSpritePath, "open");
-            WarmupSprite("/Textures/Objects/Tools/Toolboxes/toolbox_red.rsi", "icon");
+            WarmupSprite(_treasurePrototype.ClosedCrateSpritePath, _treasurePrototype.ClosedCrateSpriteState);
+            WarmupSprite(_treasurePrototype.ClosedCrateSpritePath, _treasurePrototype.OpenCrateSpriteState);
+
+            foreach (var relic in _prototype.EnumeratePrototypes<DeepMaintenanceRelicPrototype>())
+            {
+                WarmupSprite(relic.HudIconSpritePath, relic.HudIconSpriteState);
+                WarmupSprite(relic.VisualEffectSpritePath, relic.VisualEffectSpriteState);
+                WarmupSprite(relic.MeleeArcSpritePath, relic.MeleeArcSpriteState);
+            }
 
             ApplySpriteBasedPhysicsScales();
         }
@@ -1765,29 +1786,118 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _playerShootFacing = FacingFromVector(normalized, _playerShootFacing);
             _playerShootFacingResetTimer = FacingResetDelaySeconds;
 
-            var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
-            SpawnProjectile(_playerProjectiles, _playerPos, normalized * projectilePrototype.Speed, projectilePrototype, GetProjectileScaleMultiplier());
-            _playerShootCooldown = GetShootCooldown(_playerProto);
+            if (_activeRelics.Any(relic => relic.MeleeOnShoot))
+            {
+                PerformMeleeStrike(normalized);
+            }
+            else
+            {
+                FirePlayerProjectile(normalized);
+            }
+
+            _playerShootCooldown = GetShootCooldown(_playerProto) * GetShootCooldownMultiplier();
             PlaySfx(SfxPlayerShoot, -6f);
         }
 
-        private static void SpawnProjectile(List<ProjectileData> container, Vector2 position, Vector2 velocity, DeepMaintenanceProjectilePrototype projectilePrototype, float radiusScale)
+        private void FirePlayerProjectile(Vector2 direction)
+        {
+            var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
+            var speed = projectilePrototype.Speed * GetProjectileSpeedMultiplier();
+            var damage = projectilePrototype.Damage + GetDamageFlatBonus();
+            var tint = GetProjectileTint();
+
+            if (_activeRelics.Any(relic => relic.TripleShotAlternating))
+            {
+                var spreadDegrees = _tripleShotIndex switch
+                {
+                    0 => -14f,
+                    1 => 0f,
+                    _ => 14f,
+                };
+
+                _tripleShotIndex = (_tripleShotIndex + 1) % 3;
+                direction = NormalizeSafe(Rotate(direction, MathF.PI * spreadDegrees / 180f));
+            }
+
+            SpawnProjectile(_playerProjectiles, _playerPos, direction * speed, projectilePrototype, 1f, damage, tint);
+        }
+
+        private void PerformMeleeStrike(Vector2 direction)
+        {
+            var meleeRange = 0f;
+            var meleeDamage = 0;
+            foreach (var relic in _activeRelics.Where(relic => relic.MeleeOnShoot))
+            {
+                meleeRange = MathF.Max(meleeRange, relic.MeleeRange);
+                meleeDamage = Math.Max(meleeDamage, relic.MeleeDamage);
+                _meleeSwingFacing = FacingFromVector(direction, _meleeSwingFacing);
+                _meleeSwingTimer = MeleeSwingDuration;
+            }
+
+            if (meleeRange <= 0f || meleeDamage <= 0)
+                return;
+
+            var strikeCenter = _playerPos + direction * meleeRange;
+            foreach (var enemy in CurrentRoom.Enemies)
+            {
+                if (enemy.Hp <= 0)
+                    continue;
+
+                if (Vector2.Distance(enemy.Position, strikeCenter) > enemy.Prototype.Radius + 0.65f)
+                    continue;
+
+                enemy.Hp -= meleeDamage;
+                enemy.DamageFlash = EntityDamageFlashDuration;
+                if (enemy.Hp <= 0)
+                    PlaySfx(SfxEnemyDeath, -7f);
+            }
+        }
+
+        private static void SpawnProjectile(List<ProjectileData> container, Vector2 position, Vector2 velocity, DeepMaintenanceProjectilePrototype projectilePrototype, float radiusScale, float damage, Color tint)
         {
             container.Add(new ProjectileData(
                 position,
                 position,
                 velocity,
                 projectilePrototype.Radius * radiusScale,
-                projectilePrototype.Damage,
+                damage,
                 projectilePrototype.Lifetime,
                 projectilePrototype.SpritePath,
                 projectilePrototype.SpriteState,
-                projectilePrototype.SpriteScale));
+                projectilePrototype.SpriteScale,
+                tint));
         }
 
-        private float GetProjectileScaleMultiplier()
+        private float GetProjectileSpeedMultiplier()
         {
-            return _projectileGrowthBuff ? _projectileGrowthModifier.ProjectileScaleMultiplier : 1f;
+            var multiplier = 1f;
+            foreach (var relic in _activeRelics)
+            {
+                multiplier *= relic.ProjectileSpeedMultiplier;
+            }
+
+            return multiplier;
+        }
+
+        private float GetDamageFlatBonus()
+        {
+            return _activeRelics.Sum(relic => relic.DamageFlatBonus);
+        }
+
+        private float GetShootCooldownMultiplier()
+        {
+            var multiplier = 1f;
+            foreach (var relic in _activeRelics)
+            {
+                multiplier *= relic.ShootCooldownMultiplier;
+            }
+
+            return MathF.Max(0.1f, multiplier);
+        }
+
+        private Color GetProjectileTint()
+        {
+            return _activeRelics.Any(relic => relic.PinkProjectiles) ? PinkProjectileColor : Color.White;
         }
 
         private static float GetPlayerVisualScale()
@@ -1808,56 +1918,6 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _audio.PlayGlobal(sound, Filter.Local(), false, AudioParams.Default.WithVolume(volume));
         }
 
-        private static bool IsRelevantKey(BoundKeyFunction function)
-        {
-            return function == ContentKeyFunctions.DeepMaintenanceMoveUp ||
-                   function == ContentKeyFunctions.DeepMaintenanceMoveDown ||
-                   function == ContentKeyFunctions.DeepMaintenanceMoveLeft ||
-                   function == ContentKeyFunctions.DeepMaintenanceMoveRight ||
-                   function == EngineKeyFunctions.MoveUp ||
-                   function == EngineKeyFunctions.MoveDown ||
-                   function == EngineKeyFunctions.MoveLeft ||
-                   function == EngineKeyFunctions.MoveRight ||
-                   function == ContentKeyFunctions.DeepMaintenanceShootUp ||
-                   function == ContentKeyFunctions.DeepMaintenanceShootDown ||
-                   function == ContentKeyFunctions.DeepMaintenanceShootLeft ||
-                   function == ContentKeyFunctions.DeepMaintenanceShootRight ||
-                   function == ContentKeyFunctions.ArcadeUp ||
-                   function == ContentKeyFunctions.ArcadeDown ||
-                   function == ContentKeyFunctions.ArcadeLeft ||
-                   function == ContentKeyFunctions.ArcadeRight;
-        }
-
-        private static bool TryGetShootDirection(BoundKeyFunction function, out Vector2 direction)
-        {
-            if (function == ContentKeyFunctions.DeepMaintenanceShootUp || function == ContentKeyFunctions.ArcadeUp)
-            {
-                direction = new Vector2(0, -1);
-                return true;
-            }
-
-            if (function == ContentKeyFunctions.DeepMaintenanceShootDown || function == ContentKeyFunctions.ArcadeDown)
-            {
-                direction = new Vector2(0, 1);
-                return true;
-            }
-
-            if (function == ContentKeyFunctions.DeepMaintenanceShootLeft || function == ContentKeyFunctions.ArcadeLeft)
-            {
-                direction = new Vector2(-1, 0);
-                return true;
-            }
-
-            if (function == ContentKeyFunctions.DeepMaintenanceShootRight || function == ContentKeyFunctions.ArcadeRight)
-            {
-                direction = new Vector2(1, 0);
-                return true;
-            }
-
-            direction = Vector2.Zero;
-            return false;
-        }
-
         private static FacingDirection FacingFromVector(Vector2 direction, FacingDirection fallback)
         {
             if (direction == Vector2.Zero)
@@ -1867,6 +1927,17 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return direction.X > 0f ? FacingDirection.Right : FacingDirection.Left;
 
             return direction.Y > 0f ? FacingDirection.Down : FacingDirection.Up;
+        }
+
+        private static Vector2 FacingToUnitVector(FacingDirection facing)
+        {
+            return facing switch
+            {
+                FacingDirection.Up => new Vector2(0f, -1f),
+                FacingDirection.Left => new Vector2(-1f, 0f),
+                FacingDirection.Right => new Vector2(1f, 0f),
+                _ => new Vector2(0f, 1f),
+            };
         }
 
         private Texture? GetDirectionalSprite(string? spritePath, string? spriteState, FacingDirection facing)
@@ -2002,6 +2073,173 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         #endregion
 
+        #region Input State
+
+        private sealed class DeepMaintenanceInputState
+        {
+            private static readonly BoundKeyFunction[] SupportedKeyFunctions =
+            [
+                ContentKeyFunctions.DeepMaintenanceMoveUp,
+                ContentKeyFunctions.DeepMaintenanceMoveDown,
+                ContentKeyFunctions.DeepMaintenanceMoveLeft,
+                ContentKeyFunctions.DeepMaintenanceMoveRight,
+                ContentKeyFunctions.DeepMaintenanceShootUp,
+                ContentKeyFunctions.DeepMaintenanceShootDown,
+                ContentKeyFunctions.DeepMaintenanceShootLeft,
+                ContentKeyFunctions.DeepMaintenanceShootRight,
+                EngineKeyFunctions.MoveUp,
+                EngineKeyFunctions.MoveDown,
+                EngineKeyFunctions.MoveLeft,
+                EngineKeyFunctions.MoveRight,
+                ContentKeyFunctions.ArcadeUp,
+                ContentKeyFunctions.ArcadeDown,
+                ContentKeyFunctions.ArcadeLeft,
+                ContentKeyFunctions.ArcadeRight,
+            ];
+
+            private readonly IInputManager _input;
+            private readonly HashSet<BoundKeyFunction> _heldKeys = new();
+
+            public DeepMaintenanceInputState(IInputManager input)
+            {
+                _input = input;
+            }
+
+            #region State Mutation
+
+            public void Add(BoundKeyFunction function)
+            {
+                _heldKeys.Add(function);
+            }
+
+            public void Remove(BoundKeyFunction function)
+            {
+                _heldKeys.Remove(function);
+            }
+
+            public void Clear()
+            {
+                _heldKeys.Clear();
+            }
+
+            #endregion
+
+            #region State Queries
+
+            public bool IsRelevantKey(BoundKeyFunction function)
+            {
+                return SupportedKeyFunctions.Contains(function);
+            }
+
+            public bool AnyShootKeyHeld()
+            {
+                return _heldKeys.Any(IsShootKey);
+            }
+
+            public bool IsMoveUpHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveUp) || _heldKeys.Contains(EngineKeyFunctions.MoveUp);
+            public bool IsMoveDownHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveDown) || _heldKeys.Contains(EngineKeyFunctions.MoveDown);
+            public bool IsMoveLeftHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveLeft) || _heldKeys.Contains(EngineKeyFunctions.MoveLeft);
+            public bool IsMoveRightHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceMoveRight) || _heldKeys.Contains(EngineKeyFunctions.MoveRight);
+            public bool IsShootUpHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootUp) || _heldKeys.Contains(ContentKeyFunctions.ArcadeUp);
+            public bool IsShootDownHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootDown) || _heldKeys.Contains(ContentKeyFunctions.ArcadeDown);
+            public bool IsShootLeftHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootLeft) || _heldKeys.Contains(ContentKeyFunctions.ArcadeLeft);
+            public bool IsShootRightHeld() => _heldKeys.Contains(ContentKeyFunctions.DeepMaintenanceShootRight) || _heldKeys.Contains(ContentKeyFunctions.ArcadeRight);
+
+            #endregion
+
+            #region Binding Resolution
+
+            public bool TryGetBoundFunction(KeyEventArgs keyEvent, out BoundKeyFunction function)
+            {
+                foreach (var keyFunction in SupportedKeyFunctions)
+                {
+                    if (!IsKeyBindingMatch(keyFunction, keyEvent))
+                        continue;
+
+                    function = keyFunction;
+                    return true;
+                }
+
+                function = default!;
+                return false;
+            }
+
+            public static bool TryGetShootDirection(BoundKeyFunction function, out Vector2 direction)
+            {
+                if (function == ContentKeyFunctions.DeepMaintenanceShootUp || function == ContentKeyFunctions.ArcadeUp)
+                {
+                    direction = new Vector2(0, -1);
+                    return true;
+                }
+
+                if (function == ContentKeyFunctions.DeepMaintenanceShootDown || function == ContentKeyFunctions.ArcadeDown)
+                {
+                    direction = new Vector2(0, 1);
+                    return true;
+                }
+
+                if (function == ContentKeyFunctions.DeepMaintenanceShootLeft || function == ContentKeyFunctions.ArcadeLeft)
+                {
+                    direction = new Vector2(-1, 0);
+                    return true;
+                }
+
+                if (function == ContentKeyFunctions.DeepMaintenanceShootRight || function == ContentKeyFunctions.ArcadeRight)
+                {
+                    direction = new Vector2(1, 0);
+                    return true;
+                }
+
+                direction = Vector2.Zero;
+                return false;
+            }
+
+            #endregion
+
+            #region Utilities
+
+            private bool IsKeyBindingMatch(BoundKeyFunction function, KeyEventArgs keyEvent)
+            {
+                if (!_input.TryGetKeyBinding(function, out var binding))
+                    return false;
+
+                if (binding.BaseKey != keyEvent.Key)
+                    return false;
+
+                if (keyEvent.Shift && !HasModifier(binding, Keyboard.Key.Shift))
+                    return false;
+
+                if (keyEvent.Alt && !HasModifier(binding, Keyboard.Key.Alt))
+                    return false;
+
+                if (keyEvent.Control && !HasModifier(binding, Keyboard.Key.Control))
+                    return false;
+
+                return true;
+            }
+
+            private static bool HasModifier(IKeyBinding binding, Keyboard.Key key)
+            {
+                return binding.Mod1 == key || binding.Mod2 == key || binding.Mod3 == key;
+            }
+
+            private static bool IsShootKey(BoundKeyFunction function)
+            {
+                return function == ContentKeyFunctions.DeepMaintenanceShootUp ||
+                       function == ContentKeyFunctions.DeepMaintenanceShootDown ||
+                       function == ContentKeyFunctions.DeepMaintenanceShootLeft ||
+                       function == ContentKeyFunctions.DeepMaintenanceShootRight ||
+                       function == ContentKeyFunctions.ArcadeUp ||
+                       function == ContentKeyFunctions.ArcadeDown ||
+                       function == ContentKeyFunctions.ArcadeLeft ||
+                       function == ContentKeyFunctions.ArcadeRight;
+            }
+
+            #endregion
+        }
+
+        #endregion
+
         private enum FacingDirection : byte
         {
             Down,
@@ -2036,8 +2274,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public bool Cleared;
             public bool IsSecret;
             public bool TreasureBoxOpened;
-            public bool HasTreasureToolbox;
-            public bool TreasureToolboxTaken;
+            public bool HasTreasureRelic;
+            public bool TreasureRelicTaken;
+            public string? TreasureRelicId;
 
             public RoomData(RoomType type, Vector2i mapPosition, TileType[,] tiles)
             {
@@ -2082,13 +2321,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public readonly Vector2 SourcePosition;
             public readonly Vector2 Velocity;
             public readonly float Radius;
-            public readonly int Damage;
+            public readonly float Damage;
             public float Lifetime;
             public readonly string SpritePath;
             public readonly string SpriteState;
             public readonly float SpriteScale;
+            public readonly Color Tint;
 
-            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, int damage, float lifetime, string spritePath, string spriteState, float spriteScale)
+            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, float damage, float lifetime, string spritePath, string spriteState, float spriteScale, Color tint)
             {
                 Position = position;
                 PreviousPosition = position;
@@ -2100,6 +2340,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 SpritePath = spritePath;
                 SpriteState = spriteState;
                 SpriteScale = spriteScale;
+                Tint = tint;
             }
         }
     }

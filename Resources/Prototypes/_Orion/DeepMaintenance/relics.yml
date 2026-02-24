@@ -1,0 +1,53 @@
+- type: deepMaintenanceTreasure
+  id: DeepMaintenanceTreasureConfig
+  closedCrateSpritePath: /Textures/_Orion/DeepMaintenance/Crates/treasure.rsi
+  closedCrateSpriteState: closed
+  openCrateSpriteState: open
+  lootTable: DeepMaintenanceTreasureLootTable
+
+- type: deepMaintenanceRelic
+  id: DeepMaintenanceRelicClownMask
+  hudIconSpritePath: /Textures/Clothing/Mask/clown.rsi
+  hudIconSpriteState: icon
+  pinkProjectiles: true
+
+- type: deepMaintenanceRelic
+  id: DeepMaintenanceRelicMkPistol
+  hudIconSpritePath: /Textures/Objects/Weapons/Guns/Pistols/mk58.rsi
+  hudIconSpriteState: icon
+  projectileSpeedMultiplier: 1.45
+
+- type: deepMaintenanceRelic
+  id: DeepMaintenanceRelicReadingGlasses
+  hudIconSpritePath: /Textures/Clothing/Eyes/Glasses/glasses.rsi
+  hudIconSpriteState: icon
+  visualEffectSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/reading-glasses.rsi
+  visualEffectSpriteState: overlay
+  damageFlatBonus: 0.75
+
+- type: deepMaintenanceRelic
+  id: DeepMaintenanceRelicTripleEyes
+  hudIconSpritePath: /Textures/Mobs/Species/Arachnid/organs.rsi
+  hudIconSpriteState: eyeball-l
+  visualEffectSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/triple-eyes.rsi
+  visualEffectSpriteState: overlay
+  tripleShotAlternating: true
+  shootCooldownMultiplier: 2.0
+
+- type: deepMaintenanceRelic
+  id: DeepMaintenanceRelicSkeletonSkull
+  hudIconSpritePath: /Textures/Clothing/Head/Bandanas/skull.rsi
+  hudIconSpriteState: icon
+  visualEffectSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/skull.rsi
+  visualEffectSpriteState: overlay
+  halfHeartRestoreChanceOnDamage: 0.05
+
+- type: deepMaintenanceRelic
+  id: DeepMaintenanceRelicRedToolbox
+  hudIconSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
+  hudIconSpriteState: icon
+  meleeOnShoot: true
+  meleeRange: 1.1
+  meleeDamage: 2
+  meleeArcSpritePath: /Textures/Effects/arcs.rsi
+  meleeArcSpriteState: disarm

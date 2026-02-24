@@ -1,3 +1,4 @@
+using Content.Shared.EntityTable;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype.Array;
 
@@ -124,6 +125,89 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
 
     [DataField]
     public string? ShootSpriteState;
+}
+
+[Prototype("deepMaintenanceRelic")]
+public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingPrototype
+{
+    [ParentDataField(typeof(AbstractPrototypeIdArraySerializer<DeepMaintenanceRelicPrototype>))]
+    public string[]? Parents { get; }
+
+    [NeverPushInheritance]
+    [AbstractDataField]
+    public bool Abstract { get; }
+
+    [IdDataField] public string ID { get; } = default!;
+
+    [DataField]
+    public string? HudIconSpritePath;
+
+    [DataField]
+    public string? HudIconSpriteState;
+
+    [DataField]
+    public string? VisualEffectSpritePath;
+
+    [DataField]
+    public string? VisualEffectSpriteState;
+
+    [DataField]
+    public float ProjectileSpeedMultiplier = 1f;
+
+    [DataField]
+    public float DamageFlatBonus;
+
+    [DataField]
+    public float ShootCooldownMultiplier = 1f;
+
+    [DataField]
+    public bool TripleShotAlternating;
+
+    [DataField]
+    public bool MeleeOnShoot;
+
+    [DataField]
+    public float MeleeRange = 1.05f;
+
+    [DataField]
+    public int MeleeDamage = 2;
+
+    [DataField]
+    public string? MeleeArcSpritePath;
+
+    [DataField]
+    public string? MeleeArcSpriteState;
+
+    [DataField]
+    public bool PinkProjectiles;
+
+    [DataField]
+    public float HalfHeartRestoreChanceOnDamage;
+}
+
+[Prototype("deepMaintenanceTreasure")]
+public sealed class DeepMaintenanceTreasurePrototype : IPrototype, IInheritingPrototype
+{
+    [ParentDataField(typeof(AbstractPrototypeIdArraySerializer<DeepMaintenanceTreasurePrototype>))]
+    public string[]? Parents { get; }
+
+    [NeverPushInheritance]
+    [AbstractDataField]
+    public bool Abstract { get; }
+
+    [IdDataField] public string ID { get; } = default!;
+
+    [DataField(required: true)]
+    public string ClosedCrateSpritePath = default!;
+
+    [DataField(required: true)]
+    public string ClosedCrateSpriteState = default!;
+
+    [DataField(required: true)]
+    public string OpenCrateSpriteState = default!;
+
+    [DataField(required: true)]
+    public ProtoId<EntityTablePrototype> LootTable = default!;
 }
 
 [Prototype("deepMaintenanceModifier")]

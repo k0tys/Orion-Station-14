@@ -7,8 +7,8 @@
 - type: deepMaintenanceTile
   parent: DeepMaintenanceTileBase
   id: DeepMaintenanceFloor
-  spritePath: /Textures/Tiles/Planet/dirt.rsi
-  spriteState: dirt
+  spritePath: /Textures/_Orion/DeepMaintenance/Tiles/steel_dirty.rsi
+  spriteState: steel_dirty
 
 # Walls of the edge of the field
 - type: deepMaintenanceTile

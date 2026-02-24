@@ -136,8 +136,11 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private DeepMaintenanceTilePrototype _obstacleProto = default!;
 
         private Vector2 _playerPos;
+        private Vector2 _playerVelocity;
         private FacingDirection _playerBodyFacing = FacingDirection.Down;
         private FacingDirection _playerShootFacing = FacingDirection.Down;
+        private float _playerBodyFacingResetTimer;
+        private float _playerShootFacingResetTimer;
         private float _playerShootCooldown;
         private int _invulnerabilityTicks;
         private bool _paused;
@@ -157,6 +160,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const int InvulnerabilityTicks = 10;
         private const float DoorTransitionMargin = 0.05f;
         private const float EntitySpriteTileSize = 1f;
+        private const float FacingResetDelaySeconds = 0.18f;
         private const float EnemyHitKnockback = 0.22f;
         private const float BossSpreadAngleDegrees = 22f;
         private const int EnemyAggroDelayTicksMin = 3;
@@ -186,13 +190,12 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private static readonly SoundSpecifier SfxEnemyDeath = new SoundPathSpecifier("/Audio/Effects/bodyfall1.ogg");
         private static readonly SoundSpecifier SfxPlayerDeath = new SoundPathSpecifier("/Audio/Effects/tesla_collapse.ogg");
 
-        private const string HeartSpritePath = "/Textures/Mobs/Species/Human/organs.rsi";
-        private const string HeartFullState = "heart-on";
-        private const string HeartHalfState = "heart-inhand-left";
-        private const string HeartEmptyState = "heart-off";
+        private const string HeartSpritePath = "/Textures/_Orion/DeepMaintenance/HUD/hearts.rsi";
+        private const string HeartFullState = "full";
+        private const string HeartHalfState = "half";
+        private const string HeartEmptyState = "empty";
         private const float HeartDamageFlashDuration = 0.35f;
         private const float HeartRowsStartY = 6f;
-        private const int HeartsPerRow = 8;
 
         public event Action? StateChanged;
 
@@ -347,7 +350,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             RoomIndex = 0;
             SetPlayerHealth(_playerProto.MaxHp, _playerProto.MaxHp);
             _playerPos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
+            _playerVelocity = Vector2.Zero;
             _playerShootCooldown = 0f;
+            _playerBodyFacingResetTimer = 0f;
+            _playerShootFacingResetTimer = 0f;
             _invulnerabilityTicks = 0;
             _paused = false;
             _gameOver = false;
@@ -437,6 +443,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 _invulnerabilityTicks--;
 
             HandleHeldShootKeys();
+            UpdateFacingResetTimers(dt);
             TickEnemies(dt);
             TickProjectiles(_playerProjectiles, true, dt);
             TickProjectiles(_enemyProjectiles, false, dt);
@@ -452,9 +459,14 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             var moveDirection = GetMoveDirection();
             if (moveDirection == Vector2.Zero)
+            {
+                _playerVelocity = Vector2.Zero;
                 return;
+            }
 
             _playerBodyFacing = FacingFromVector(moveDirection, _playerBodyFacing);
+            _playerBodyFacingResetTimer = FacingResetDelaySeconds;
+            _playerVelocity = moveDirection * _playerProto.MoveSpeed;
 
             var target = _playerPos + moveDirection * _playerProto.MoveSpeed * dt;
             _playerPos = ResolveCircleTileCollision(target, _playerProto.Radius, CurrentRoom);
@@ -471,6 +483,43 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
 
             TryShoot(shootDirection);
+        }
+
+        private void UpdateFacingResetTimers(float dt)
+        {
+            if (_heldKeys.Any(IsShootKeyHeld))
+            {
+                _playerShootFacingResetTimer = FacingResetDelaySeconds;
+            }
+            else if (_playerShootFacingResetTimer > 0f)
+            {
+                _playerShootFacingResetTimer = MathF.Max(0f, _playerShootFacingResetTimer - dt);
+                if (_playerShootFacingResetTimer <= 0f)
+                    _playerShootFacing = FacingDirection.Down;
+            }
+
+            if (_playerVelocity != Vector2.Zero)
+            {
+                _playerBodyFacingResetTimer = FacingResetDelaySeconds;
+            }
+            else if (_playerBodyFacingResetTimer > 0f)
+            {
+                _playerBodyFacingResetTimer = MathF.Max(0f, _playerBodyFacingResetTimer - dt);
+                if (_playerBodyFacingResetTimer <= 0f)
+                    _playerBodyFacing = FacingDirection.Down;
+            }
+        }
+
+        private static bool IsShootKeyHeld(BoundKeyFunction function)
+        {
+            return function == ContentKeyFunctions.DeepMaintenanceShootUp ||
+                   function == ContentKeyFunctions.DeepMaintenanceShootDown ||
+                   function == ContentKeyFunctions.DeepMaintenanceShootLeft ||
+                   function == ContentKeyFunctions.DeepMaintenanceShootRight ||
+                   function == ContentKeyFunctions.ArcadeUp ||
+                   function == ContentKeyFunctions.ArcadeDown ||
+                   function == ContentKeyFunctions.ArcadeLeft ||
+                   function == ContentKeyFunctions.ArcadeRight;
         }
 
         private Vector2 GetMoveDirection()
@@ -562,7 +611,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 enemy.PreviousPosition = enemy.Position;
 
                 var toPlayer = _playerPos - enemy.Position;
+                var predictedPlayerPos = _playerPos + _playerVelocity * 0.4f;
+                var toPredictedPlayer = predictedPlayerPos - enemy.Position;
                 var directionToPlayer = NormalizeSafe(toPlayer);
+                var directionToPredictedPlayer = NormalizeSafe(toPredictedPlayer);
                 enemy.ShootFacing = FacingFromVector(directionToPlayer, enemy.ShootFacing);
 
                 if (enemy.AggroDelayTicks > 0)
@@ -590,17 +642,47 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
                     if (enemy.Prototype.CanStrafe)
                     {
-                        var strafe = new Vector2(-directionToPlayer.Y, directionToPlayer.X);
-                        enemy.BodyFacing = FacingFromVector(strafe, enemy.BodyFacing);
-                        var target = enemy.Position + strafe * enemy.Prototype.MoveSpeed * 0.45f * dt;
+                        if (enemy.StrafeSwapTicks <= 0)
+                        {
+                            enemy.StrafeDirection *= -1;
+                            enemy.StrafeSwapTicks = _random.Next(6, 14);
+                        }
+                        else
+                        {
+                            enemy.StrafeSwapTicks--;
+                        }
+
+                        var toPlayerDistance = toPlayer.Length();
+                        var strafe = new Vector2(-directionToPredictedPlayer.Y, directionToPredictedPlayer.X) * enemy.StrafeDirection;
+                        var kiting = Vector2.Zero;
+                        if (toPlayerDistance < 3.2f)
+                            kiting = -directionToPredictedPlayer * 0.65f;
+                        else if (toPlayerDistance > 5.8f)
+                            kiting = directionToPredictedPlayer * 0.45f;
+
+                        var movement = NormalizeSafe(strafe + kiting);
+                        enemy.BodyFacing = FacingFromVector(movement, enemy.BodyFacing);
+                        var target = enemy.Position + movement * enemy.Prototype.MoveSpeed * 0.5f * dt;
                         enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
                     }
 
                     continue;
                 }
 
-                enemy.BodyFacing = FacingFromVector(directionToPlayer, enemy.BodyFacing);
-                var chase = enemy.Position + directionToPlayer * enemy.Prototype.MoveSpeed * dt;
+                if (enemy.StrafeSwapTicks <= 0)
+                {
+                    enemy.StrafeDirection *= -1;
+                    enemy.StrafeSwapTicks = _random.Next(10, 18);
+                }
+                else
+                {
+                    enemy.StrafeSwapTicks--;
+                }
+
+                var flank = new Vector2(-directionToPredictedPlayer.Y, directionToPredictedPlayer.X) * enemy.StrafeDirection * 0.32f;
+                var chaseDirection = NormalizeSafe(directionToPredictedPlayer + flank);
+                enemy.BodyFacing = FacingFromVector(chaseDirection, enemy.BodyFacing);
+                var chase = enemy.Position + chaseDirection * enemy.Prototype.MoveSpeed * dt;
                 enemy.Position = ResolveCircleTileCollision(chase, enemy.Prototype.Radius, CurrentRoom);
             }
 
@@ -1166,7 +1248,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
                     if (CurrentRoom.Tiles[x, y] == TileType.Door)
                     {
-                        DrawDoor(handle, box, CurrentRoom.Cleared);
+                        DrawDoor(handle, box, CurrentRoom.Cleared, x, y);
                     }
                 }
             }
@@ -1245,9 +1327,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             handle.DrawRect(box, Color.White);
         }
 
-        private void DrawDoor(DrawingHandleScreen handle, UIBox2 box, bool opened)
+        private void DrawDoor(DrawingHandleScreen handle, UIBox2 box, bool opened, int tileX, int tileY)
         {
-            var doorSprite = GetDoorSpritePath(CurrentRoom.Type);
+            var doorType = GetDoorRoomType(tileX, tileY);
+            var doorSprite = GetDoorSpritePath(doorType);
             var state = opened ? "open" : "closed";
 
             if (GetSprite(doorSprite, state) is { } texture)
@@ -1257,6 +1340,61 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             }
 
             handle.DrawRect(box, opened ? Color.DarkSlateGray : Color.DarkRed);
+        }
+
+        private RoomType GetDoorRoomType(int tileX, int tileY)
+        {
+            if (!TryGetDoorDirection(tileX, tileY, out var direction))
+                return CurrentRoom.Type;
+
+            if (!CurrentRoom.Neighbors.TryGetValue(direction, out var neighborIndex))
+                return CurrentRoom.Type;
+
+            var currentPriority = GetDoorPriority(CurrentRoom.Type);
+            var neighborType = _rooms[neighborIndex].Type;
+            var neighborPriority = GetDoorPriority(neighborType);
+
+            return neighborPriority > currentPriority ? neighborType : CurrentRoom.Type;
+        }
+
+        private static int GetDoorPriority(RoomType roomType)
+        {
+            return roomType switch
+            {
+                RoomType.Boss => 3,
+                RoomType.Treasure => 2,
+                _ => 1,
+            };
+        }
+
+        private static bool TryGetDoorDirection(int tileX, int tileY, out Vector2i direction)
+        {
+            if (tileX == 0 && tileY == GridHeight / 2)
+            {
+                direction = new Vector2i(-1, 0);
+                return true;
+            }
+
+            if (tileX == GridWidth - 1 && tileY == GridHeight / 2)
+            {
+                direction = new Vector2i(1, 0);
+                return true;
+            }
+
+            if (tileX == GridWidth / 2 && tileY == 0)
+            {
+                direction = new Vector2i(0, -1);
+                return true;
+            }
+
+            if (tileX == GridWidth / 2 && tileY == GridHeight - 1)
+            {
+                direction = new Vector2i(0, 1);
+                return true;
+            }
+
+            direction = default;
+            return false;
         }
 
         private static string GetDoorSpritePath(RoomType roomType)
@@ -1305,9 +1443,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private void DrawHealthHearts(DrawingHandleScreen handle)
         {
-            const float size = 26f;
-            const float gap = 4f;
-            const float rowGap = 6f;
+            var size = Math.Clamp(PixelSize.X / 18f, 14f, 24f);
+            const float gap = 3f;
+            const float rowGap = 4f;
+            var heartsPerRow = Math.Max(1, (int) ((Math.Max(48f, PixelSize.X - 12f) + gap) / (size + gap)));
 
             var maxHearts = (int) MathF.Ceiling(MaxPlayerHp / 2f);
             var damagePulse = _heartDamageFlash > 0f;
@@ -1322,8 +1461,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     1 => HeartHalfState,
                     _ => HeartEmptyState,
                 };
-                var column = i % HeartsPerRow;
-                var row = i / HeartsPerRow;
+                var column = i % heartsPerRow;
+                var row = i / heartsPerRow;
                 var basePos = new Vector2(6 + column * (size + gap), HeartRowsStartY + row * (size + rowGap));
                 var drawSize = new Vector2(size * pulseScale, size * pulseScale);
                 var drawPos = basePos - (drawSize - new Vector2(size, size)) * 0.5f;
@@ -1477,6 +1616,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
 
             _playerShootFacing = FacingFromVector(normalized, _playerShootFacing);
+            _playerShootFacingResetTimer = FacingResetDelaySeconds;
 
             var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
             SpawnProjectile(_playerProjectiles, _playerPos, normalized * projectilePrototype.Speed, projectilePrototype, GetProjectileScaleMultiplier());
@@ -1769,6 +1909,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public int AggroDelayTicks;
             public int WallContactTicks;
             public int EscapeTicksRemaining;
+            public int StrafeDirection = 1;
+            public int StrafeSwapTicks;
             public FacingDirection BodyFacing = FacingDirection.Down;
             public FacingDirection ShootFacing = FacingDirection.Down;
 
@@ -1780,6 +1922,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 Hp = prototype.MaxHp;
                 ShootCooldownTicks = prototype.ShootCooldownTicks;
                 AggroDelayTicks = aggroDelayTicks;
+                StrafeSwapTicks = 8;
             }
         }
 

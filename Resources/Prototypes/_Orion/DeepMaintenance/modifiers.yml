@@ -1,0 +1,13 @@
+- type: deepMaintenanceModifier
+  id: DeepMaintenanceModifierBase
+  abstract: true
+  projectileScaleMultiplier: 1
+  playerScaleMultiplier: 1
+
+- type: deepMaintenanceModifier
+  parent: DeepMaintenanceModifierBase
+  id: DeepMaintenanceModifierProjectileGrowth
+  projectileScaleMultiplier: 1.45
+  playerScaleMultiplier: 1.12
+  hudIconSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
+  hudIconSpriteState: icon

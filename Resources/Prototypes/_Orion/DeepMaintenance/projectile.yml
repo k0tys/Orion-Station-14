@@ -12,15 +12,15 @@
   parent: DeepMaintenanceProjectileBase
   id: DeepMaintenanceProjectilePlayer
   speed: 5
-  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi
-  spriteState: bullet
+  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/magic.rsi
+  spriteState: magicm_cyan
 
 - type: deepMaintenanceProjectile
   parent: DeepMaintenanceProjectileBase
   id: DeepMaintenanceProjectileEnemy
   speed: 5
-  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi
-  spriteState: heavy_bullet
+  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/magic.rsi
+  spriteState: magicm_red
 
 - type: deepMaintenanceProjectile
   parent: DeepMaintenanceProjectileBase
@@ -29,5 +29,5 @@
   speed: 5
   damage: 1
   lifetime: 3.0
-  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/projectiles.rsi
-  spriteState: pulse
+  spritePath: /Textures/Objects/Weapons/Guns/Projectiles/magic.rsi
+  spriteState: blastwave

@@ -44,7 +44,7 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
     public float Radius = 0.09f;
 
     [DataField]
-    public float Speed = 6f;
+    public float Speed = 5f;
 
     [DataField]
     public int Damage = 1;
@@ -118,4 +118,29 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
 
     [DataField]
     public string? ShootSpriteState;
+}
+
+[Prototype("deepMaintenanceModifier")]
+public sealed class DeepMaintenanceModifierPrototype : IPrototype, IInheritingPrototype
+{
+    [ParentDataField(typeof(AbstractPrototypeIdArraySerializer<DeepMaintenanceModifierPrototype>))]
+    public string[]? Parents { get; }
+
+    [NeverPushInheritance]
+    [AbstractDataField]
+    public bool Abstract { get; }
+
+    [IdDataField] public string ID { get; } = default!;
+
+    [DataField]
+    public float ProjectileScaleMultiplier = 1f;
+
+    [DataField]
+    public float PlayerScaleMultiplier = 1f;
+
+    [DataField]
+    public string? HudIconSpritePath;
+
+    [DataField]
+    public string? HudIconSpriteState;
 }

@@ -1,15 +1,14 @@
 - type: deepMaintenanceProjectile
   id: DeepMaintenanceProjectileBase
   abstract: true
-  radius: 0.09
+  radius: 0.05
   speed: 5
   damage: 1
   lifetime: 2.2
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/blood.rsi
   spriteState: icon
   spriteScale: 0.7
-  drag: 0.9
-  gravityScale: 0.2
+  drag: 0.7
   rotateToVelocity: true
 
 - type: deepMaintenanceProjectile

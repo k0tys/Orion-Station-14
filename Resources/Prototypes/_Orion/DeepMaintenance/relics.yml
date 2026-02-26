@@ -4,6 +4,10 @@
   closedCrateSpriteState: closed
   openCrateSpriteState: open
   lootTable: DeepMaintenanceTreasureLootTable
+  openAnimationDuration: 0.32
+  relicPickupGraceDuration: 0.25
+  relicAppearDuration: 0.24
+  relicAppearRise: 0.28
 
 - type: deepMaintenanceRelic
   id: DeepMaintenanceRelicClownMask
@@ -24,16 +28,16 @@
   id: DeepMaintenanceRelicReadingGlasses
   hudIconSpritePath: /Textures/Clothing/Eyes/Glasses/glasses.rsi
   hudIconSpriteState: icon
-  visualEffectSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/reading-glasses.rsi
-  visualEffectSpriteState: overlay
+  headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/reading-glasses.rsi
+  headAttachedSpriteState: overlay
   damageFlatBonus: 0.75
 
 - type: deepMaintenanceRelic
   id: DeepMaintenanceRelicTripleEyes
   hudIconSpritePath: /Textures/Mobs/Species/Arachnid/organs.rsi
   hudIconSpriteState: eyeball-l
-  visualEffectSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/triple-eyes.rsi
-  visualEffectSpriteState: overlay
+  headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/triple-eyes.rsi
+  headAttachedSpriteState: overlay
   tripleShotAlternating: true
   shootCooldownMultiplier: 1.25
 
@@ -41,8 +45,8 @@
   id: DeepMaintenanceRelicSkeletonSkull
   hudIconSpritePath: /Textures/Clothing/Head/Bandanas/skull.rsi
   hudIconSpriteState: icon
-  visualEffectSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/skull.rsi
-  visualEffectSpriteState: overlay
+  headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/skull.rsi
+  headAttachedSpriteState: overlay
   halfHeartRestoreChanceOnDamage: 0.05
 
 - type: deepMaintenanceRelic
@@ -56,3 +60,6 @@
   meleeArcSpriteState: disarm
   meleeArcAnimated: true
   meleeArcAnimationFps: 14
+  bodyAttachedSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
+  bodyAttachedSpriteState: icon
+  bodyAttachedSpriteScale: 0.85

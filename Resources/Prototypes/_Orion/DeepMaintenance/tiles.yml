@@ -25,3 +25,10 @@
   solid: true
   spritePath: /Textures/Structures/Walls/solid_rust.rsi
   spriteState: full
+
+- type: deepMaintenanceTile
+  parent: DeepMaintenanceTileBase
+  id: DeepMaintenanceMushroom
+  solid: true
+  spritePath: /Textures/Objects/Misc/spaceshroom.rsi
+  spriteState: structure

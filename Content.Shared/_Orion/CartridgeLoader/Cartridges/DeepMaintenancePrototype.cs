@@ -1,3 +1,4 @@
+using System.Numerics;
 using Content.Shared.EntityTable;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype.Array;
@@ -70,6 +71,12 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
 
     [DataField]
     public bool RotateToVelocity;
+
+    [DataField]
+    public float FinalDropStart = 0.85f;
+
+    [DataField]
+    public float FinalDropDistance = 0.35f;
 }
 
 [Prototype("deepMaintenanceEntity")]
@@ -167,6 +174,30 @@ public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingProto
     public string? VisualEffectSpriteState;
 
     [DataField]
+    public string? BodyAttachedSpritePath;
+
+    [DataField]
+    public string? BodyAttachedSpriteState;
+
+    [DataField]
+    public float BodyAttachedSpriteScale = 1f;
+
+    [DataField]
+    public Vector2 BodyAttachedOffset;
+
+    [DataField]
+    public string? HeadAttachedSpritePath;
+
+    [DataField]
+    public string? HeadAttachedSpriteState;
+
+    [DataField]
+    public float HeadAttachedSpriteScale = 1f;
+
+    [DataField]
+    public Vector2 HeadAttachedOffset;
+
+    [DataField]
     public float ProjectileSpeedMultiplier = 1f;
 
     [DataField]
@@ -228,7 +259,43 @@ public sealed class DeepMaintenanceTreasurePrototype : IPrototype, IInheritingPr
     public string OpenCrateSpriteState = default!;
 
     [DataField(required: true)]
-    public ProtoId<EntityTablePrototype> LootTable = default!;
+    public ProtoId<EntityTablePrototype> LootTable;
+
+    [DataField]
+    public float OpenAnimationDuration = 0.3f;
+
+    [DataField]
+    public float RelicPickupGraceDuration = 0.25f;
+
+    [DataField]
+    public float RelicAppearDuration = 0.25f;
+
+    [DataField]
+    public float RelicAppearRise = 0.3f;
+}
+
+[Prototype("deepMaintenanceDoor")]
+public sealed class DeepMaintenanceDoorPrototype : IPrototype
+{
+    [IdDataField] public string ID { get; } = default!;
+
+    [DataField(required: true)]
+    public string SpritePath = default!;
+
+    [DataField(required: true)]
+    public string ClosedState = default!;
+
+    [DataField(required: true)]
+    public string OpenState = default!;
+
+    [DataField]
+    public string? OpeningState;
+
+    [DataField]
+    public string? ClosingState;
+
+    [DataField]
+    public float TransitionDuration = 0.2f;
 }
 
 [Prototype("deepMaintenanceModifier")]

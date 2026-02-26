@@ -160,6 +160,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const float TickSeconds = 0.1f;
         private const int InvulnerabilityTicks = 10;
         private const float DoorTransitionMargin = 0.05f;
+        private const float DoorSpawnExclusionRadius = 2f;
         private const float EntitySpriteTileSize = 1f;
         private const float FacingResetDelaySeconds = 0.18f;
         private const float EnemyHitKnockback = 0.22f;
@@ -193,6 +194,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const string TileFloorPrototypeId = "DeepMaintenanceFloor";
         private const string TileWallPrototypeId = "DeepMaintenanceWall";
         private const string TileObstaclePrototypeId = "DeepMaintenanceObstacle";
+        private const string TileMushroomPrototypeId = "DeepMaintenanceMushroom";
 
         private static readonly SoundSpecifier SfxPlayerShoot = new SoundPathSpecifier("/Audio/Weapons/pop.ogg");
         private static readonly SoundSpecifier SfxEnemyShoot = new SoundPathSpecifier("/Audio/Weapons/emitter.ogg");
@@ -1035,8 +1037,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private void TickDoorAnimations()
         {
-            if (CurrentRoom.DoorTransitionTicks > 0)
-                CurrentRoom.DoorTransitionTicks--;
+            if (CurrentRoom.DoorTransitionTicks <= 0)
+            {
+                CurrentRoom.DoorVisualOpen = CurrentRoom.DoorTargetOpen;
+                return;
+            }
+
+            CurrentRoom.DoorTransitionTicks--;
+            if (CurrentRoom.DoorTransitionTicks <= 0)
+                CurrentRoom.DoorVisualOpen = CurrentRoom.DoorTargetOpen;
         }
 
         private void HandleRoomState()
@@ -1071,7 +1080,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private void SetDoorState(RoomData room, bool open)
         {
-            if (room.DoorTargetOpen == open && room.DoorTransitionTicks <= 0)
+            if (room.DoorTargetOpen == open)
                 return;
 
             room.DoorTargetOpen = open;
@@ -1226,6 +1235,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 var room = new RoomData(type, positions[i], BuildTileMap(type));
                 SpawnEnemies(room);
                 room.DoorTargetOpen = room.Enemies.All(enemy => enemy.Hp <= 0);
+                room.DoorVisualOpen = room.DoorTargetOpen;
                 _rooms.Add(room);
             }
 
@@ -1249,6 +1259,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 {
                     room.Cleared = true;
                     room.DoorTargetOpen = true;
+                    room.DoorVisualOpen = true;
                 }
             }
         }
@@ -1284,6 +1295,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     continue;
 
                 tiles[x, y] = TileType.Obstacle;
+            }
+
+            var mushroomCount = _random.Next(1, 4);
+            for (var i = 0; i < mushroomCount; i++)
+            {
+                var x = _random.Next(2, GridWidth - 2);
+                var y = _random.Next(2, GridHeight - 2);
+
+                if (tiles[x, y] != TileType.Floor)
+                    continue;
+
+                if (Math.Abs(x - GridWidth / 2) <= 1 && Math.Abs(y - GridHeight / 2) <= 1)
+                    continue;
+
+                tiles[x, y] = TileType.Mushroom;
             }
 
             return tiles;
@@ -1384,10 +1410,47 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             var count = _random.Next(2 + _currentFloor, Math.Min(7, 5 + _currentFloor));
             for (var i = 0; i < count; i++)
             {
-                var pos = new Vector2(_random.NextSingle() * (GridWidth - 4) + 2f, _random.NextSingle() * (GridHeight - 4) + 2f);
+                if (!TryFindEnemySpawnPosition(room, out var pos))
+                    continue;
+
                 var proto = _random.NextDouble() < 0.25 ? _shooterProto : _chaserProto;
                 room.Enemies.Add(CreateEnemyData(proto, pos, 0));
             }
+        }
+
+        private static bool IsInsideDoorSpawnExclusion(Vector2 position)
+        {
+            var doorCenters = new[]
+            {
+                new Vector2(0f, GridHeight * 0.5f),
+                new Vector2(GridWidth - 1f, GridHeight * 0.5f),
+                new Vector2(GridWidth * 0.5f, 0f),
+                new Vector2(GridWidth * 0.5f, GridHeight - 1f),
+            };
+
+            foreach (var door in doorCenters)
+            {
+                if (MathF.Abs(position.X - door.X) <= DoorSpawnExclusionRadius &&
+                    MathF.Abs(position.Y - door.Y) <= DoorSpawnExclusionRadius)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool TryFindEnemySpawnPosition(RoomData room, out Vector2 position)
+        {
+            for (var attempt = 0; attempt < 30; attempt++)
+            {
+                position = new Vector2(_random.NextSingle() * (GridWidth - 4) + 2f, _random.NextSingle() * (GridHeight - 4) + 2f);
+                if (TouchesBlockedTile(position, room) || IsInsideDoorSpawnExclusion(position))
+                    continue;
+
+                return true;
+            }
+
+            position = default;
+            return false;
         }
 
         #endregion
@@ -1414,6 +1477,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                         TileType.Floor => _floorProto,
                         TileType.Wall => _wallProto,
                         TileType.Obstacle => _obstacleProto,
+                        TileType.Mushroom => _mushroomProto,
                         _ => _floorProto,
                     };
 
@@ -1436,7 +1500,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
                     if (CurrentRoom.Tiles[x, y] == TileType.Door)
                     {
-                        DrawDoor(handle, box, CurrentRoom.DoorTargetOpen, x, y);
+                        DrawDoor(handle, box, CurrentRoom.DoorVisualOpen, x, y);
                     }
                 }
             }
@@ -1729,7 +1793,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             var visualDrop = GetProjectileVisualDrop(projectile);
             var center = mapOffset + (pos + visualDrop) * tilePixel;
-            var size = tilePixel * projectile.Radius * 3f * MathF.Max(0.05f, projectile.SpriteScale);
+            var size = tilePixel * projectile.Radius * 2f * MathF.Max(0.05f, projectile.SpriteScale);
             var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
             var facing = FacingFromVector(projectile.Direction == Vector2.Zero ? projectile.Velocity : projectile.Direction, FacingDirection.Down);
 
@@ -1750,11 +1814,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             var t = (lifeProgress - start) / MathF.Max(0.001f, 1f - start);
             var amount = t * t * MathF.Max(0f, projectile.Prototype.FinalDropDistance);
-            if (projectile.Direction == Vector2.Zero)
-                return new Vector2(0f, amount);
-
-            var normal = new Vector2(-projectile.Direction.Y, projectile.Direction.X);
-            return normal * amount;
+            return new Vector2(0f, amount);
         }
 
         private void DrawFloorExit(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
@@ -1976,6 +2036,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _floorProto = _prototype.Index<DeepMaintenanceTilePrototype>(TileFloorPrototypeId);
             _wallProto = _prototype.Index<DeepMaintenanceTilePrototype>(TileWallPrototypeId);
             _obstacleProto = _prototype.Index<DeepMaintenanceTilePrototype>(TileObstaclePrototypeId);
+            _mushroomProto = _prototype.Index<DeepMaintenanceTilePrototype>(TileMushroomPrototypeId);
             _hasTreasurePrototype = _prototype.TryIndex<DeepMaintenanceTreasurePrototype>(TreasurePrototypeId, out var treasurePrototype);
             if (_hasTreasurePrototype)
                 _treasurePrototype = treasurePrototype!;
@@ -1997,6 +2058,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             WarmupSprite(_wallProto.SpritePath, "solid6");
             WarmupSprite(_wallProto.SpritePath, "solid7");
             WarmupSprite(_obstacleProto.SpritePath, _obstacleProto.SpriteState);
+            WarmupSprite(_mushroomProto.SpritePath, _mushroomProto.SpriteState);
 
             WarmupSprite(_playerProto.SpritePath, _playerProto.SpriteState);
             WarmupSprite(_playerProto.SpritePath, _playerProto.BodySpriteState);
@@ -2668,6 +2730,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             Floor,
             Wall,
             Obstacle,
+            Mushroom,
             Door,
         }
 
@@ -2693,6 +2756,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public bool TreasureRelicTaken;
             public string? TreasureRelicId;
             public bool DoorTargetOpen;
+            public bool DoorVisualOpen;
             public int DoorTransitionTicks;
 
             public RoomData(RoomType type, Vector2i mapPosition, TileType[,] tiles)

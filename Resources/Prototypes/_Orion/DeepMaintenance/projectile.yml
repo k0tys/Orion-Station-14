@@ -8,6 +8,9 @@
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/blood.rsi
   spriteState: icon
   spriteScale: 0.7
+  drag: 0.9
+  gravityScale: 0.2
+  rotateToVelocity: true
 
 - type: deepMaintenanceProjectile
   parent: DeepMaintenanceProjectileBase

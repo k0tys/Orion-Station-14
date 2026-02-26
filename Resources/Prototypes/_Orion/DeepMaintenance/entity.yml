@@ -2,7 +2,9 @@
   id: DeepMaintenanceEntityBase
   abstract: true
   radius: 0.28
-  moveSpeed: 2.4
+  moveSpeed: 2.7
+  moveAcceleration: 20
+  moveFriction: 18
   maxHp: 1
   contactDamage: 1
   shooter: false
@@ -18,7 +20,7 @@
   parent: DeepMaintenanceEntityBase
   id: DeepMaintenancePlayer
   radius: 0.27
-  moveSpeed: 2.5
+  moveSpeed: 2.8
   maxHp: 6
   contactDamage: 0
   shooter: false

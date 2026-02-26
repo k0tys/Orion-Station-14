@@ -9,7 +9,10 @@
   id: DeepMaintenanceRelicClownMask
   hudIconSpritePath: /Textures/Clothing/Mask/clown.rsi
   hudIconSpriteState: icon
-  pinkProjectiles: true
+  projectileTintPalette:
+  - "#FF89D4"
+  - "#FFB7E6"
+  - "#FF5DC3"
 
 - type: deepMaintenanceRelic
   id: DeepMaintenanceRelicMkPistol
@@ -32,7 +35,7 @@
   visualEffectSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/triple-eyes.rsi
   visualEffectSpriteState: overlay
   tripleShotAlternating: true
-  shootCooldownMultiplier: 2.0
+  shootCooldownMultiplier: 1.25
 
 - type: deepMaintenanceRelic
   id: DeepMaintenanceRelicSkeletonSkull
@@ -51,3 +54,5 @@
   meleeDamage: 2
   meleeArcSpritePath: /Textures/Effects/arcs.rsi
   meleeArcSpriteState: disarm
+  meleeArcAnimated: true
+  meleeArcAnimationFps: 14

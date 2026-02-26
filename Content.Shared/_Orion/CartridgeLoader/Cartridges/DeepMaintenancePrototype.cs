@@ -61,6 +61,15 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
 
     [DataField]
     public float SpriteScale = 1f;
+
+    [DataField]
+    public float Drag;
+
+    [DataField]
+    public float GravityScale;
+
+    [DataField]
+    public bool RotateToVelocity;
 }
 
 [Prototype("deepMaintenanceEntity")]
@@ -80,6 +89,12 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
 
     [DataField]
     public float MoveSpeed = 2.4f;
+
+    [DataField]
+    public float MoveAcceleration = 24f;
+
+    [DataField]
+    public float MoveFriction = 18f;
 
     [DataField]
     public int MaxHp = 1;
@@ -179,7 +194,13 @@ public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingProto
     public string? MeleeArcSpriteState;
 
     [DataField]
-    public bool PinkProjectiles;
+    public bool MeleeArcAnimated;
+
+    [DataField]
+    public float MeleeArcAnimationFps = 12f;
+
+    [DataField]
+    public string[]? ProjectileTintPaletteHex;
 
     [DataField]
     public float HalfHeartRestoreChanceOnDamage;

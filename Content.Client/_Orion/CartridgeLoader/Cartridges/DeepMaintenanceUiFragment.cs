@@ -1285,16 +1285,26 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (roomType is RoomType.Start or RoomType.Boss or RoomType.Treasure)
                 return tiles;
 
-            var obstacleCount = _random.Next(2, 5);
-            for (var i = 0; i < obstacleCount; i++)
+            var clusterCount = _random.Next(1, 4);
+            for (var clusterIndex = 0; clusterIndex < clusterCount; clusterIndex++)
             {
                 var x = _random.Next(2, GridWidth - 2);
                 var y = _random.Next(2, GridHeight - 2);
+                var clusterSize = _random.Next(3, 7);
 
-                if (Math.Abs(x - GridWidth / 2) <= 1 && Math.Abs(y - GridHeight / 2) <= 1)
-                    continue;
+                for (var step = 0; step < clusterSize; step++)
+                {
+                    if (x > 1 && x < GridWidth - 1 && y > 1 && y < GridHeight - 1 &&
+                        !IsInsideDoorSpawnExclusion(new Vector2(x + 0.5f, y + 0.5f)) &&
+                        (Math.Abs(x - GridWidth / 2) > 1 || Math.Abs(y - GridHeight / 2) > 1))
+                    {
+                        tiles[x, y] = TileType.Obstacle;
+                    }
 
-                tiles[x, y] = TileType.Obstacle;
+                    var direction = CardinalDirections()[_random.Next(4)];
+                    x = Math.Clamp(x + direction.X, 1, GridWidth - 2);
+                    y = Math.Clamp(y + direction.Y, 1, GridHeight - 2);
+                }
             }
 
             var mushroomCount = _random.Next(1, 4);
@@ -1485,17 +1495,36 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                         mapOffset + new Vector2(x * tilePixel, y * tilePixel),
                         new Vector2(tilePixel, tilePixel));
 
-                    if (CurrentRoom.Tiles[x, y] is TileType.Wall or TileType.Obstacle)
+                    var tileType = CurrentRoom.Tiles[x, y];
+                    switch (tileType)
                     {
-                        DrawConnectedWallTile(handle, box, x, y, tileProto);
-                    }
-                    else if (GetSprite(tileProto.SpritePath, tileProto.SpriteState) is { } texture)
-                    {
-                        handle.DrawTextureRect(texture, box);
-                    }
-                    else
-                    {
-                        handle.DrawRect(box, Color.DimGray);
+                        case TileType.Mushroom:
+                        {
+                            if (GetSprite(_floorProto.SpritePath, _floorProto.SpriteState) is { } floorTexture)
+                                handle.DrawTextureRect(floorTexture, box);
+                            else
+                                handle.DrawRect(box, Color.DimGray);
+
+                            if (GetSprite(_mushroomProto.SpritePath, _mushroomProto.SpriteState) is { } mushroomTexture)
+                                handle.DrawTextureRect(mushroomTexture, box);
+                            break;
+                        }
+                        case TileType.Wall or TileType.Obstacle:
+                            DrawConnectedWallTile(handle, box, x, y, tileProto);
+                            break;
+                        default:
+                        {
+                            if (GetSprite(tileProto.SpritePath, tileProto.SpriteState) is { } texture)
+                            {
+                                handle.DrawTextureRect(texture, box);
+                            }
+                            else
+                            {
+                                handle.DrawRect(box, Color.DimGray);
+                            }
+
+                            break;
+                        }
                     }
 
                     if (CurrentRoom.Tiles[x, y] == TileType.Door)
@@ -1793,7 +1822,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             var visualDrop = GetProjectileVisualDrop(projectile);
             var center = mapOffset + (pos + visualDrop) * tilePixel;
-            var size = tilePixel * projectile.Radius * 2f * MathF.Max(0.05f, projectile.SpriteScale);
+            var size = tilePixel * projectile.Radius * 2f;
             var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
             var facing = FacingFromVector(projectile.Direction == Vector2.Zero ? projectile.Velocity : projectile.Direction, FacingDirection.Down);
 
@@ -1808,7 +1837,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             var initialLifetime = MathF.Max(0.001f, projectile.InitialLifetime);
             var lifeProgress = Math.Clamp(1f - projectile.Lifetime / initialLifetime, 0f, 1f);
-            var start = Math.Clamp(projectile.Prototype.FinalDropStart, 0f, 1f);
+            var start = MathF.Min(0.5f, Math.Clamp(projectile.Prototype.FinalDropStart, 0f, 1f));
             if (lifeProgress <= start)
                 return Vector2.Zero;
 
@@ -2127,7 +2156,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private void ApplySpriteBasedProjectileRadius(string projectilePrototypeId)
         {
             var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(projectilePrototypeId);
-            projectilePrototype.Radius = GetSpriteDrivenRadius(projectilePrototype.Radius, projectilePrototype.SpritePath, projectilePrototype.SpriteState, projectilePrototype.SpriteScale, 0.7f);
+            projectilePrototype.Radius = GetSpriteDrivenRadius(projectilePrototype.Radius, projectilePrototype.SpritePath, projectilePrototype.SpriteState, projectilePrototype.SpriteScale, 1f);
         }
 
         private float GetSpriteDrivenRadius(float configuredRadius, string? spritePath, string? spriteState, float spriteScale, float spriteWeight)
@@ -2406,10 +2435,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return texture;
 
             if (!_resourceCache.TryGetResource<RSIResource>(new ResPath(spritePath), out var resource) ||
-                !resource.RSI.TryGetState(new RSI.StateId(spriteState), out var state))
-                return GetSprite(spritePath, spriteState);
-
-            if (!TryGetDirectionalFrame(state, direction, out texture) &&
+                !resource.RSI.TryGetState(new RSI.StateId(spriteState), out var state) || !TryGetDirectionalFrame(state, direction, out texture) &&
                 !TryGetDirectionalFrame(state, RsiDirection.South, out texture) &&
                 !TryGetDirectionalFrame(state, RsiDirection.North, out texture) &&
                 !TryGetDirectionalFrame(state, RsiDirection.East, out texture) &&
@@ -2490,7 +2516,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return true;
 
             if (room.Tiles[tx, ty] == TileType.Door)
-                return !room.Cleared;
+                return !room.DoorVisualOpen;
 
             return room.Tiles[tx, ty] != TileType.Floor;
         }

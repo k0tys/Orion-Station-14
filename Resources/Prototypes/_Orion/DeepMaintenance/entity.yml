@@ -30,7 +30,7 @@
   spriteState: body
   bodySpriteState: body
   headSpriteState: head
-  shootSpriteState: head
+  shootSpriteState: shoot
 
 # Chaser
 - type: deepMaintenanceEntity

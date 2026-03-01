@@ -230,6 +230,7 @@ namespace Content.Shared.Input
         public static readonly BoundKeyFunction DeepMaintenanceShootDown = "DeepMaintenanceShootDown";
         public static readonly BoundKeyFunction DeepMaintenanceShootLeft = "DeepMaintenanceShootLeft";
         public static readonly BoundKeyFunction DeepMaintenanceShootRight = "DeepMaintenanceShootRight";
+        public static readonly BoundKeyFunction DeepMaintenanceBomb = "DeepMaintenanceBomb";
         // Orion-End
 
         public static readonly BoundKeyFunction OpenActionsMenu = "OpenAbilitiesMenu";

@@ -119,7 +119,7 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     public float? ShootCooldownSeconds;
 
     [DataField]
-    public string ProjectilePrototype = "DeepMaintenanceProjectilePlayer";
+    public string ProjectilePrototype = "ProjectilePlayer";
 
     [DataField]
     public bool CanStrafe;
@@ -275,9 +275,17 @@ public sealed class DeepMaintenanceTreasurePrototype : IPrototype, IInheritingPr
 }
 
 [Prototype("deepMaintenanceDoor")]
-public sealed class DeepMaintenanceDoorPrototype : IPrototype
+public sealed class DeepMaintenanceDoorPrototype : IPrototype, IInheritingPrototype
 {
-    [IdDataField] public string ID { get; } = default!;
+    [ParentDataField(typeof(AbstractPrototypeIdArraySerializer<DeepMaintenanceDoorPrototype>))]
+    public string[]? Parents { get; }
+
+    [NeverPushInheritance]
+    [AbstractDataField]
+    public bool Abstract { get; }
+
+    [IdDataField]
+    public string ID { get; } = default!;
 
     [DataField(required: true)]
     public string SpritePath = default!;
@@ -298,6 +306,32 @@ public sealed class DeepMaintenanceDoorPrototype : IPrototype
     public float TransitionDuration = 0.2f;
 }
 
+[Prototype("deepMaintenancePickup")]
+public sealed class DeepMaintenancePickupPrototype : IPrototype, IInheritingPrototype
+{
+    [ParentDataField(typeof(AbstractPrototypeIdArraySerializer<DeepMaintenancePickupPrototype>))]
+    public string[]? Parents { get; }
+
+    [NeverPushInheritance]
+    [AbstractDataField]
+    public bool Abstract { get; }
+
+    [IdDataField]
+    public string ID { get; } = default!;
+
+    [DataField("pickupType", required: true)]
+    public string PickupType = default!;
+
+    [DataField(required: true)]
+    public string SpritePath = default!;
+
+    [DataField(required: true)]
+    public string SpriteState = default!;
+
+    [DataField]
+    public float SpriteScale = 1f;
+}
+
 [Prototype("deepMaintenanceModifier")]
 public sealed class DeepMaintenanceModifierPrototype : IPrototype, IInheritingPrototype
 {
@@ -308,7 +342,8 @@ public sealed class DeepMaintenanceModifierPrototype : IPrototype, IInheritingPr
     [AbstractDataField]
     public bool Abstract { get; }
 
-    [IdDataField] public string ID { get; } = default!;
+    [IdDataField]
+    public string ID { get; } = default!;
 
     [DataField]
     public float ProjectileScaleMultiplier = 1f;

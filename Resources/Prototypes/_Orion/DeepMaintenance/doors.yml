@@ -1,5 +1,5 @@
 - type: deepMaintenanceDoor
-  id: DeepMaintenanceDoorNormal
+  id: DoorNormal
   spritePath: /Textures/Structures/Doors/Airlocks/Standard/maint.rsi
   closedState: closed
   openState: open
@@ -8,7 +8,7 @@
   transitionDuration: 0.2
 
 - type: deepMaintenanceDoor
-  id: DeepMaintenanceDoorTreasure
+  id: DoorTreasure
   spritePath: /Textures/Structures/Doors/Airlocks/Standard/command.rsi
   closedState: closed
   openState: open
@@ -17,7 +17,7 @@
   transitionDuration: 0.2
 
 - type: deepMaintenanceDoor
-  id: DeepMaintenanceDoorBoss
+  id: DoorBoss
   spritePath: /Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi
   closedState: closed
   openState: open

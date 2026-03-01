@@ -2,33 +2,33 @@
   id: DeepMaintenanceTreasureLootTable
   table: !type:GroupSelector
     children:
-    - id: DeepMaintenanceRelicClownMask
-    - id: DeepMaintenanceRelicMkPistol
-    - id: DeepMaintenanceRelicReadingGlasses
-    - id: DeepMaintenanceRelicTripleEyes
-    - id: DeepMaintenanceRelicSkeletonSkull
-    - id: DeepMaintenanceRelicRedToolbox
+    - id: RelicClownMask
+    - id: RelicMkPistol
+    - id: RelicReadingGlasses
+    - id: RelicTripleEyes
+    - id: RelicSkeletonSkull
+    - id: RelicRedToolbox
 
 - type: entity
-  id: DeepMaintenanceRelicClownMask
+  id: RelicClownMask
   categories: [ HideSpawnMenu ]
 
 - type: entity
-  id: DeepMaintenanceRelicMkPistol
+  id: RelicMkPistol
   categories: [ HideSpawnMenu ]
 
 - type: entity
-  id: DeepMaintenanceRelicReadingGlasses
+  id: RelicReadingGlasses
   categories: [ HideSpawnMenu ]
 
 - type: entity
-  id: DeepMaintenanceRelicTripleEyes
+  id: RelicTripleEyes
   categories: [ HideSpawnMenu ]
 
 - type: entity
-  id: DeepMaintenanceRelicSkeletonSkull
+  id: RelicSkeletonSkull
   categories: [ HideSpawnMenu ]
 
 - type: entity
-  id: DeepMaintenanceRelicRedToolbox
+  id: RelicRedToolbox
   categories: [ HideSpawnMenu ]

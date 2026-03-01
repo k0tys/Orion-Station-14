@@ -1,34 +1,34 @@
 - type: deepMaintenanceTile
-  id: DeepMaintenanceTileBase
+  id: TileBase
   abstract: true
   solid: false
   spriteLayer: 0
 
 - type: deepMaintenanceTile
-  parent: DeepMaintenanceTileBase
-  id: DeepMaintenanceFloor
+  parent: TileBase
+  id: Floor
   spritePath: /Textures/_Orion/DeepMaintenance/Tiles/steel_dirty.rsi
   spriteState: steel_dirty
 
 # Walls of the edge of the field
 - type: deepMaintenanceTile
-  parent: DeepMaintenanceTileBase
-  id: DeepMaintenanceWall
+  parent: TileBase
+  id: Wall
   solid: true
   spritePath: /Textures/Structures/Walls/solid_rust.rsi
   spriteState: full
 
 # Walls on the field
 - type: deepMaintenanceTile
-  parent: DeepMaintenanceTileBase
-  id: DeepMaintenanceObstacle
+  parent: TileBase
+  id: Obstacle
   solid: true
   spritePath: /Textures/Structures/Walls/solid_rust.rsi
   spriteState: full
 
 - type: deepMaintenanceTile
-  parent: DeepMaintenanceTileBase
-  id: DeepMaintenanceMushroom
+  parent: TileBase
+  id: Mushroom
   solid: true
   spritePath: /Textures/Objects/Misc/spaceshroom.rsi
   spriteState: structure

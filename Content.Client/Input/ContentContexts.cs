@@ -171,6 +171,7 @@ namespace Content.Client.Input
             human.AddFunction(ContentKeyFunctions.DeepMaintenanceShootDown);
             human.AddFunction(ContentKeyFunctions.DeepMaintenanceShootLeft);
             human.AddFunction(ContentKeyFunctions.DeepMaintenanceShootRight);
+            human.AddFunction(ContentKeyFunctions.DeepMaintenanceBomb);
             human.AddFunction(ContentKeyFunctions.TogglePosing);
             // Orion-End
             // Shitmed Change Start - TODO: Add hands, feet and groin targeting.

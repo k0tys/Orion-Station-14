@@ -1,32 +1,25 @@
 - type: deepMaintenanceProjectile
-  id: DeepMaintenanceProjectileBase
+  id: ProjectileBase
   abstract: true
-  radius: 0.025
-  speed: 5
+  speed: 5.4
   damage: 1
   lifetime: 2.2
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/blood.rsi
   spriteState: icon
-  spriteScale: 0.8
+  spriteScale: 1.25
   drag: 0.7
   rotateToVelocity: true
 
 - type: deepMaintenanceProjectile
-  parent: DeepMaintenanceProjectileBase
-  id: DeepMaintenanceProjectilePlayer
-  speed: 5
+  parent: ProjectileBase
+  id: ProjectilePlayer
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/tear.rsi
   spriteState: icon
 
 - type: deepMaintenanceProjectile
-  parent: DeepMaintenanceProjectileBase
-  id: DeepMaintenanceProjectileEnemy
-  speed: 5
+  parent: ProjectileBase
+  id: ProjectileEnemy
 
 - type: deepMaintenanceProjectile
-  parent: DeepMaintenanceProjectileBase
-  id: DeepMaintenanceProjectileBoss
-  radius: 0.11
-  speed: 5
-  damage: 1
-  lifetime: 3.0
+  parent: ProjectileBase
+  id: ProjectileBoss

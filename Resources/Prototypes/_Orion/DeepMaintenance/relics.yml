@@ -1,5 +1,5 @@
 - type: deepMaintenanceTreasure
-  id: DeepMaintenanceTreasureConfig
+  id: TreasureConfig
   closedCrateSpritePath: /Textures/_Orion/DeepMaintenance/Crates/treasure.rsi
   closedCrateSpriteState: closed
   openCrateSpriteState: open
@@ -10,22 +10,23 @@
   relicAppearRise: 0.28
 
 - type: deepMaintenanceRelic
-  id: DeepMaintenanceRelicClownMask
+  id: RelicClownMask
   hudIconSpritePath: /Textures/Clothing/Mask/clown.rsi
   hudIconSpriteState: icon
-  projectileTintPalette:
-  - "#FF89D4"
-  - "#FFB7E6"
-  - "#FF5DC3"
+  projectileTintPaletteHex:
+  - "#FF69B4"
+  - "#FF1493"
+  - "#C71585"
+  - "#DB7093"
 
 - type: deepMaintenanceRelic
-  id: DeepMaintenanceRelicMkPistol
+  id: RelicMkPistol
   hudIconSpritePath: /Textures/Objects/Weapons/Guns/Pistols/mk58.rsi
   hudIconSpriteState: icon
   projectileSpeedMultiplier: 1.45
 
 - type: deepMaintenanceRelic
-  id: DeepMaintenanceRelicReadingGlasses
+  id: RelicReadingGlasses
   hudIconSpritePath: /Textures/Clothing/Eyes/Glasses/glasses.rsi
   hudIconSpriteState: icon
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/reading-glasses.rsi
@@ -33,7 +34,7 @@
   damageFlatBonus: 0.75
 
 - type: deepMaintenanceRelic
-  id: DeepMaintenanceRelicTripleEyes
+  id: RelicTripleEyes
   hudIconSpritePath: /Textures/Mobs/Species/Arachnid/organs.rsi
   hudIconSpriteState: eyeball-l
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/triple-eyes.rsi
@@ -42,7 +43,7 @@
   shootCooldownMultiplier: 1.25
 
 - type: deepMaintenanceRelic
-  id: DeepMaintenanceRelicSkeletonSkull
+  id: RelicSkeletonSkull
   hudIconSpritePath: /Textures/Clothing/Head/Bandanas/skull.rsi
   hudIconSpriteState: icon
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/skull.rsi
@@ -50,7 +51,7 @@
   halfHeartRestoreChanceOnDamage: 0.05
 
 - type: deepMaintenanceRelic
-  id: DeepMaintenanceRelicRedToolbox
+  id: RelicRedToolbox
   hudIconSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
   hudIconSpriteState: icon
   meleeOnShoot: true

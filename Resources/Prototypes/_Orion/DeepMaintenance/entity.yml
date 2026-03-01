@@ -1,5 +1,5 @@
 - type: deepMaintenanceEntity
-  id: DeepMaintenanceEntityBase
+  id: EntityBase
   abstract: true
   radius: 0.28
   moveSpeed: 2.7
@@ -9,7 +9,7 @@
   contactDamage: 1
   shooter: false
   shootCooldownTicks: 8
-  projectilePrototype: DeepMaintenanceProjectileEnemy
+  projectilePrototype: ProjectileEnemy
   canStrafe: false
   isBoss: false
   spriteLayer: 0
@@ -17,15 +17,15 @@
 
 # Player entity
 - type: deepMaintenanceEntity
-  parent: DeepMaintenanceEntityBase
-  id: DeepMaintenancePlayer
+  parent: EntityBase
+  id: Player
   radius: 0.27
   moveSpeed: 2.8
   maxHp: 6
   contactDamage: 0
   shooter: false
-  shootCooldownSeconds: 0.73
-  projectilePrototype: DeepMaintenanceProjectilePlayer
+  shootCooldownSeconds: 0.66
+  projectilePrototype: ProjectilePlayer
   spritePath: /Textures/_Orion/DeepMaintenance/Entity/player.rsi
   spriteState: body
   bodySpriteState: body
@@ -34,8 +34,8 @@
 
 # Chaser
 - type: deepMaintenanceEntity
-  parent: DeepMaintenanceEntityBase
-  id: DeepMaintenanceChaser
+  parent: EntityBase
+  id: Chaser
   radius: 0.27
   moveSpeed: 2
   maxHp: 2
@@ -47,15 +47,15 @@
 
 # Shooter
 - type: deepMaintenanceEntity
-  parent: DeepMaintenanceEntityBase
-  id: DeepMaintenanceShooter
+  parent: EntityBase
+  id: Shooter
   radius: 0.30
   moveSpeed: 2
   maxHp: 3
   shooter: true
   canStrafe: true
   shootCooldownTicks: 15
-  projectilePrototype: DeepMaintenanceProjectileEnemy
+  projectilePrototype: ProjectileEnemy
   spritePath: /Textures/_Orion/DeepMaintenance/Entity/shooter.rsi
   spriteState: body
   bodySpriteState: body
@@ -64,8 +64,8 @@
 
 # Boss
 - type: deepMaintenanceEntity
-  parent: DeepMaintenanceEntityBase
-  id: DeepMaintenanceBoss
+  parent: EntityBase
+  id: Boss
   radius: 0.36
   moveSpeed: 2.3
   maxHp: 10
@@ -73,7 +73,7 @@
   canStrafe: true
   isBoss: true
   shootCooldownTicks: 13
-  projectilePrototype: DeepMaintenanceProjectileBoss
+  projectilePrototype: ProjectileBoss
   spritePath: /Textures/_Orion/DeepMaintenance/Entity/boss.rsi
   spriteState: body
   bodySpriteState: body

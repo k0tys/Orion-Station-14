@@ -1,0 +1,20 @@
+- type: deepMaintenancePickup
+  id: PickupCoin
+  pickupType: Coin
+  spritePath: /Textures/Objects/Misc/coins.rsi
+  spriteState: coin_gold
+  spriteScale: 1.5
+
+- type: deepMaintenancePickup
+  id: PickupBomb
+  pickupType: Bomb
+  spritePath: /Textures/Objects/Weapons/Bombs/c4.rsi
+  spriteState: icon
+  spriteScale: 1.5
+
+- type: deepMaintenancePickup
+  id: PickupHeart
+  pickupType: Heart
+  spritePath: /Textures/_Orion/DeepMaintenance/HUD/hearts.rsi
+  spriteState: full
+  spriteScale: 1

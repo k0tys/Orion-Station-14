@@ -702,6 +702,10 @@ binds:
   type: State
   key: Right
   priority: -2
+- function: DeepMaintenanceBomb
+  type: State
+  key: E
+  priority: -2
 # Orion-End
 - function: ToggleKnockdown
   type: State

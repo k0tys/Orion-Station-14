@@ -5,3 +5,5 @@ deep-maintenance-ui-status-victory = Победа!
 deep-maintenance-ui-status-game-over = Поражение. Нажмите рестарт.
 deep-maintenance-ui-status-paused = Пауза
 deep-maintenance-ui-status-controls = WASD — движение, стрелки — стрельба
+
+deep-maintenance-boss-name-boss = Жируха Бонзи

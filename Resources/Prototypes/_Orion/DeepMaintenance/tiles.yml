@@ -10,7 +10,6 @@
   spritePath: /Textures/_Orion/DeepMaintenance/Tiles/steel_dirty.rsi
   spriteState: steel_dirty
 
-# Walls of the edge of the field
 - type: deepMaintenanceTile
   parent: TileBase
   id: Wall
@@ -18,7 +17,6 @@
   spritePath: /Textures/Structures/Walls/solid_rust.rsi
   spriteState: full
 
-# Walls on the field
 - type: deepMaintenanceTile
   parent: TileBase
   id: Obstacle
@@ -29,6 +27,57 @@
 - type: deepMaintenanceTile
   parent: TileBase
   id: Mushroom
+  solid: true
+  spritePath: /Textures/Objects/Misc/spaceshroom.rsi
+  spriteState: structure
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: FloorThemeTechDark
+  spritePath: /Textures/_Orion/DeepMaintenance/Tiles/tech_maint_dark.rsi
+  spriteState: tech_maint_dark
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: FloorThemeBasalt
+  spritePath: /Textures/Tiles/Planet/basalt.rsi
+  spriteState: basalt1
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: FloorThemeDirt
+  spritePath: /Textures/Tiles/Planet/dirt.rsi
+  spriteState: dirt
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: FloorThemeDesert
+  spritePath: /Textures/Tiles/Planet/Desert
+  spriteState: desert
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: FloorThemeSnow
+  spritePath: /Textures/Tiles/Planet/Snow
+  spriteState: snow
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: WallThemeSteel
+  solid: true
+  spritePath: /Textures/Structures/Walls/solid.rsi
+  spriteState: full
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: ObstacleThemeSteel
+  solid: true
+  spritePath: /Textures/Structures/Walls/solid.rsi
+  spriteState: full
+
+- type: deepMaintenanceTile
+  parent: TileBase
+  id: MushroomThemeAlt
   solid: true
   spritePath: /Textures/Objects/Misc/spaceshroom.rsi
   spriteState: structure

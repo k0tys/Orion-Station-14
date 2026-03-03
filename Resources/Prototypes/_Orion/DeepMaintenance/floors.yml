@@ -1,0 +1,143 @@
+- type: deepMaintenanceFloor
+  id: FloorConfigBase
+  abstract: true
+  floorTile: Floor
+  wallTile: Wall
+  obstacleTile: Obstacle
+  mushroomTile: Mushroom
+  doorNormal: DoorNormal
+  doorTreasure: DoorTreasure
+  doorBoss: DoorBoss
+  baseLight: 0.72
+  bossRoomBaseLight: 0.35
+  shopRoomBaseLight: 0.86
+  vignetteStrength: 0.2
+  playerLightRadius: 3.8
+  playerLightStrength: 0.5
+
+- type: deepMaintenanceFloor
+  parent: FloorConfigBase
+  id: FloorConfig1
+  floorNumber: 1
+  floorTile: Floor
+  wallTile: Wall
+  obstacleTile: Obstacle
+  mushroomTile: Mushroom
+  doorNormal: DoorFloor1
+  doorTreasure: DoorTreasureFloor1
+  doorBoss: DoorBossFloor1
+  enemyPool:
+  - entity: Chaser
+    weight: 4
+  - entity: Shooter
+    weight: 2
+  bossPool:
+  - entity: Boss
+    weight: 1
+
+- type: deepMaintenanceFloor
+  parent: FloorConfigBase
+  id: FloorConfig2
+  floorNumber: 2
+  floorTile: FloorThemeTechDark
+  wallTile: WallThemeSteel
+  obstacleTile: ObstacleThemeSteel
+  mushroomTile: Mushroom
+  doorNormal: DoorFloor2
+  doorTreasure: DoorTreasureFloor2
+  doorBoss: DoorBossFloor2
+  enemyPool:
+  - entity: Chaser
+    weight: 3
+  - entity: Shooter
+    weight: 3
+  bossPool:
+  - entity: Boss
+    weight: 1
+
+- type: deepMaintenanceFloor
+  parent: FloorConfigBase
+  id: FloorConfig3
+  floorNumber: 3
+  floorTile: FloorThemeBasalt
+  wallTile: Wall
+  obstacleTile: ObstacleThemeSteel
+  mushroomTile: MushroomThemeAlt
+  doorNormal: DoorFloor3
+  doorTreasure: DoorTreasureFloor3
+  doorBoss: DoorBossFloor3
+  enemyPool:
+  - entity: Chaser
+    weight: 2
+  - entity: Shooter
+    weight: 4
+  bossPool:
+  - entity: Boss
+    weight: 1
+
+- type: deepMaintenanceFloor
+  parent: FloorConfigBase
+  id: FloorConfig4
+  floorNumber: 4
+  baseLight: 0.66
+  vignetteStrength: 0.26
+  floorTile: FloorThemeDirt
+  wallTile: WallThemeSteel
+  obstacleTile: Obstacle
+  mushroomTile: Mushroom
+  doorNormal: DoorFloor4
+  doorTreasure: DoorTreasureFloor4
+  doorBoss: DoorBossFloor4
+  enemyPool:
+  - entity: Chaser
+    weight: 3
+  - entity: Shooter
+    weight: 5
+  bossPool:
+  - entity: Boss
+    weight: 1
+
+- type: deepMaintenanceFloor
+  parent: FloorConfigBase
+  id: FloorConfig5
+  floorNumber: 5
+  baseLight: 0.62
+  vignetteStrength: 0.3
+  floorTile: FloorThemeDesert
+  wallTile: Wall
+  obstacleTile: ObstacleThemeSteel
+  mushroomTile: MushroomThemeAlt
+  doorNormal: DoorFloor5
+  doorTreasure: DoorTreasureFloor5
+  doorBoss: DoorBossFloor5
+  enemyPool:
+  - entity: Chaser
+    weight: 2
+  - entity: Shooter
+    weight: 6
+  bossPool:
+  - entity: Boss
+    weight: 1
+
+- type: deepMaintenanceFloor
+  parent: FloorConfigBase
+  id: FloorConfig6
+  floorNumber: 6
+  baseLight: 0.58
+  bossRoomBaseLight: 0.22
+  vignetteStrength: 0.34
+  floorTile: FloorThemeSnow
+  wallTile: WallThemeSteel
+  obstacleTile: Obstacle
+  mushroomTile: MushroomThemeAlt
+  doorNormal: DoorFloor6
+  doorTreasure: DoorTreasureFloor6
+  doorBoss: DoorBossFloor6
+  enemyPool:
+  - entity: Chaser
+    weight: 1
+  - entity: Shooter
+    weight: 7
+  bossPool:
+  - entity: Boss
+    weight: 1

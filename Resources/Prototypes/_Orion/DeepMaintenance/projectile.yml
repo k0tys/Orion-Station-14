@@ -6,7 +6,7 @@
   lifetime: 2.2
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/blood.rsi
   spriteState: icon
-  spriteScale: 1.25
+  spriteScale: 0.70
   drag: 0.7
   rotateToVelocity: true
 

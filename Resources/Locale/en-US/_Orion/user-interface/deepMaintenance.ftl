@@ -5,3 +5,5 @@ deep-maintenance-ui-status-victory = Victory!
 deep-maintenance-ui-status-game-over = Game over. Press restart.
 deep-maintenance-ui-status-paused = Paused
 deep-maintenance-ui-status-controls = WASD = move, Arrows = shoot
+
+deep-maintenance-boss-name-boss = Fat Bonzi

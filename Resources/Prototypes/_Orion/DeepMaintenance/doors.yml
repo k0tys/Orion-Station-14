@@ -1,5 +1,5 @@
 - type: deepMaintenanceDoor
-  id: DoorNormal
+  id: BaseDoor
   spritePath: /Textures/Structures/Doors/Airlocks/Standard/maint.rsi
   closedState: closed
   openState: open
@@ -8,19 +8,101 @@
   transitionDuration: 0.2
 
 - type: deepMaintenanceDoor
+  parent: BaseDoor
   id: DoorTreasure
   spritePath: /Textures/Structures/Doors/Airlocks/Standard/command.rsi
-  closedState: closed
-  openState: open
-  openingState: opening
-  closingState: closing
-  transitionDuration: 0.2
 
 - type: deepMaintenanceDoor
+  parent: BaseDoor
   id: DoorBoss
   spritePath: /Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi
-  closedState: closed
-  openState: open
-  openingState: opening
-  closingState: closing
-  transitionDuration: 0.2
+
+- type: deepMaintenanceDoor
+  parent: BaseDoor
+  id: DoorFloor1
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/maint.rsi
+
+- type: deepMaintenanceDoor
+  parent: BaseDoor
+  id: DoorFloor2
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/engineering.rsi
+
+- type: deepMaintenanceDoor
+  parent: BaseDoor
+  id: DoorFloor3
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/medical.rsi
+
+- type: deepMaintenanceDoor
+  parent: BaseDoor
+  id: DoorFloor4
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/security.rsi
+
+- type: deepMaintenanceDoor
+  parent: BaseDoor
+  id: DoorFloor5
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/atmospherics.rsi
+
+- type: deepMaintenanceDoor
+  parent: BaseDoor
+  id: DoorFloor6
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/virology.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorTreasure
+  id: DoorTreasureFloor1
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/command.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorTreasure
+  id: DoorTreasureFloor2
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/hydroponics.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorTreasure
+  id: DoorTreasureFloor3
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/chemistry.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorTreasure
+  id: DoorTreasureFloor4
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/mining.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorTreasure
+  id: DoorTreasureFloor5
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/freezer.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorTreasure
+  id: DoorTreasureFloor6
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/centcomm.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorBoss
+  id: DoorBossFloor1
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/syndicate.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorBoss
+  id: DoorBossFloor2
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/shuttle_syndicate.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorBoss
+  id: DoorBossFloor3
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/external.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorBoss
+  id: DoorBossFloor4
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/firelock.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorBoss
+  id: DoorBossFloor5
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/salvage.rsi
+
+- type: deepMaintenanceDoor
+  parent: DoorBoss
+  id: DoorBossFloor6
+  spritePath: /Textures/Structures/Doors/Airlocks/Standard/clockwork_pinion.rsi

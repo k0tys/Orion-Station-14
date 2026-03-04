@@ -1,7 +1,7 @@
 using Content.Client.UserInterface.Fragments;
 using Robust.Client.UserInterface;
 
-namespace Content.Client._Orion.CartridgeLoader.Cartridges;
+namespace Content.Client._Orion.CartridgeLoader.Cartridges.DeepMaintenance;
 
 public sealed partial class DeepMaintenanceUi : UIFragment
 {

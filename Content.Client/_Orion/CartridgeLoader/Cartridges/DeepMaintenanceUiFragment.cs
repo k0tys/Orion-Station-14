@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Numerics;
+using Content.Client.Resources;
 using Content.Shared._Orion.CartridgeLoader.Cartridges;
 using Content.Shared.CCVar;
 using Content.Shared.EntityTable;
@@ -79,7 +80,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
     private void UpdateHud()
     {
-        _hud.Text = Loc.GetString("deep-maintenance-ui-hud", ("room", _game.RoomIndex + 1), ("rooms", _game.RoomCount), ("enemies", _game.AliveEnemies), ("floor", _game.Floor), ("coins", _game.Coins), ("bombs", _game.Bombs));
+        _hud.Text = Loc.GetString("deep-maintenance-ui-hud", ("room", _game.RoomIndex + 1), ("rooms", _game.RoomCount), ("enemies", _game.AliveEnemies), ("floor", _game.Floor), ("coins", _game.Coins), ("keys", _game.Keys), ("bombs", _game.Bombs));
         _status.Text = _game.BossName == null
             ? _game.Status
             : $"{_game.Status} | {_game.BossName}: {_game.BossHp}/{_game.BossMaxHp}";
@@ -110,6 +111,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private readonly List<ProjectileData> _playerProjectiles = new();
         private readonly List<ProjectileData> _enemyProjectiles = new();
         private readonly HashSet<int> _visitedRooms = new();
+        private readonly HashSet<int> _knownRooms = new();
+        private readonly HashSet<string> _runSeenRelicIds = new();
 
         private readonly DeepMaintenanceInputState _inputState;
 
@@ -155,6 +158,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private float _meleeSwingTimer;
         private float _animationClock;
         private FacingDirection _meleeSwingFacing = FacingDirection.Down;
+        private float _emoteTimer;
+
+        private readonly Font _shopPriceFont;
 
         private Vector2? _treasureBoxPosition;
         private bool _treasureBoxOpened;
@@ -170,8 +176,26 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private bool _debugHitboxes;
 
         private int _coins;
+        private int _keys;
         private int _bombs;
         private readonly List<BombData> _activeBombs = new();
+        private float _chainLightningAccumulator;
+        private bool _tookDamageInRoom;
+        private float _electroRakRoomFireRateBonus;
+        private int _electroRakDamageTriggersInRoom;
+        private float _rhythmicKnifeBonus;
+        private bool _nextShotLeftEye = true;
+        private bool _claymoreCharging;
+        private float _claymoreChargeTimer;
+        private Vector2 _claymoreChargeDirection = Vector2.UnitX;
+
+        private readonly List<FamiliarData> _familiars = new();
+        private readonly List<BloodTrailData> _bloodTrails = new();
+        private Vector2 _lastPlayerShotDirection = Vector2.UnitX;
+        private float _roomKillDamageBonus;
+        private float _floorDamageBonus;
+        private int _floorDamageBonusStacks;
+        private int _roomsEnteredCounter;
 
         private const int GridWidth = 12;
         private const int GridHeight = 11;
@@ -193,7 +217,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const int EnemyAvoidanceLockTicks = 8;
         private const float EnemyAvoidanceCheckDistance = 0.8f;
 
-        private const int MaxBombs = 9;
+        private const int MaxBombs = 99;
+        private const int MaxKeys = 99;
         private const float BombTimerSeconds = 1.35f;
         private const float BombExplosionRadius = 1.65f;
         private const int BombEnemyDamage = 4;
@@ -205,6 +230,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private const int RoomClearCoinMin = 1;
         private const int RoomClearCoinMax = 3;
         private const int ShopSlotCount = 3;
+        private const float EmoteAnimationDuration = 0.45f;
+        private const string EmotePlaceholderState = "emote";
 
         private const float TreasureObjectRadius = 0.34f;
         private const double TreasureEnemySpawnChance = 0.1;
@@ -241,6 +268,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private static readonly SoundSpecifier SfxPlayerDamage = new SoundPathSpecifier("/Audio/Effects/hit_kick.ogg");
         private static readonly SoundSpecifier SfxEnemyDeath = new SoundPathSpecifier("/Audio/Effects/bodyfall1.ogg");
         private static readonly SoundSpecifier SfxPlayerDeath = new SoundPathSpecifier("/Audio/Effects/tesla_collapse.ogg");
+        private static readonly SoundSpecifier SfxPlayerEmote = new SoundPathSpecifier("/Audio/Effects/pop_expl.ogg");
 
         private const string HeartSpritePath = "/Textures/_Orion/DeepMaintenance/HUD/hearts.rsi";
         private const string HeartFullState = "full";
@@ -263,6 +291,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         public int RoomCount => _rooms.Count;
         public int Coins => _coins;
         public int Bombs => _bombs;
+        public int Keys => _keys;
         public int Floor => _currentFloor;
         public int AliveEnemies
         {
@@ -287,13 +316,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         public int BossHp => GetCurrentBoss()?.Hp ?? 0;
         public int BossMaxHp => GetCurrentBoss()?.Prototype.MaxHp ?? 0;
 
-        public string Status => _victory
-            ? Loc.GetString("deep-maintenance-ui-status-victory")
-            : _gameOver
-                ? Loc.GetString("deep-maintenance-ui-status-game-over")
-                : _paused
-                    ? Loc.GetString("deep-maintenance-ui-status-paused")
-                    : Loc.GetString("deep-maintenance-ui-status-controls");
+        public string Status
+        {
+            get
+            {
+                var baseStatus = _victory
+                    ? Loc.GetString("deep-maintenance-ui-status-victory")
+                    : _gameOver
+                        ? Loc.GetString("deep-maintenance-ui-status-game-over")
+                        : _paused
+                            ? Loc.GetString("deep-maintenance-ui-status-paused")
+                            : Loc.GetString("deep-maintenance-ui-status-controls");
+
+                return baseStatus;
+            }
+        }
 
         private RoomData CurrentRoom => _rooms[RoomIndex];
 
@@ -306,6 +343,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _audio = _entity.System<AudioSystem>();
             _entityTable = _entity.System<EntityTableSystem>();
             _inputState = new DeepMaintenanceInputState(_input);
+            _shopPriceFont = _resourceCache.GetFont("/Fonts/NotoSans/NotoSans-Bold.ttf", 10);
 
             CanKeyboardFocus = true;
             KeyboardFocusOnClick = true;
@@ -357,6 +395,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                     if (function == ContentKeyFunctions.DeepMaintenanceBomb)
                         TryPlaceBomb();
 
+                    if (function == ContentKeyFunctions.Arcade3)
+                        TriggerEmote();
+
                     keyEvent.Handle();
                     break;
                 case KeyEventType.Up:
@@ -381,6 +422,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             _rooms.Clear();
             _visitedRooms.Clear();
+            _knownRooms.Clear();
+            _runSeenRelicIds.Clear();
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
             _playerVelocity = Vector2.Zero;
@@ -407,6 +450,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _heartDamageFlash = 0f;
             _playerDamageFlash = 0f;
             _meleeSwingTimer = 0f;
+            _emoteTimer = 0f;
             _floorExitSpawned = false;
             _floorExitPosition = null;
             _treasureOpeningAnimation = false;
@@ -416,7 +460,26 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _treasureRelicPickupGraceTimer = 0f;
             _treasureRelicAppearTimer = 0f;
             _coins = 0;
+            _keys = 0;
             _bombs = 1;
+            _chainLightningAccumulator = 0f;
+            _tookDamageInRoom = false;
+            _electroRakRoomFireRateBonus = 0f;
+            _electroRakDamageTriggersInRoom = 0;
+            _roomKillDamageBonus = 0f;
+            _claymoreCharging = false;
+            _claymoreChargeTimer = 0f;
+            _rhythmicKnifeBonus = 0f;
+            _nextShotLeftEye = true;
+            _claymoreCharging = false;
+            _claymoreChargeTimer = 0f;
+            _familiars.Clear();
+            _bloodTrails.Clear();
+            _lastPlayerShotDirection = Vector2.UnitX;
+            _roomKillDamageBonus = 0f;
+            _floorDamageBonus = 0f;
+            _floorDamageBonusStacks = 0;
+            _roomsEnteredCounter = 0;
 
             ApplyFloorTheme(_currentFloor);
             GenerateMap();
@@ -457,6 +520,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (args.Function == ContentKeyFunctions.DeepMaintenanceBomb)
                 TryPlaceBomb();
 
+            if (args.Function == ContentKeyFunctions.Arcade3)
+                TriggerEmote();
+
             args.Handle();
         }
 
@@ -493,6 +559,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (_playerDamageFlash > 0f)
                 _playerDamageFlash = MathF.Max(0f, _playerDamageFlash - args.DeltaSeconds);
 
+            if (_emoteTimer > 0f)
+                _emoteTimer = MathF.Max(0f, _emoteTimer - args.DeltaSeconds);
+
             _accumulator += args.DeltaSeconds;
             while (_accumulator >= TickSeconds)
             {
@@ -518,11 +587,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             TickMeleeSwing(dt);
             TickTreasureAnimations(dt);
             TickEnemies(dt);
+            TickChainLightning(dt);
+            TickFamiliars(dt);
+            TickBloodTrails(dt);
             TickProjectiles(_playerProjectiles, true, dt);
             TickProjectiles(_enemyProjectiles, false, dt);
             TickBombs(dt);
             TickPickupAnimations(dt);
             HandleContactDamage();
+            HandleEnemyDeaths();
             HandlePickups();
             HandleShopPurchases();
             HandleTreasureInteractions();
@@ -566,7 +639,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (_activeBombs.Any(b => Vector2.Distance(b.Position, _playerPos) <= 0.45f))
                 return;
 
-            _bombs = Math.Max(0, _bombs - 1);
+            if (!TryConsumeResource(ResourceType.Bomb, 1))
+                return;
+
             _activeBombs.Add(new BombData(_playerPos, BombTimerSeconds));
             StateChanged?.Invoke();
         }
@@ -615,10 +690,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 switch (pickup.Type)
                 {
                     case PickupType.Coin:
-                        _coins += pickup.Amount;
+                        AddResource(ResourceType.Coin, pickup.Amount);
                         break;
                     case PickupType.Bomb:
-                        _bombs = Math.Clamp(_bombs + pickup.Amount, 0, MaxBombs);
+                        AddResource(ResourceType.Bomb, pickup.Amount);
+                        break;
+                    case PickupType.Key:
+                        AddResource(ResourceType.Key, pickup.Amount);
                         break;
                     case PickupType.Heart:
                         SetPlayerHealth(PlayerHp + pickup.Amount, MaxPlayerHp);
@@ -644,10 +722,10 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 if (Vector2.Distance(_playerPos, slot.Position) > ShopPurchaseRadius + _playerProto.Radius)
                     continue;
 
-                if (_coins < slot.Price)
+                var effectivePrice = ApplyPriceModifiers(slot.Price);
+                if (!TryConsumeResource(ResourceType.Coin, effectivePrice))
                     continue;
 
-                _coins -= slot.Price;
                 ApplyShopPurchase(slot);
                 slot.Sold = true;
                 StateChanged?.Invoke();
@@ -659,13 +737,16 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             switch (slot.Item)
             {
                 case ShopItemType.Coin:
-                    _coins += slot.Amount;
+                    AddResource(ResourceType.Coin, slot.Amount);
                     break;
                 case ShopItemType.Bomb:
-                    _bombs = Math.Clamp(_bombs + slot.Amount, 0, MaxBombs);
+                    AddResource(ResourceType.Bomb, slot.Amount);
                     break;
                 case ShopItemType.Heart:
                     SetPlayerHealth(PlayerHp + slot.Amount, MaxPlayerHp);
+                    break;
+                case ShopItemType.Key:
+                    AddResource(ResourceType.Key, slot.Amount);
                     break;
                 case ShopItemType.Relic:
                     if (!string.IsNullOrWhiteSpace(slot.RelicId) && _prototype.TryIndex<DeepMaintenanceRelicPrototype>(slot.RelicId, out var relic))
@@ -738,10 +819,26 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private void HandleHeldShootKeys()
         {
+            var shootDirection = GetHeldShootDirection();
+            if (HasClaymoreRelic())
+            {
+                if (shootDirection != Vector2.Zero)
+                {
+                    _claymoreCharging = true;
+                    _claymoreChargeDirection = NormalizeSafe(shootDirection);
+                    _claymoreChargeTimer += TickSeconds;
+                }
+                else if (_claymoreCharging)
+                {
+                    ReleaseClaymoreCharge();
+                }
+
+                return;
+            }
+
             if (_playerShootCooldown > 0f)
                 return;
 
-            var shootDirection = GetHeldShootDirection();
             if (shootDirection == Vector2.Zero)
                 return;
 
@@ -853,8 +950,25 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             {
                 enemy.PreviousPosition = enemy.Position;
 
+                if (enemy.Frozen)
+                    continue;
+
                 if (enemy.SpawnGraceTicks > 0)
                     enemy.SpawnGraceTicks--;
+
+                if (enemy.FearTimer > 0f)
+                    enemy.FearTimer = MathF.Max(0f, enemy.FearTimer - dt);
+
+                if (enemy.FearBossCooldown > 0f)
+                    enemy.FearBossCooldown = MathF.Max(0f, enemy.FearBossCooldown - dt);
+
+                for (var effectIndex = enemy.VisualEffects.Count - 1; effectIndex >= 0; effectIndex--)
+                {
+                    var effect = enemy.VisualEffects[effectIndex];
+                    effect.TimeRemaining = MathF.Max(0f, effect.TimeRemaining - dt);
+                    if (effect.TimeRemaining <= 0f)
+                        enemy.VisualEffects.RemoveAt(effectIndex);
+                }
 
                 var toPlayer = _playerPos - enemy.Position;
                 var predictedPlayerPos = _playerPos + _playerVelocity * 0.4f;
@@ -876,6 +990,16 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 var escaped = TryEscapeWallTrap(enemy, dt);
                 if (escaped)
                     continue;
+
+                ApplyFearAura(enemy);
+                if (enemy.FearTimer > 0f)
+                {
+                    var fleeDirection = NormalizeSafe(enemy.Position - predictedPlayerPos);
+                    if (fleeDirection == Vector2.Zero)
+                        fleeDirection = NormalizeSafe(enemy.Position - _playerPos);
+                    MoveEnemyWithAvoidance(enemy, fleeDirection, fleeDirection, dt, hasDirectVision, enemy.Prototype.Shooter ? 0.8f : 1f);
+                    continue;
+                }
 
                 if (enemy.Prototype.Shooter)
                 {
@@ -1159,6 +1283,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 if (Vector2.Distance(projectileCollisionCenter, _playerPos) > projectile.Radius + _playerProto.Radius)
                     continue;
 
+                if (TryBluespaceProjectileBlock(projectile, projectiles, i))
+                    continue;
+
                 DamagePlayer();
                 PlaySfx(SfxProjectileHit, -10f);
                 projectiles.RemoveAt(i);
@@ -1177,6 +1304,12 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
                 enemy.Hp -= (int) MathF.Ceiling(projectile.Damage);
                 enemy.DamageFlash = EntityDamageFlashDuration;
+
+                if (projectile.FreezeOnHit && _random.NextDouble() < projectile.FreezeChance && (projectile.FreezeBosses || !enemy.Prototype.IsBoss))
+                {
+                    enemy.Frozen = true;
+                    ApplyVisualStatusEffect(enemy, "frozen", new Color(140, 220, 255), 9999f);
+                }
 
                 var knockbackDir = NormalizeSafe(enemy.Position - projectile.SourcePosition);
                 if (knockbackDir != Vector2.Zero)
@@ -1209,8 +1342,96 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 if (Vector2.Distance(_playerPos, enemy.Position) > _playerProto.Radius + enemy.Prototype.Radius)
                     continue;
 
+                if (enemy.Frozen)
+                {
+                    ShatterFrozenEnemy(enemy);
+                    return;
+                }
+
+                if (TryBluespaceContactBlock(enemy))
+                    return;
+
                 DamagePlayer();
                 return;
+            }
+        }
+
+        private void HandleEnemyDeaths()
+        {
+            foreach (var enemy in CurrentRoom.Enemies)
+            {
+                if (enemy.Hp > 0 || enemy.DeathHandled)
+                    continue;
+
+                enemy.DeathHandled = true;
+                ApplyOnKillDamageBonuses();
+                SpawnEnemyDeathBurstProjectiles(enemy);
+            }
+        }
+
+        private void ApplyOnKillDamageBonuses()
+        {
+            foreach (var relic in _activeRelics)
+            {
+                if (relic.OnEnemyKillRoomDamageBonus <= 0f)
+                    continue;
+
+                _roomKillDamageBonus = MathF.Min(relic.OnEnemyKillRoomDamageBonusMax, _roomKillDamageBonus + relic.OnEnemyKillRoomDamageBonus);
+            }
+        }
+
+        private void ApplyOnDamagedFloorBonuses()
+        {
+            foreach (var relic in _activeRelics)
+            {
+                if (relic.OnDamagedFloorDamageBonusSequence.Count == 0)
+                    continue;
+
+                var index = Math.Clamp(_floorDamageBonusStacks, 0, relic.OnDamagedFloorDamageBonusSequence.Count - 1);
+                if (_floorDamageBonusStacks >= relic.OnDamagedFloorDamageBonusSequence.Count)
+                    continue;
+
+                _floorDamageBonus += relic.OnDamagedFloorDamageBonusSequence[index];
+                _floorDamageBonusStacks++;
+            }
+        }
+
+        private void SpawnEnemyDeathBurstProjectiles(EnemyData enemy)
+        {
+            foreach (var relic in _activeRelics)
+            {
+                if (!relic.EnemyDeathBurstEnabled)
+                    continue;
+
+                var scaled = (int) MathF.Ceiling(enemy.Prototype.MaxHp * MathF.Max(0.1f, relic.EnemyDeathBurstProjectilesPerMaxHp));
+                var count = Math.Clamp(scaled, relic.EnemyDeathBurstMinProjectiles, relic.EnemyDeathBurstMaxProjectiles);
+                var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
+                var damage = relic.EnemyDeathBurstDamageBase + relic.EnemyDeathBurstDamagePerFloor * Math.Max(0, _currentFloor - 1);
+                for (var i = 0; i < count; i++)
+                {
+                    var angle = _random.NextSingle() * MathF.PI * 2f;
+                    var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                    SpawnProjectile(_playerProjectiles, enemy.Position, direction * projectilePrototype.Speed, projectilePrototype, 1f, damage, Color.Red, projectilePrototype.Lifetime, 1f);
+                }
+            }
+        }
+
+        private void ShatterFrozenEnemy(EnemyData enemy)
+        {
+            enemy.Hp = 0;
+            enemy.DeathHandled = false;
+            enemy.Frozen = false;
+
+            var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
+            const int shards = 8;
+            for (var i = 0; i < shards; i++)
+            {
+                var angle = i / (float) shards * MathF.PI * 2f;
+                var dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                var projectile = SpawnProjectile(_playerProjectiles, enemy.Position, dir * projectilePrototype.Speed, projectilePrototype, 1f, 2f, new Color(180, 240, 255), projectilePrototype.Lifetime, 1f);
+                projectile.FreezeOnHit = true;
+                projectile.FreezeChance = 0.5f;
+                projectile.FreezeBosses = false;
             }
         }
 
@@ -1292,8 +1513,17 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return null;
 
             var lootTable = _prototype.Index(_treasurePrototype.LootTable);
-            var rolls = _entityTable.GetSpawns(lootTable, _random).ToList();
-            return rolls.Count == 0 ? null : rolls[0].ToString();
+            var rolls = _entityTable.GetSpawns(lootTable, _random)
+                .Select(id => id.ToString())
+                .Where(id => !_runSeenRelicIds.Contains(id))
+                .ToList();
+
+            if (rolls.Count == 0)
+                return null;
+
+            var selected = rolls[_random.Next(rolls.Count)];
+            _runSeenRelicIds.Add(selected);
+            return selected;
         }
 
         private void PickupRelic(DeepMaintenanceRelicPrototype relic)
@@ -1302,6 +1532,27 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 return;
 
             _activeRelics.Add(relic);
+            _runSeenRelicIds.Add(relic.ID);
+
+            if (relic.NoDamageRoomStartBonus > 0f)
+                _rhythmicKnifeBonus = MathF.Min(relic.NoDamageRoomFireRateMax, _rhythmicKnifeBonus + relic.NoDamageRoomStartBonus);
+
+            foreach (var grant in relic.ResourceGrants)
+            {
+                if (!Enum.TryParse<ResourceType>(grant.ResourceType, true, out var resourceType))
+                    continue;
+
+                AddResource(resourceType, grant.Amount);
+            }
+
+            if (relic.MaxHealthBonusOnPickup > 0)
+                SetPlayerHealth(PlayerHp, MaxPlayerHp + relic.MaxHealthBonusOnPickup);
+
+            if (relic.FullHealOnPickup)
+                SetPlayerHealth(MaxPlayerHp, MaxPlayerHp);
+
+            RebuildFamiliarsFromRelics();
+
             WarmupSprite(relic.HudIconSpritePath, relic.HudIconSpriteState);
             WarmupSprite(relic.VisualEffectSpritePath, relic.VisualEffectSpriteState);
             WarmupSprite(relic.BodyAttachedSpritePath, relic.BodyAttachedSpriteState);
@@ -1313,6 +1564,11 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             if (_invulnerabilityTicks > 0)
                 return;
+
+            _tookDamageInRoom = true;
+            ResetRhythmicKnifeOnDamage();
+            TriggerElectroRakEffects();
+            ApplyOnDamagedFloorBonuses();
 
             SetPlayerHealth(PlayerHp - 1, MaxPlayerHp);
 
@@ -1333,6 +1589,366 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             PlaySfx(SfxPlayerDamage, -8f);
         }
 
+        private void ApplyVisualStatusEffect(EnemyData enemy, string statusId, Color tint, float duration)
+        {
+            var existing = enemy.VisualEffects.FirstOrDefault(effect => effect.StatusId == statusId);
+            if (existing != null)
+            {
+                existing.TimeRemaining = MathF.Max(existing.TimeRemaining, duration);
+                existing.Tint = tint;
+                return;
+            }
+
+            enemy.VisualEffects.Add(new VisualStatusEffectData(statusId, tint, duration));
+        }
+
+        private void ApplyFearAura(EnemyData enemy)
+        {
+            var fearRadius = _activeRelics.Select(relic => relic.FearAuraRadius).DefaultIfEmpty(0f).Max();
+            if (fearRadius <= 0f)
+                return;
+
+            if (Vector2.Distance(enemy.Position, _playerPos) > fearRadius)
+                return;
+
+            var linger = _activeRelics.Select(relic => relic.FearLingerSeconds).DefaultIfEmpty(0f).Max();
+            if (enemy.Prototype.IsBoss)
+            {
+                var cooldown = _activeRelics.Select(relic => relic.FearBossCooldownSeconds).DefaultIfEmpty(0f).Max();
+                if (enemy.FearBossCooldown > 0f)
+                    return;
+
+                enemy.FearBossCooldown = MathF.Max(0f, cooldown);
+            }
+
+            enemy.FearTimer = MathF.Max(enemy.FearTimer, MathF.Max(0f, linger));
+            ApplyVisualStatusEffect(enemy, "fear", new Color(190, 120, 255), enemy.FearTimer);
+        }
+
+        private void RebuildFamiliarsFromRelics()
+        {
+            _familiars.Clear();
+            foreach (var relic in _activeRelics)
+            {
+                foreach (var config in relic.FamiliarConfigs)
+                {
+                    for (var i = 0; i < Math.Max(1, config.Count); i++)
+                    {
+                        _familiars.Add(new FamiliarData(relic.ID, config, _playerPos));
+                    }
+                }
+            }
+        }
+
+        private void HandleFamiliarRoomRewards()
+        {
+            foreach (var familiar in _familiars)
+            {
+                if (familiar.Config.RoomRewardEvery <= 0)
+                    continue;
+
+                familiar.RoomCounter++;
+                if (familiar.RoomCounter % familiar.Config.RoomRewardEvery != 0)
+                    continue;
+
+                if (!Enum.TryParse<PickupType>(familiar.Config.RoomRewardPickupType, true, out var pickupType))
+                    pickupType = PickupType.Heart;
+
+                SpawnPickup(CurrentRoom, pickupType, Math.Max(1, familiar.Config.RoomRewardAmount), familiar.Position + new Vector2(0.4f, 0f), PickupSpawnAnimationDuration);
+            }
+        }
+
+        private void TickFamiliars(float dt)
+        {
+            if (_familiars.Count == 0)
+                return;
+
+            var aliveEnemies = CurrentRoom.Enemies.Where(e => e.Hp > 0).ToList();
+            for (var i = 0; i < _familiars.Count; i++)
+            {
+                var familiar = _familiars[i];
+                var side = i % 2 == 0 ? -1f : 1f;
+                var desiredOffset = new Vector2(side * familiar.Config.FollowDistance, -0.85f + (i % 3) * 0.25f);
+                familiar.Position = Vector2.Lerp(familiar.Position, _playerPos + desiredOffset, Math.Clamp(familiar.Config.MoveSpeed * dt, 0f, 1f));
+
+                if (familiar.Config.SpawnBloodTrail)
+                {
+                    familiar.TrailTimer -= dt;
+                    if (familiar.TrailTimer <= 0f)
+                    {
+                        familiar.TrailTimer = 0.1f;
+                        _bloodTrails.Add(new BloodTrailData(familiar.Position, familiar.Config.BloodTrailRadius, familiar.Config.BloodTrailDps, familiar.Config.BloodTrailLifetime));
+                    }
+                }
+
+                if (string.Equals(familiar.Config.Behavior, "Interceptor", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (familiar.RestTimer > 0f)
+                    {
+                        familiar.RestTimer = MathF.Max(0f, familiar.RestTimer - dt);
+                    }
+                    else
+                    {
+                        if (familiar.InterceptCooldown > 0f)
+                            familiar.InterceptCooldown = MathF.Max(0f, familiar.InterceptCooldown - dt);
+
+                        if (familiar.InterceptCooldown <= 0f)
+                        {
+                            var idx = _enemyProjectiles.FindIndex(p => Vector2.Distance(p.Position, familiar.Position) <= familiar.Config.InterceptRadius);
+                            if (idx >= 0)
+                            {
+                                var projectile = _enemyProjectiles[idx];
+                                var direction = NormalizeSafe(projectile.Position - _playerPos);
+                                projectile.Velocity = direction * MathF.Max(projectile.Velocity.Length(), 0.5f);
+                                _enemyProjectiles.RemoveAt(idx);
+                                _playerProjectiles.Add(projectile);
+                                familiar.InterceptCooldown = MathF.Max(0.05f, familiar.Config.InterceptCooldown);
+                                if (_random.NextDouble() < familiar.Config.RestChance)
+                                    familiar.RestTimer = MathF.Max(0f, familiar.Config.RestDuration);
+                            }
+                        }
+                    }
+
+                    var contactDamage = familiar.Config.ContactDps * dt;
+                    foreach (var enemy in CurrentRoom.Enemies)
+                    {
+                        if (enemy.Hp <= 0 || Vector2.Distance(enemy.Position, familiar.Position) > enemy.Prototype.Radius + 0.22f)
+                            continue;
+
+                        enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(contactDamage));
+                        enemy.DamageFlash = EntityDamageFlashDuration;
+                    }
+                }
+
+                familiar.ShootTimer -= dt;
+                if (familiar.ShootTimer > 0f)
+                    continue;
+
+                familiar.ShootTimer = MathF.Max(0.05f, familiar.Config.ShootInterval);
+                var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
+                var directions = new List<Vector2>();
+
+                if (familiar.Config.ShootFourDirections)
+                    directions.AddRange(new[] { new Vector2(1,0), new Vector2(-1,0), new Vector2(0,1), new Vector2(0,-1) });
+                else if (familiar.Config.ShootAlongPlayerAim)
+                    directions.Add(_lastPlayerShotDirection == Vector2.Zero ? Vector2.UnitX : _lastPlayerShotDirection);
+                else if (familiar.Config.ShootNearestEnemy && aliveEnemies.Count > 0)
+                {
+                    var target = aliveEnemies.OrderBy(e => Vector2.Distance(e.Position, familiar.Position)).First();
+                    directions.Add(NormalizeSafe(target.Position - familiar.Position));
+                }
+                else
+                    directions.Add(new Vector2(1,0));
+
+                foreach (var direction in directions)
+                {
+                    if (direction == Vector2.Zero)
+                        continue;
+
+                    var tint = familiar.Config.FixedRedTint ? Color.Red : Color.White;
+                    var damage = familiar.Config.ProjectileDamage;
+                    if (familiar.Config.UsePlayerCurrentDamage)
+                    {
+                        var playerDamage = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype).Damage + GetDamageFlatBonus();
+                        damage = playerDamage * familiar.Config.PlayerDamageScale;
+                    }
+
+                    var projectile = SpawnProjectile(_playerProjectiles, familiar.Position, NormalizeSafe(direction) * familiar.Config.ProjectileSpeed, projectilePrototype, 1f, damage, tint, projectilePrototype.Lifetime, 1f);
+                    projectile.FreezeOnHit = familiar.Config.CanFreezeOnHit;
+                    projectile.FreezeChance = familiar.Config.FreezeChance;
+                    projectile.FreezeBosses = familiar.Config.FreezeBosses;
+                }
+
+                if (familiar.Config.BurstCount > 0 && familiar.Config.BurstDamageOptions.Count > 0)
+                {
+                    familiar.BurstTimer -= dt;
+                    if (familiar.BurstTimer <= 0f)
+                    {
+                        familiar.BurstTimer = MathF.Max(0.1f, familiar.Config.BurstInterval);
+                        for (var n = 0; n < familiar.Config.BurstCount; n++)
+                        {
+                            var angle = n / (float) familiar.Config.BurstCount * MathF.PI * 2f;
+                            var dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                            var dmg = familiar.Config.BurstDamageOptions[_random.Next(familiar.Config.BurstDamageOptions.Count)];
+                            SpawnProjectile(_playerProjectiles, familiar.Position, dir * familiar.Config.ProjectileSpeed, projectilePrototype, 1f, dmg, Color.White, projectilePrototype.Lifetime, 1f);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void TickBloodTrails(float dt)
+        {
+            for (var i = _bloodTrails.Count - 1; i >= 0; i--)
+            {
+                var trail = _bloodTrails[i];
+                trail.Lifetime -= dt;
+                if (trail.Lifetime <= 0f)
+                {
+                    _bloodTrails.RemoveAt(i);
+                    continue;
+                }
+
+                var damage = trail.Dps * dt;
+                foreach (var enemy in CurrentRoom.Enemies)
+                {
+                    if (enemy.Hp <= 0 || Vector2.Distance(enemy.Position, trail.Position) > enemy.Prototype.Radius + trail.Radius)
+                        continue;
+
+                    enemy.Hp -= (int) MathF.Ceiling(damage);
+                    enemy.DamageFlash = EntityDamageFlashDuration;
+                }
+            }
+        }
+
+        private void TickChainLightning(float dt)
+        {
+            var source = _activeRelics.FirstOrDefault(relic => relic.ChainLightningEnabled);
+            if (source == null)
+                return;
+
+            _chainLightningAccumulator += dt;
+            var interval = 1f / MathF.Max(0.05f, source.ChainLightningRate);
+            while (_chainLightningAccumulator >= interval)
+            {
+                _chainLightningAccumulator -= interval;
+                FireChainLightning(source);
+            }
+        }
+
+        private void FireChainLightning(DeepMaintenanceRelicPrototype source)
+        {
+            var remaining = CurrentRoom.Enemies.Where(e => e.Hp > 0).ToList();
+            if (remaining.Count == 0)
+                return;
+
+            var currentPos = _playerPos;
+            var maxTargets = Math.Max(1, source.ChainLightningMaxTargets);
+            for (var i = 0; i < maxTargets; i++)
+            {
+                EnemyData? target;
+                if (i == 0)
+                    target = remaining.OrderBy(e => Vector2.Distance(e.Position, currentPos)).FirstOrDefault(e => Vector2.Distance(e.Position, currentPos) <= source.ChainLightningRadius);
+                else
+                    target = remaining.OrderBy(e => Vector2.Distance(e.Position, currentPos)).FirstOrDefault(e => Vector2.Distance(e.Position, currentPos) <= source.ChainLightningJumpRadius);
+
+                if (target == null)
+                    break;
+
+                var baseDamage = (_prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype).Damage + GetDamageFlatBonus()) * source.ChainLightningDamageMultiplier;
+                target.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(baseDamage));
+                target.DamageFlash = EntityDamageFlashDuration;
+                currentPos = target.Position;
+                remaining.Remove(target);
+            }
+        }
+
+        private bool TryBluespaceContactBlock(EnemyData enemy)
+        {
+            var chance = _activeRelics.Select(relic => relic.ContactOrProjectileBlockChance).DefaultIfEmpty(0f).Max();
+            if (chance <= 0f || _random.NextDouble() > chance)
+                return false;
+
+            var knockback = _activeRelics.Select(relic => relic.ContactBlockKnockback).DefaultIfEmpty(0f).Max();
+            var direction = NormalizeSafe(enemy.Position - _playerPos);
+            var target = enemy.Position + direction * knockback;
+            var resolved = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+            enemy.Position = resolved;
+            ApplyCollisionDamageAfterKnockback(enemy, target, resolved);
+            return true;
+        }
+
+        private bool TryBluespaceProjectileBlock(ProjectileData projectile, List<ProjectileData> source, int index)
+        {
+            var chance = _activeRelics.Select(relic => relic.ContactOrProjectileBlockChance).DefaultIfEmpty(0f).Max();
+            if (chance <= 0f || _random.NextDouble() > chance)
+                return false;
+
+            source.RemoveAt(index);
+            var dir = NormalizeSafe(projectile.Position - _playerPos);
+            projectile.Velocity = dir * MathF.Max(0.5f, projectile.Velocity.Length());
+            _playerProjectiles.Add(projectile);
+            return true;
+        }
+
+        private void ApplyCollisionDamageAfterKnockback(EnemyData enemy, Vector2 target, Vector2 resolved)
+        {
+            var hitWall = Vector2.DistanceSquared(target, resolved) > 0.01f;
+            var hitEnemy = CurrentRoom.Enemies.Any(other => other != enemy && other.Hp > 0 && Vector2.Distance(other.Position, resolved) < other.Prototype.Radius + enemy.Prototype.Radius + 0.08f);
+            if (!hitWall && !hitEnemy)
+                return;
+
+            var relic = _activeRelics.FirstOrDefault(r => r.ContactOrProjectileBlockChance > 0f);
+            if (relic == null)
+                return;
+
+            var damage = relic.CollisionDamageBase + relic.CollisionDamagePerFloor * _currentFloor;
+            enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(damage));
+            enemy.DamageFlash = EntityDamageFlashDuration;
+        }
+
+        private void TriggerElectroRakEffects()
+        {
+            var relic = _activeRelics.FirstOrDefault(r => r.OnDamageRadialProjectileCount > 0);
+            if (relic == null)
+                return;
+
+            var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
+            var count = Math.Max(1, relic.OnDamageRadialProjectileCount);
+            var speed = projectilePrototype.Speed * GetProjectileSpeedMultiplier(EyeSource.None);
+            var lifetime = GetProjectileLifetime(projectilePrototype, EyeSource.None);
+            var heightScale = GetProjectileHeightScale();
+            for (var i = 0; i < count; i++)
+            {
+                var angle = i / (float) count * MathF.PI * 2f;
+                var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                SpawnProjectile(_playerProjectiles, _playerPos, direction * speed, projectilePrototype, 1f, relic.OnDamageRadialProjectileDamage, Color.White, lifetime, heightScale);
+            }
+
+            _electroRakDamageTriggersInRoom++;
+            _electroRakRoomFireRateBonus += _electroRakDamageTriggersInRoom == 1
+                ? relic.OnDamageFireRateFirstBonus
+                : relic.OnDamageFireRateStackBonus;
+        }
+
+        private void HandleRoomCompletionTransition(RoomData room)
+        {
+            if (!room.Cleared)
+                return;
+
+            HandleFamiliarRoomRewards();
+
+            if (_tookDamageInRoom)
+                return;
+
+            var relic = _activeRelics.FirstOrDefault(r => r.NoDamageRoomFireRatePerRoom > 0f);
+            if (relic == null)
+                return;
+
+            _rhythmicKnifeBonus = MathF.Min(relic.NoDamageRoomFireRateMax, _rhythmicKnifeBonus + relic.NoDamageRoomFireRatePerRoom);
+        }
+
+        private void ResetRhythmicKnifeOnDamage()
+        {
+            if (_activeRelics.Any(relic => relic.ResetNoDamageBonusOnHit))
+                _rhythmicKnifeBonus = 0f;
+        }
+
+        private void ReflectEnemyProjectiles(Vector2 center, float radius)
+        {
+            for (var i = _enemyProjectiles.Count - 1; i >= 0; i--)
+            {
+                var projectile = _enemyProjectiles[i];
+                if (Vector2.Distance(projectile.Position, center) > radius)
+                    continue;
+
+                _enemyProjectiles.RemoveAt(i);
+                var direction = NormalizeSafe(projectile.Position - _playerPos);
+                projectile.Velocity = direction * MathF.Max(0.5f, projectile.Velocity.Length());
+                _playerProjectiles.Add(projectile);
+            }
+        }
+
         private bool TryRollHalfHeartRestore()
         {
             var totalChance = _activeRelics.Sum(relic => relic.HalfHeartRestoreChanceOnDamage);
@@ -1346,6 +1962,55 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             MaxPlayerHp = Math.Max(1, max);
             PlayerHp = Math.Clamp(current, 0, MaxPlayerHp);
+        }
+
+        private int GetResource(ResourceType type)
+        {
+            return type switch
+            {
+                ResourceType.Coin => _coins,
+                ResourceType.Bomb => _bombs,
+                ResourceType.Key => _keys,
+                _ => 0,
+            };
+        }
+
+        private int GetResourceMax(ResourceType type)
+        {
+            return type switch
+            {
+                ResourceType.Coin => 999,
+                ResourceType.Bomb => MaxBombs,
+                ResourceType.Key => MaxKeys,
+                _ => 999,
+            };
+        }
+
+        private void AddResource(ResourceType type, int amount)
+        {
+            var clamped = Math.Clamp(GetResource(type) + amount, 0, GetResourceMax(type));
+            switch (type)
+            {
+                case ResourceType.Coin:
+                    _coins = clamped;
+                    break;
+                case ResourceType.Bomb:
+                    _bombs = clamped;
+                    break;
+                case ResourceType.Key:
+                    _keys = clamped;
+                    break;
+            }
+        }
+
+        private bool TryConsumeResource(ResourceType type, int amount)
+        {
+            amount = Math.Max(0, amount);
+            if (GetResource(type) < amount)
+                return false;
+
+            AddResource(type, -amount);
+            return true;
         }
 
         private void TickDoorAnimations()
@@ -1364,6 +2029,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private void HandleRoomState()
         {
             var room = CurrentRoom;
+            _roomsEnteredCounter++;
+            RevealConnectedRooms(RoomIndex);
+
             if (room.Type != RoomType.Boss)
             {
                 _floorExitSpawned = false;
@@ -1468,6 +2136,9 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private void TryRoomTransition()
         {
             var room = CurrentRoom;
+            _roomsEnteredCounter++;
+            RevealConnectedRooms(RoomIndex);
+
             if (room.Type != RoomType.Boss)
             {
                 _floorExitSpawned = false;
@@ -1489,6 +2160,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             var threshold = _playerProto.Radius + DoorTransitionMargin;
             if (_playerPos.X < threshold && room.Neighbors.TryGetValue(new Vector2i(-1, 0), out var left) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(-1, 0), out var ln) || !_rooms[ln].IsSecret || _rooms[ln].Cleared))
             {
+                HandleRoomCompletionTransition(room);
                 EnterRoom(left, false);
                 _playerPos = _playerPos with { X = GridWidth - 1.0f };
                 return;
@@ -1496,6 +2168,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             if (_playerPos.X > GridWidth - threshold && room.Neighbors.TryGetValue(new Vector2i(1, 0), out var right) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(1, 0), out var rn) || !_rooms[rn].IsSecret || _rooms[rn].Cleared))
             {
+                HandleRoomCompletionTransition(room);
                 EnterRoom(right, false);
                 _playerPos = _playerPos with { X = 1.0f };
                 return;
@@ -1503,6 +2176,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             if (_playerPos.Y < threshold && room.Neighbors.TryGetValue(new Vector2i(0, -1), out var up) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, -1), out var un) || !_rooms[un].IsSecret || _rooms[un].Cleared))
             {
+                HandleRoomCompletionTransition(room);
                 EnterRoom(up, false);
                 _playerPos = _playerPos with { Y = GridHeight - 1.0f };
                 return;
@@ -1510,6 +2184,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             if (_playerPos.Y > GridHeight - threshold && room.Neighbors.TryGetValue(new Vector2i(0, 1), out var down) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, 1), out var dn) || !_rooms[dn].IsSecret || _rooms[dn].Cleared))
             {
+                HandleRoomCompletionTransition(room);
                 EnterRoom(down, false);
                 _playerPos = _playerPos with { Y = 1.0f };
             }
@@ -1519,14 +2194,24 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             RoomIndex = roomIndex;
             _visitedRooms.Add(roomIndex);
+            _knownRooms.Add(roomIndex);
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
             _playerVelocity = Vector2.Zero;
+            _tookDamageInRoom = false;
+            _electroRakRoomFireRateBonus = 0f;
+            _electroRakDamageTriggersInRoom = 0;
+            _roomKillDamageBonus = 0f;
+            _claymoreCharging = false;
+            _claymoreChargeTimer = 0f;
 
             if (centerPlayer)
                 _playerPos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
 
             var room = CurrentRoom;
+            _roomsEnteredCounter++;
+            RevealConnectedRooms(RoomIndex);
+
             if (room.Type != RoomType.Boss)
             {
                 _floorExitSpawned = false;
@@ -1975,18 +2660,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private ShopSlotData RollShopSlot(Vector2 position)
         {
             var roll = _random.Next(100);
-            if (roll < 30)
-                return new ShopSlotData(ShopItemType.Bomb, 1, 4 + _currentFloor, position);
-            if (roll < 55)
-                return new ShopSlotData(ShopItemType.Heart, 1, 5 + _currentFloor, position);
-            if (roll < 75)
-                return new ShopSlotData(ShopItemType.Coin, 3 + _random.Next(3), 3 + _currentFloor, position);
+            switch (roll)
+            {
+                case < 45:
+                    return new ShopSlotData(ShopItemType.Bomb, 1, CalculatePickupPrice(_bombPickupProto), position, _bombPickupProto.SpritePath, _bombPickupProto.SpriteState, _bombPickupProto.SpriteScale);
+                case < 80:
+                    return new ShopSlotData(ShopItemType.Heart, 1, CalculatePickupPrice(_heartPickupProto), position, _heartPickupProto.SpritePath, _heartPickupProto.SpriteState, _heartPickupProto.SpriteScale);
+            }
 
             var relicId = RollTreasureRelicId();
-            if (!string.IsNullOrWhiteSpace(relicId))
-                return new ShopSlotData(ShopItemType.Relic, 1, 11 + _currentFloor * 2, position, relicId);
+            if (!string.IsNullOrWhiteSpace(relicId) && _prototype.TryIndex<DeepMaintenanceRelicPrototype>(relicId, out var relicPrototype))
+            {
+                return new ShopSlotData(ShopItemType.Relic, 1, CalculateRelicPrice(relicPrototype), position, relicPrototype.HudIconSpritePath, relicPrototype.HudIconSpriteState, 1f, relicId);
+            }
 
-            return new ShopSlotData(ShopItemType.Bomb, 1, 4 + _currentFloor, position);
+            return new ShopSlotData(ShopItemType.Bomb, 1, CalculatePickupPrice(_bombPickupProto), position, _bombPickupProto.SpritePath, _bombPickupProto.SpriteState, _bombPickupProto.SpriteScale);
         }
 
         private static bool IsInsideDoorSpawnExclusion(Vector2 position)
@@ -2099,16 +2787,33 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             DrawTreasureObjects(handle, tilePixel, mapOffset);
 
+            foreach (var trail in _bloodTrails)
+            {
+                var center = mapOffset + trail.Position * tilePixel;
+                var size = trail.Radius * tilePixel * 2f;
+                var boxTrail = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
+                handle.DrawRect(boxTrail, new Color(140, 30, 30, 120));
+            }
+
             foreach (var enemy in CurrentRoom.Enemies.Where(enemy => enemy.Hp > 0))
             {
                 var drawPos = Vector2.Lerp(enemy.PreviousPosition, enemy.Position, tickAlpha);
                 DrawShadow(handle, drawPos, tilePixel, mapOffset, enemy.Prototype.Radius * 0.95f, 0.23f);
-                var color = enemy.DamageFlash > 0f ? Color.IndianRed : Color.White;
+                var color = GetEnemyVisualTint(enemy);
                 DrawCharacter(handle, drawPos, enemy.Prototype, enemy.BodyFacing, enemy.ShootFacing, tilePixel, mapOffset, color);
             }
 
             DrawShadow(handle, _playerPos, tilePixel, mapOffset, _playerProto.Radius, 0.26f);
             DrawPlayer(handle, tilePixel * GetPlayerVisualScale(), mapOffset);
+
+            foreach (var familiar in _familiars)
+            {
+                DrawShadow(handle, familiar.Position, tilePixel, mapOffset, 0.2f, 0.18f);
+                var centerF = mapOffset + familiar.Position * tilePixel;
+                var sizeF = tilePixel * 0.36f;
+                var boxF = UIBox2.FromDimensions(centerF - new Vector2(sizeF * 0.5f, sizeF * 0.5f), new Vector2(sizeF, sizeF));
+                handle.DrawRect(boxF, familiar.Config.FixedRedTint ? new Color(220, 80, 80) : new Color(190, 190, 255));
+            }
 
             foreach (var projectile in _playerProjectiles)
             {
@@ -2135,8 +2840,23 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
             DrawHealthHearts(handle);
             DrawBuffIcons(handle);
+            DrawEmote(handle, tilePixel, mapOffset);
             DrawBossHealthBar(handle);
             DrawMinimap(handle);
+        }
+
+        private Color GetEnemyVisualTint(EnemyData enemy)
+        {
+            var tint = Color.White;
+            foreach (var effect in enemy.VisualEffects)
+            {
+                tint = effect.Tint;
+            }
+
+            if (enemy.DamageFlash > 0f)
+                tint = Color.IndianRed;
+
+            return tint;
         }
 
         private void DrawPlayer(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
@@ -2472,7 +3192,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private void DrawProjectile(DrawingHandleScreen handle, Vector2 pos, ProjectileData projectile, float tilePixel, Vector2 mapOffset)
         {
-            var visualDrop = GetProjectileVisualDrop(projectile);
+            var visualDrop = GetProjectileVisualDrop(projectile, pos);
             var center = mapOffset + (pos + visualDrop) * tilePixel;
             var facing = FacingFromVector(projectile.Direction == Vector2.Zero ? projectile.Velocity : projectile.Direction, FacingDirection.Down);
 
@@ -2490,19 +3210,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
 
         private static Vector2 GetProjectileCollisionCenter(ProjectileData projectile)
         {
-            return projectile.Position + GetProjectileVisualDrop(projectile);
+            return projectile.Position + GetProjectileVisualDrop(projectile, projectile.Position);
         }
 
-        private static Vector2 GetProjectileVisualDrop(ProjectileData projectile)
+        private static Vector2 GetProjectileVisualDrop(ProjectileData projectile, Vector2 position)
         {
             var initialLifetime = MathF.Max(0.001f, projectile.InitialLifetime);
-            var lifeProgress = Math.Clamp(1f - projectile.Lifetime / initialLifetime, 0f, 1f);
+            var traveled = Vector2.Distance(projectile.SourcePosition, position);
+            var expected = MathF.Max(0.001f, projectile.InitialSpeed * initialLifetime);
+            var lifeProgress = Math.Clamp(MathF.Max(1f - projectile.Lifetime / initialLifetime, traveled / expected), 0f, 1f);
             var start = MathF.Min(0.5f, Math.Clamp(projectile.Prototype.FinalDropStart, 0f, 1f));
             if (lifeProgress <= start)
                 return Vector2.Zero;
 
             var t = (lifeProgress - start) / MathF.Max(0.001f, 1f - start);
-            var amount = t * t * MathF.Max(0f, projectile.Prototype.FinalDropDistance);
+            var amount = t * t * MathF.Max(0f, projectile.Prototype.FinalDropDistance) * projectile.HeightScale;
             return new Vector2(0f, amount);
         }
 
@@ -2615,6 +3337,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             {
                 PickupType.Coin => _coinPickupProto,
                 PickupType.Bomb => _bombPickupProto,
+                PickupType.Key => _coinPickupProto,
                 PickupType.Heart => _heartPickupProto,
                 _ => _coinPickupProto,
             };
@@ -2740,23 +3463,55 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 handle.DrawLine(new Vector2(box.Left, box.Bottom), box.TopLeft, border);
 
                 if (!slot.Sold)
-                    DrawPriceTag(handle, slot.Price, center + new Vector2(0f, frameSize * 0.56f));
+                {
+                    DrawShopSlotIcon(handle, slot, tilePixel, mapOffset);
+                    DrawPriceTag(handle, ApplyPriceModifiers(slot.Price), center + new Vector2(0f, frameSize * 0.56f));
+                }
             }
+        }
+
+        private void DrawShopSlotIcon(DrawingHandleScreen handle, ShopSlotData slot, float tilePixel, Vector2 mapOffset)
+        {
+            if (string.IsNullOrWhiteSpace(slot.SpritePath) || string.IsNullOrWhiteSpace(slot.SpriteState))
+                return;
+
+            if (GetSprite(slot.SpritePath, slot.SpriteState) is not { } texture)
+                return;
+
+            var center = mapOffset + slot.Position * tilePixel;
+            var size = tilePixel * 0.5f * MathF.Max(0.2f, slot.SpriteScale);
+            var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
+            handle.DrawTextureRect(texture, box);
         }
 
         private void DrawPriceTag(DrawingHandleScreen handle, int price, Vector2 center)
         {
-            var coinWidth = 4f;
-            var gap = 1.4f;
-            var total = Math.Max(1, price / 2);
-            var clamped = Math.Min(10, total);
-            var start = center - new Vector2((coinWidth + gap) * clamped * 0.5f, 0f);
-            for (var i = 0; i < clamped; i++)
+            var text = $"{Math.Max(0, price)}§";
+            var shadowOffset = new Vector2(1f, 1f);
+            handle.DrawString(_shopPriceFont, center + shadowOffset, text, Color.Black.WithAlpha(0.8f));
+            handle.DrawString(_shopPriceFont, center, text, new Color(255, 216, 89));
+        }
+
+        private void DrawEmote(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
+        {
+            if (_emoteTimer <= 0f)
+                return;
+
+            var center = mapOffset + (_playerPos + new Vector2(0f, -0.9f)) * tilePixel;
+            var progress = 1f - Math.Clamp(_emoteTimer / EmoteAnimationDuration, 0f, 1f);
+            var bob = MathF.Sin(progress * MathF.PI) * 0.12f;
+
+            if (GetDirectionalSprite(_playerProto.SpritePath, EmotePlaceholderState, _playerShootFacing) is { } emoteTexture)
             {
-                var pos = start + new Vector2(i * (coinWidth + gap), 0f);
-                var box = UIBox2.FromDimensions(pos, new Vector2(coinWidth, 3.2f));
-                handle.DrawRect(box, new Color(255, 216, 89, 220));
+                var size = new Vector2(tilePixel * emoteTexture.Width / DefaultSpritePixelsPerTile, tilePixel * emoteTexture.Height / DefaultSpritePixelsPerTile);
+                var box = UIBox2.FromDimensions(center - new Vector2(size.X * 0.5f, size.Y) + new Vector2(0f, -bob * tilePixel), size);
+                handle.DrawTextureRect(emoteTexture, box);
+                return;
             }
+
+            var radius = tilePixel * (0.11f + 0.07f * (1f - progress));
+            var boxFallback = UIBox2.FromDimensions(center - new Vector2(radius, radius) + new Vector2(0f, -bob * tilePixel), new Vector2(radius * 2f, radius * 2f));
+            handle.DrawRect(boxFallback, new Color(255, 244, 120, 220));
         }
 
         private void DrawBossHealthBar(DrawingHandleScreen handle)
@@ -2924,15 +3679,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (_visitedRooms.Contains(roomIndex) || roomIndex == RoomIndex)
                 return true;
 
-            var distance = room.MapPosition - CurrentRoom.MapPosition;
-            if (Math.Abs(distance.X) + Math.Abs(distance.Y) > 1)
-                return false;
-
-            return _visitedRooms.Any(visited =>
-            {
-                var delta = room.MapPosition - _rooms[visited].MapPosition;
-                return Math.Abs(delta.X) + Math.Abs(delta.Y) <= 1;
-            });
+            return _knownRooms.Contains(roomIndex);
         }
 
         #endregion
@@ -3170,6 +3917,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             if (normalized == Vector2.Zero)
                 return;
 
+            _lastPlayerShotDirection = normalized;
+
+            if (HasClaymoreRelic())
+            {
+                _claymoreCharging = true;
+                _claymoreChargeDirection = normalized;
+                return;
+            }
+
             _playerShootFacing = FacingFromVector(normalized, _playerShootFacing);
             _playerShootFacingResetTimer = FacingResetDelaySeconds;
             _playerShootAnimationTimer = ShootAnimationDuration;
@@ -3190,22 +3946,118 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         private void FirePlayerProjectile(Vector2 direction)
         {
             var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
-            var speed = projectilePrototype.Speed * GetProjectileSpeedMultiplier();
-            var damage = projectilePrototype.Damage + GetDamageFlatBonus();
+            var shotEye = _nextShotLeftEye ? EyeSource.Left : EyeSource.Right;
+            _nextShotLeftEye = !_nextShotLeftEye;
+            var speed = projectilePrototype.Speed * GetProjectileSpeedMultiplier(shotEye);
+            var damage = (projectilePrototype.Damage + GetDamageFlatBonus()) * GetEyeDamageMultiplier(shotEye, true);
+            var lifetime = GetProjectileLifetime(projectilePrototype, shotEye);
+            var heightScale = GetProjectileHeightScale();
             var tintPalette = GetProjectileTintPalette();
+            var created = new List<ProjectileData>();
 
             if (_activeRelics.Any(relic => relic.TripleShotAlternating))
             {
                 foreach (var spreadDegrees in new[] { -12f, 0f, 12f })
                 {
                     var shotDirection = NormalizeSafe(Rotate(direction, MathF.PI * spreadDegrees / 180f));
-                    SpawnProjectile(_playerProjectiles, _playerPos, shotDirection * speed, projectilePrototype, 1f, damage, PickTintFromPalette(tintPalette));
+                    created.Add(SpawnProjectile(_playerProjectiles, _playerPos, shotDirection * speed, projectilePrototype, 1f, damage, PickTintFromPalette(tintPalette), lifetime, heightScale));
                 }
+            }
+            else
+            {
+                created.Add(SpawnProjectile(_playerProjectiles, _playerPos, direction * speed, projectilePrototype, 1f, damage, PickTintFromPalette(tintPalette), lifetime, heightScale));
+            }
 
+            TrySpawnExtraRandomProjectiles(created, projectilePrototype, lifetime, heightScale);
+        }
+
+        private void TrySpawnExtraRandomProjectiles(List<ProjectileData> created, DeepMaintenanceProjectilePrototype projectilePrototype, float lifetime, float heightScale)
+        {
+            if (created.Count == 0)
+                return;
+
+            var chance = _activeRelics.Select(relic => relic.ExtraShotChance).DefaultIfEmpty(0f).Max();
+            var maxCount = _activeRelics.Select(relic => relic.ExtraShotMaxCount).DefaultIfEmpty(0).Max();
+            if (chance <= 0f || maxCount <= 0)
+                return;
+
+            var template = created[0];
+            for (var i = 0; i < maxCount; i++)
+            {
+                if (_random.NextDouble() > chance)
+                    continue;
+
+                var angle = _random.NextSingle() * MathF.PI * 2f;
+                var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                var velocity = direction * template.Velocity.Length();
+                SpawnProjectile(_playerProjectiles, _playerPos, velocity, projectilePrototype, 1f, template.Damage, template.Tint, lifetime, heightScale);
+            }
+        }
+
+        private bool HasClaymoreRelic()
+        {
+            return _activeRelics.Any(relic => relic.ClaymoreEnabled);
+        }
+
+        private void ReleaseClaymoreCharge()
+        {
+            if (!_claymoreCharging)
+                return;
+
+            _claymoreCharging = false;
+            var chargeRelic = _activeRelics.FirstOrDefault(relic => relic.ClaymoreEnabled);
+            if (chargeRelic == null || _playerShootCooldown > 0f)
+            {
+                _claymoreChargeTimer = 0f;
                 return;
             }
 
-            SpawnProjectile(_playerProjectiles, _playerPos, direction * speed, projectilePrototype, 1f, damage, PickTintFromPalette(tintPalette));
+            var chargeDuration = MathF.Max(0.05f, chargeRelic.ClaymoreChargeDuration);
+            var charged = _claymoreChargeTimer >= chargeDuration;
+            _claymoreChargeTimer = 0f;
+            _meleeSwingFacing = FacingFromVector(_claymoreChargeDirection, _meleeSwingFacing);
+            _meleeSwingTimer = MeleeSwingDuration;
+
+            var baseDamage = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype).Damage + GetDamageFlatBonus();
+            var damage = charged
+                ? baseDamage * chargeRelic.ClaymoreChargedDamageMultiplier
+                : baseDamage * chargeRelic.ClaymoreMeleeDamageMultiplier;
+
+            if (charged)
+            {
+                foreach (var enemy in CurrentRoom.Enemies)
+                {
+                    if (enemy.Hp <= 0 || Vector2.Distance(enemy.Position, _playerPos) > chargeRelic.ClaymoreSwingRadius + enemy.Prototype.Radius)
+                        continue;
+
+                    enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(damage));
+                    enemy.DamageFlash = EntityDamageFlashDuration;
+                }
+
+                ReflectEnemyProjectiles(_playerPos, chargeRelic.ClaymoreReflectRadius);
+            }
+            else
+            {
+                var strikeCenter = _playerPos + _claymoreChargeDirection * chargeRelic.ClaymoreSwingRadius;
+                foreach (var enemy in CurrentRoom.Enemies)
+                {
+                    if (enemy.Hp <= 0 || Vector2.Distance(enemy.Position, strikeCenter) > enemy.Prototype.Radius + 0.65f)
+                        continue;
+
+                    enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(damage));
+                    enemy.DamageFlash = EntityDamageFlashDuration;
+                }
+            }
+
+            if (chargeRelic.ClaymoreProjectileOnFullHealth && PlayerHp >= MaxPlayerHp)
+            {
+                var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
+                var speed = projectilePrototype.Speed * GetProjectileSpeedMultiplier(EyeSource.None);
+                SpawnProjectile(_playerProjectiles, _playerPos, _claymoreChargeDirection * speed, projectilePrototype, 1f, baseDamage + chargeRelic.ClaymoreProjectileBonusDamage, Color.White, GetProjectileLifetime(projectilePrototype, EyeSource.None), GetProjectileHeightScale());
+            }
+
+            _playerShootCooldown = GetShootCooldown(_playerProto) * GetShootCooldownMultiplier();
+            PlaySfx(SfxPlayerShoot, -5f);
         }
 
         private void PerformMeleeStrike(Vector2 direction)
@@ -3232,54 +4084,117 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 if (Vector2.Distance(enemy.Position, strikeCenter) > enemy.Prototype.Radius + 0.65f)
                     continue;
 
-                enemy.Hp -= meleeDamage;
+                enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(meleeDamage));
                 enemy.DamageFlash = EntityDamageFlashDuration;
                 if (enemy.Hp <= 0)
                     PlaySfx(SfxEnemyDeath, -7f);
             }
         }
 
-        private static void SpawnProjectile(List<ProjectileData> container, Vector2 position, Vector2 velocity, DeepMaintenanceProjectilePrototype projectilePrototype, float radiusScale, float damage, Color tint)
+        private static ProjectileData SpawnProjectile(List<ProjectileData> container, Vector2 position, Vector2 velocity, DeepMaintenanceProjectilePrototype projectilePrototype, float radiusScale, float damage, Color tint, float? lifetimeOverride = null, float heightScale = 1f)
         {
-            container.Add(new ProjectileData(
+            var projectile = new ProjectileData(
                 position,
                 position,
                 velocity,
                 projectilePrototype.Radius * radiusScale,
                 damage,
-                projectilePrototype.Lifetime,
+                lifetimeOverride ?? projectilePrototype.Lifetime,
                 projectilePrototype.SpritePath,
                 projectilePrototype.SpriteState,
                 projectilePrototype.SpriteScale,
                 projectilePrototype,
-                tint));
+                tint,
+                heightScale);
+            container.Add(projectile);
+            return projectile;
         }
 
-        private float GetProjectileSpeedMultiplier()
+        private float GetProjectileSpeedMultiplier(EyeSource eye)
+        {
+            var multiplier = 1f;
+            var additive = 0f;
+            foreach (var relic in _activeRelics)
+            {
+                multiplier *= relic.ProjectileSpeedMultiplier;
+                additive += relic.PassiveProjectileSpeedBonus;
+
+                if (eye == EyeSource.Left)
+                    multiplier *= MathF.Max(0.1f, relic.LeftEyeProjectileSpeedMultiplier);
+
+                if (eye == EyeSource.Right)
+                    additive += relic.RightEyeProjectileSpeedBonus;
+            }
+
+            return MathF.Max(0.05f, multiplier + additive);
+        }
+
+        private float GetDamageFlatBonus()
+        {
+            return _activeRelics.Sum(relic => relic.DamageFlatBonus + relic.PassiveDamageBonus) + _roomKillDamageBonus + _floorDamageBonus;
+        }
+
+        private float GetEyeDamageMultiplier(EyeSource eye, bool projectileAttack)
         {
             var multiplier = 1f;
             foreach (var relic in _activeRelics)
             {
-                multiplier *= relic.ProjectileSpeedMultiplier;
+                if (eye == EyeSource.Right)
+                    multiplier *= MathF.Max(0.01f, relic.RightEyeDamageMultiplier);
+                else if (eye == EyeSource.None && _random.NextDouble() < relic.RightEyeFallbackChance)
+                    multiplier *= MathF.Max(0.01f, relic.RightEyeDamageMultiplier);
+
+                if (!projectileAttack && _random.NextDouble() < relic.NonTearDamageProcChance)
+                    multiplier *= MathF.Max(0.01f, relic.RightEyeDamageMultiplier);
             }
 
             return multiplier;
         }
 
-        private float GetDamageFlatBonus()
+        private float ApplyNonTearDamageModifiers(float baseDamage)
         {
-            return _activeRelics.Sum(relic => relic.DamageFlatBonus);
+            return baseDamage * GetEyeDamageMultiplier(EyeSource.None, false);
+        }
+
+        private float GetProjectileLifetime(DeepMaintenanceProjectilePrototype projectile, EyeSource eye)
+        {
+            var lifetime = projectile.Lifetime;
+            var multiplier = 1f;
+            foreach (var relic in _activeRelics)
+            {
+                lifetime += relic.RangeFlatBonus;
+                multiplier *= MathF.Max(0.1f, relic.RangeMultiplier);
+                if (eye == EyeSource.Right)
+                    lifetime += relic.RightEyeRangeFlatBonus;
+            }
+
+            return MathF.Max(0.1f, lifetime * multiplier);
+        }
+
+        private float GetProjectileHeightScale()
+        {
+            var scale = 1f;
+            foreach (var relic in _activeRelics)
+            {
+                scale += relic.TearHeightBonus;
+            }
+
+            return MathF.Max(0.1f, scale);
         }
 
         private float GetShootCooldownMultiplier()
         {
             var multiplier = 1f;
+            var fireRateBonus = _electroRakRoomFireRateBonus + _rhythmicKnifeBonus;
             foreach (var relic in _activeRelics)
             {
                 multiplier *= relic.ShootCooldownMultiplier;
+                fireRateBonus += relic.PassiveFireRateBonus;
+                if (HasClaymoreRelic())
+                    fireRateBonus += relic.LeftEyeFallbackFireRateBonus;
             }
 
-            return MathF.Max(0.1f, multiplier);
+            return MathF.Max(0.05f, multiplier / MathF.Max(0.1f, 1f + fireRateBonus));
         }
 
         private List<Color> GetProjectileTintPalette()
@@ -3345,6 +4260,48 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             return _random.Next(min, max + 1);
         }
 
+        private void RevealConnectedRooms(int roomIndex)
+        {
+            _knownRooms.Add(roomIndex);
+            foreach (var neighbor in _rooms[roomIndex].Neighbors.Values)
+            {
+                _knownRooms.Add(neighbor);
+            }
+        }
+
+        private int CalculatePickupPrice(DeepMaintenancePickupPrototype pickup)
+        {
+            return Math.Max(0, pickup.BasePrice);
+        }
+
+        private int CalculateRelicPrice(DeepMaintenanceRelicPrototype relic)
+        {
+            return Math.Max(0, relic.BasePrice);
+        }
+
+        private int ApplyPriceModifiers(int basePrice)
+        {
+            var price = MathF.Max(0f, basePrice) * GetShopPriceMultiplier();
+            return Math.Max(0, (int) MathF.Round(price, MidpointRounding.AwayFromZero));
+        }
+
+        private float GetShopPriceMultiplier()
+        {
+            var multiplier = 1f;
+            foreach (var relic in _activeRelics)
+            {
+                multiplier *= MathF.Max(0.01f, relic.ShopPriceMultiplier);
+            }
+
+            return Math.Clamp(multiplier, 0.1f, 10f);
+        }
+
+        private void TriggerEmote()
+        {
+            _emoteTimer = EmoteAnimationDuration;
+            PlaySfx(SfxPlayerEmote, -6f);
+        }
+
         private void AdvanceFloor()
         {
             if (_currentFloor >= TotalFloors)
@@ -3356,12 +4313,15 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             _currentFloor++;
             _rooms.Clear();
             _visitedRooms.Clear();
+            _knownRooms.Clear();
+            _roomKillDamageBonus = 0f;
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
             RoomIndex = 0;
             ApplyFloorTheme(_currentFloor);
             GenerateMap();
             EnterRoom(0, true);
+            RebuildFamiliarsFromRelics();
             StateChanged?.Invoke();
         }
 
@@ -3609,6 +4569,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 ContentKeyFunctions.DeepMaintenanceShootDown,
                 ContentKeyFunctions.DeepMaintenanceShootLeft,
                 ContentKeyFunctions.DeepMaintenanceShootRight,
+                ContentKeyFunctions.DeepMaintenanceBomb,
+                ContentKeyFunctions.Arcade3,
                 EngineKeyFunctions.MoveUp,
                 EngineKeyFunctions.MoveDown,
                 EngineKeyFunctions.MoveLeft,
@@ -3832,7 +4794,22 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
         {
             Coin,
             Bomb,
+            Key,
             Heart,
+        }
+
+        private enum ResourceType : byte
+        {
+            Coin,
+            Bomb,
+            Key,
+        }
+
+        private enum EyeSource : byte
+        {
+            None,
+            Left,
+            Right,
         }
 
         private sealed class RoomData
@@ -3869,6 +4846,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             None,
             Coin,
             Bomb,
+            Key,
             Heart,
             Relic,
         }
@@ -3880,15 +4858,21 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public readonly int Price;
             public readonly Vector2 Position;
             public readonly string? RelicId;
+            public readonly string? SpritePath;
+            public readonly string? SpriteState;
+            public readonly float SpriteScale;
             public bool Sold;
 
-            public ShopSlotData(ShopItemType item, int amount, int price, Vector2 position, string? relicId = null)
+            public ShopSlotData(ShopItemType item, int amount, int price, Vector2 position, string? spritePath, string? spriteState, float spriteScale, string? relicId = null)
             {
                 Item = item;
                 Amount = amount;
                 Price = Math.Max(0, price);
                 Position = position;
                 RelicId = relicId;
+                SpritePath = spritePath;
+                SpriteState = spriteState;
+                SpriteScale = spriteScale;
             }
         }
 
@@ -3922,6 +4906,61 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             }
         }
 
+        private sealed class FamiliarData
+        {
+            public readonly string SourceRelicId;
+            public readonly DeepMaintenanceFamiliarConfig Config;
+            public Vector2 Position;
+            public float ShootTimer;
+            public float BurstTimer;
+            public float TrailTimer;
+            public float InterceptCooldown;
+            public float RestTimer;
+            public int RoomCounter;
+
+            public FamiliarData(string sourceRelicId, DeepMaintenanceFamiliarConfig config, Vector2 position)
+            {
+                SourceRelicId = sourceRelicId;
+                Config = config;
+                Position = position;
+                ShootTimer = MathF.Max(0.05f, config.ShootInterval);
+                BurstTimer = MathF.Max(0.1f, config.BurstInterval);
+                TrailTimer = 0.1f;
+                InterceptCooldown = 0f;
+                RestTimer = 0f;
+            }
+        }
+
+        private sealed class BloodTrailData
+        {
+            public readonly Vector2 Position;
+            public readonly float Radius;
+            public readonly float Dps;
+            public float Lifetime;
+
+            public BloodTrailData(Vector2 position, float radius, float dps, float lifetime)
+            {
+                Position = position;
+                Radius = MathF.Max(0.05f, radius);
+                Dps = MathF.Max(0f, dps);
+                Lifetime = MathF.Max(0.05f, lifetime);
+            }
+        }
+
+        private sealed class VisualStatusEffectData
+        {
+            public readonly string StatusId;
+            public Color Tint;
+            public float TimeRemaining;
+
+            public VisualStatusEffectData(string statusId, Color tint, float timeRemaining)
+            {
+                StatusId = statusId;
+                Tint = tint;
+                TimeRemaining = MathF.Max(0f, timeRemaining);
+            }
+        }
+
         private sealed class EnemyData
         {
             public readonly DeepMaintenanceEntityPrototype Prototype;
@@ -3940,6 +4979,11 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public FacingDirection BodyFacing = FacingDirection.Down;
             public FacingDirection ShootFacing = FacingDirection.Down;
             public float DamageFlash;
+            public float FearTimer;
+            public float FearBossCooldown;
+            public bool Frozen;
+            public bool DeathHandled;
+            public readonly List<VisualStatusEffectData> VisualEffects = new();
 
             public EnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, int aggroDelayTicks, int spawnGraceTicks)
             {
@@ -3962,8 +5006,13 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public Vector2 Velocity;
             public readonly Vector2 Direction;
             public readonly float InitialLifetime;
+            public readonly float InitialSpeed;
             public readonly float Radius;
+            public readonly float HeightScale;
             public readonly float Damage;
+            public bool FreezeOnHit;
+            public float FreezeChance = 0.5f;
+            public bool FreezeBosses;
             public float Lifetime;
             public readonly string SpritePath;
             public readonly string SpriteState;
@@ -3971,7 +5020,7 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
             public readonly DeepMaintenanceProjectilePrototype Prototype;
             public readonly Color Tint;
 
-            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, float damage, float lifetime, string spritePath, string spriteState, float spriteScale, DeepMaintenanceProjectilePrototype prototype, Color tint)
+            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, float damage, float lifetime, string spritePath, string spriteState, float spriteScale, DeepMaintenanceProjectilePrototype prototype, Color tint, float heightScale)
             {
                 Position = position;
                 PreviousPosition = position;
@@ -3982,6 +5031,8 @@ public sealed class DeepMaintenanceUiFragment : BoxContainer
                 Damage = damage;
                 Lifetime = lifetime;
                 InitialLifetime = lifetime;
+                InitialSpeed = velocity.Length();
+                HeightScale = MathF.Max(0.1f, heightScale);
                 SpritePath = spritePath;
                 SpriteState = spriteState;
                 SpriteScale = spriteScale;

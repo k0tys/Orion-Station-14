@@ -4,6 +4,7 @@
   spritePath: /Textures/Objects/Misc/coins.rsi
   spriteState: coin_gold
   spriteScale: 1.5
+  basePrice: 0
 
 - type: deepMaintenancePickup
   id: PickupBomb
@@ -11,6 +12,7 @@
   spritePath: /Textures/Objects/Weapons/Bombs/c4.rsi
   spriteState: icon
   spriteScale: 1.5
+  basePrice: 5
 
 - type: deepMaintenancePickup
   id: PickupHeart
@@ -18,3 +20,4 @@
   spritePath: /Textures/_Orion/DeepMaintenance/HUD/hearts.rsi
   spriteState: full
   spriteScale: 1
+  basePrice: 5

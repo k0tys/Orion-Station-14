@@ -10,7 +10,16 @@
   relicAppearRise: 0.28
 
 - type: deepMaintenanceRelic
+  id: BaseDeepMaintenanceRelic
+  abstract: true
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  basePrice: 15
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
   id: RelicClownMask
+  basePrice: 7
   hudIconSpritePath: /Textures/Clothing/Mask/clown.rsi
   hudIconSpriteState: icon
   projectileTintPaletteHex:
@@ -20,13 +29,17 @@
   - "#DB7093"
 
 - type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
   id: RelicMkPistol
+  basePrice: 10
   hudIconSpritePath: /Textures/Objects/Weapons/Guns/Pistols/mk58.rsi
   hudIconSpriteState: icon
   projectileSpeedMultiplier: 1.45
 
 - type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
   id: RelicReadingGlasses
+  basePrice: 15
   hudIconSpritePath: /Textures/Clothing/Eyes/Glasses/glasses.rsi
   hudIconSpriteState: icon
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/reading-glasses.rsi
@@ -34,7 +47,9 @@
   damageFlatBonus: 0.75
 
 - type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
   id: RelicTripleEyes
+  basePrice: 15
   hudIconSpritePath: /Textures/Mobs/Species/Arachnid/organs.rsi
   hudIconSpriteState: eyeball-l
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/triple-eyes.rsi
@@ -43,7 +58,9 @@
   shootCooldownMultiplier: 2
 
 - type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
   id: RelicSkeletonSkull
+  basePrice: 7
   hudIconSpritePath: /Textures/Clothing/Head/Bandanas/skull.rsi
   hudIconSpriteState: icon
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/skull.rsi
@@ -51,12 +68,14 @@
   halfHeartRestoreChanceOnDamage: 0.05
 
 - type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
   id: RelicRedToolbox
+  basePrice: 8
   hudIconSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
   hudIconSpriteState: icon
   meleeOnShoot: true
-  meleeRange: 1.1
-  meleeDamage: 2
+  meleeRange: 1.3
+  meleeDamage: 3
   meleeArcSpritePath: /Textures/Effects/arcs.rsi
   meleeArcSpriteState: disarm
   meleeArcAnimated: true
@@ -64,3 +83,327 @@
   bodyAttachedSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
   bodyAttachedSpriteState: icon
   bodyAttachedSpriteScale: 0.85
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicDiscountCoupon
+  basePrice: 14
+  hudIconSpritePath: /Textures/Objects/Misc/bureaucracy.rsi
+  hudIconSpriteState: paper
+  shopPriceMultiplier: 0.5
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicTooScary
+  basePrice: 16
+  hudIconSpritePath: /Textures/Objects/Fun/figurines.rsi
+  hudIconSpriteState: icon
+  fearAuraRadius: 3.2
+  fearLingerSeconds: 2
+  fearBossCooldownSeconds: 8
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicEyeCluster
+  basePrice: 17
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  extraShotChance: 0.42
+  extraShotMaxCount: 3
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicApc
+  basePrice: 19
+  hudIconSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
+  hudIconSpriteState: icon
+  chainLightningEnabled: true
+  chainLightningRate: 5.3
+  chainLightningDamageMultiplier: 0.75
+  chainLightningRadius: 4.5
+  chainLightningJumpRadius: 2.4
+  chainLightningMaxTargets: 4
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicElectrocrab
+  basePrice: 18
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  onDamageRadialProjectileCount: 10
+  onDamageRadialProjectileDamage: 10
+  onDamageFireRateFirstBonus: 1.2
+  onDamageFireRateStackBonus: 0.4
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicSoapChunk
+  basePrice: 13
+  hudIconSpritePath: /Textures/Objects/Specific/Janitorial/soap.rsi
+  hudIconSpriteState: soap
+  passiveFireRateBonus: 0.5
+  passiveProjectileSpeedBonus: 0.2
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicRhythmicKnife
+  basePrice: 17
+  hudIconSpritePath: /Textures/Objects/Weapons/Melee/claymore.rsi
+  hudIconSpriteState: icon
+  noDamageRoomFireRatePerRoom: 0.4
+  noDamageRoomFireRateMax: 2.0
+  noDamageRoomStartBonus: 0.4
+  resetNoDamageBonusOnHit: true
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicClaymore
+  basePrice: 21
+  hudIconSpritePath: /Textures/Objects/Weapons/Melee/claymore.rsi
+  hudIconSpriteState: icon
+  claymoreEnabled: true
+  claymoreMeleeDamageMultiplier: 3
+  claymoreChargedDamageMultiplier: 8
+  claymoreChargeDuration: 0.8
+  claymoreSwingRadius: 1.25
+  claymoreReflectRadius: 1.5
+  claymoreProjectileOnFullHealth: true
+  claymoreProjectileBonusDamage: 2
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicCaretaker
+  basePrice: 18
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Interceptor
+    count: 1
+    followDistance: 1.1
+    moveSpeed: 8.5
+    interceptRadius: 4.2
+    interceptCooldown: 0.35
+    restChance: 0.22
+    restDuration: 0.5
+    contactDps: 15
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicWaterBottle
+  basePrice: 15
+  hudIconSpritePath: /Textures/Objects/Consumable/Drinks/waterbottle.rsi
+  hudIconSpriteState: icon
+  leftEyeProjectileSpeedMultiplier: 1.28
+  leftEyeFallbackFireRateBonus: 1
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicEyeCancer
+  basePrice: 16
+  hudIconSpritePath: /Textures/Objects/Specific/Chemistry/beaker.rsi
+  hudIconSpriteState: beaker
+  rightEyeDamageMultiplier: 1.28
+  rightEyeRangeFlatBonus: 7
+  rightEyeProjectileSpeedBonus: -0.3
+  rightEyeFallbackChance: 0.5
+  nonTearDamageProcChance: 0.25
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicBluespaceTomato
+  basePrice: 20
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  contactOrProjectileBlockChance: 0.5
+  contactBlockKnockback: 3.2
+  collisionDamageBase: 8
+  collisionDamagePerFloor: 2
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicEye
+  basePrice: 14
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  passiveDamageBonus: 0.75
+  passiveLuckBonus: 1
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicOil
+  basePrice: 17
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  passiveFireRateBonus: 1.5
+  rangeFlatBonus: -1.5
+  rangeMultiplier: 0.8
+  tearHeightBonus: 0.76
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicBoneKey
+  basePrice: 18
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  resourceGrants:
+  - resourceType: Key
+    amount: 99
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicSisterMaggie
+  basePrice: 17
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Orbit
+    count: 1
+    followDistance: 1.1
+    moveSpeed: 8
+    shootInterval: 0.75
+    projectileDamage: 5
+    projectileSpeed: 6
+    shootNearestEnemy: true
+    fixedRedTint: true
+    ignorePlayerDamageModifiers: true
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicGigaChad
+  basePrice: 16
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Orbit
+    count: 1
+    followDistance: 1.2
+    moveSpeed: 8
+    roomRewardEvery: 3
+    roomRewardAmount: 1
+    roomRewardPickupType: Heart
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicLoki
+  basePrice: 18
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Orbit
+    count: 1
+    followDistance: 1.05
+    moveSpeed: 8
+    shootInterval: 0.8
+    projectileDamage: 3.5
+    projectileSpeed: 6.2
+    shootNearestEnemy: false
+    shootFourDirections: true
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicThirstyBlood
+  basePrice: 19
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  onEnemyKillRoomDamageBonus: 0.5
+  onEnemyKillRoomDamageBonusMax: 5
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicHotBlood
+  basePrice: 19
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  onDamagedFloorDamageBonusSequence: [0.5, 0.7, 0.9, 1.1, 1.3, 1.5]
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicHeartCore
+  basePrice: 17
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  maxHealthBonusOnPickup: 1
+  fullHealOnPickup: true
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicEpitaphShards
+  basePrice: 20
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  enemyDeathBurstEnabled: true
+  enemyDeathBurstMinProjectiles: 1
+  enemyDeathBurstMaxProjectiles: 16
+  enemyDeathBurstProjectilesPerMaxHp: 0.5
+  enemyDeathBurstDamageBase: 3.2
+  enemyDeathBurstDamagePerFloor: 0.3
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicBoilingBaby
+  basePrice: 18
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Orbit
+    count: 1
+    followDistance: 1.25
+    moveSpeed: 8
+    burstCount: 8
+    burstInterval: 1.1
+    projectileDamage: 3.5
+    projectileSpeed: 6
+    burstDamageOptions: [3.5, 5.3]
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicFrostBaby
+  basePrice: 18
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Orbit
+    count: 1
+    followDistance: 1.15
+    moveSpeed: 8
+    shootInterval: 0.9
+    projectileDamage: 3.5
+    projectileSpeed: 6
+    shootNearestEnemy: true
+    canFreezeOnHit: true
+    freezeChance: 1
+    freezeBosses: false
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicDoublePair
+  basePrice: 21
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: SideAim
+    count: 2
+    followDistance: 1.35
+    moveSpeed: 8.5
+    shootInterval: 0.75
+    projectileDamage: 0
+    projectileSpeed: 6.5
+    shootAlongPlayerAim: true
+    usePlayerCurrentDamage: true
+    playerDamageScale: 0.375
+
+- type: deepMaintenanceRelic
+  parent: BaseDeepMaintenanceRelic
+  id: RelicHeadlessBaby
+  basePrice: 17
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Orbit
+    count: 1
+    followDistance: 1.1
+    moveSpeed: 8.2
+    spawnBloodTrail: true
+    bloodTrailLifetime: 2.5
+    bloodTrailRadius: 0.7
+    bloodTrailDps: 20

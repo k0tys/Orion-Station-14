@@ -50,8 +50,8 @@
   parent: EntityBase
   id: Shooter
   radius: 0.30
-  moveSpeed: 10
-  maxHp: 3
+  moveSpeed: 2.1
+  maxHp: 10
   shooter: true
   canStrafe: true
   shootCooldownTicks: 15

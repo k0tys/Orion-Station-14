@@ -13,6 +13,7 @@
 - type: deepMaintenanceProjectile
   parent: ProjectileBase
   id: ProjectilePlayer
+  damage: 3.5
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/tear.rsi
   spriteState: icon
 
@@ -23,3 +24,4 @@
 - type: deepMaintenanceProjectile
   parent: ProjectileBase
   id: ProjectileBoss
+  speed: 5.2

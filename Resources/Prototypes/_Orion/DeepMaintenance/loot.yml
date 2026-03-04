@@ -8,6 +8,32 @@
     - id: RelicTripleEyes
     - id: RelicSkeletonSkull
     - id: RelicRedToolbox
+    - id: RelicDiscountCoupon
+    - id: RelicTooScary
+    - id: RelicEyeCluster
+    - id: RelicApc
+    - id: RelicElectrocrab
+    - id: RelicSoapChunk
+    - id: RelicRhythmicKnife
+    - id: RelicClaymore
+    - id: RelicCaretaker
+    - id: RelicWaterBottle
+    - id: RelicEyeCancer
+    - id: RelicBluespaceTomato
+    - id: RelicEye
+    - id: RelicOil
+    - id: RelicBoneKey
+    - id: RelicSisterMaggie
+    - id: RelicGigaChad
+    - id: RelicLoki
+    - id: RelicThirstyBlood
+    - id: RelicHotBlood
+    - id: RelicHeartCore
+    - id: RelicEpitaphShards
+    - id: RelicBoilingBaby
+    - id: RelicFrostBaby
+    - id: RelicDoublePair
+    - id: RelicHeadlessBaby
 
 - type: entity
   id: RelicClownMask
@@ -31,4 +57,108 @@
 
 - type: entity
   id: RelicRedToolbox
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicDiscountCoupon
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicTooScary
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicEyeCluster
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicApc
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicElectrocrab
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicSoapChunk
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicRhythmicKnife
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicClaymore
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicCaretaker
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicWaterBottle
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicEyeCancer
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicBluespaceTomato
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicEye
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicOil
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicBoneKey
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicSisterMaggie
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicGigaChad
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicLoki
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicThirstyBlood
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicHotBlood
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicHeartCore
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicEpitaphShards
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicBoilingBaby
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicFrostBaby
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicDoublePair
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: RelicHeadlessBaby
   categories: [ HideSpawnMenu ]

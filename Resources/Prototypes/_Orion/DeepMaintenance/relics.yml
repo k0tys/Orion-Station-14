@@ -22,6 +22,8 @@
   basePrice: 7
   hudIconSpritePath: /Textures/Clothing/Mask/clown.rsi
   hudIconSpriteState: icon
+  headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/clown-mask.rsi
+  headAttachedSpriteState: overlay
   projectileTintPaletteHex:
   - "#FF69B4"
   - "#FF1493"
@@ -75,8 +77,8 @@
   hudIconSpriteState: icon
   meleeOnShoot: true
   meleeRange: 1.3
-  meleeDamage: 3
-  meleeArcSpritePath: /Textures/Effects/arcs.rsi
+  meleeDamage: 5
+  meleeArcSpritePath: Effects/arcs.rsi
   meleeArcSpriteState: disarm
   meleeArcAnimated: true
   meleeArcAnimationFps: 14
@@ -162,8 +164,8 @@
   hudIconSpritePath: /Textures/Objects/Weapons/Melee/claymore.rsi
   hudIconSpriteState: icon
   claymoreEnabled: true
-  claymoreMeleeDamageMultiplier: 3
-  claymoreChargedDamageMultiplier: 8
+  claymoreMeleeDamageMultiplier: 5
+  claymoreChargedDamageMultiplier: 12
   claymoreChargeDuration: 0.8
   claymoreSwingRadius: 1.25
   claymoreReflectRadius: 1.5

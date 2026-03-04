@@ -139,6 +139,7 @@ public sealed partial class DeepMaintenanceUiFragment
 
             DrawHealthHearts(handle);
             DrawBuffIcons(handle);
+            DrawHoveredItemTooltip(handle, tilePixel, mapOffset);
             DrawEmote(handle, tilePixel, mapOffset);
             DrawBossHealthBar(handle);
             DrawMinimap(handle);
@@ -176,10 +177,18 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (string.IsNullOrWhiteSpace(relic.HeadAttachedSpritePath) || string.IsNullOrWhiteSpace(relic.HeadAttachedSpriteState))
                     continue;
 
-                DrawDirectionalEntityLayer(handle, _playerPos + relic.HeadAttachedOffset, relic.HeadAttachedSpritePath, relic.HeadAttachedSpriteState, _playerShootFacing, tilePixel, relic.HeadAttachedSpriteScale, mapOffset, Color.White);
+                var facing = ResolveOverlayFacing(_playerBodyFacing, _playerShootFacing);
+                DrawDirectionalEntityLayer(handle, _playerPos + relic.HeadAttachedOffset, relic.HeadAttachedSpritePath, relic.HeadAttachedSpriteState, facing, tilePixel, relic.HeadAttachedSpriteScale, mapOffset, Color.White);
             }
 
             DrawMeleeSwing(handle, tilePixel, mapOffset);
+        }
+
+        private FacingDirection ResolveOverlayFacing(FacingDirection bodyFacing, FacingDirection shootFacing)
+        {
+            return _playerShootAnimationTimer > 0f || _inputState.AnyShootKeyHeld()
+                ? shootFacing
+                : bodyFacing;
         }
 
         private void DrawMeleeSwing(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
@@ -593,6 +602,127 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
+        private void DrawHoveredItemTooltip(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
+        {
+            if (!TryBuildTooltipText(tilePixel, mapOffset, out var text))
+                return;
+
+            var dimensions = handle.GetDimensions(_tooltipFont, text, 1f);
+            var padding = new Vector2(8f, 6f);
+            var pos = _lastMousePosition + new Vector2(14f, 14f);
+            var size = dimensions + padding * 2f;
+
+            if (pos.X + size.X > PixelSize.X - 4f)
+                pos.X = MathF.Max(4f, PixelSize.X - size.X - 4f);
+            if (pos.Y + size.Y > PixelSize.Y - 4f)
+                pos.Y = MathF.Max(4f, PixelSize.Y - size.Y - 4f);
+
+            var box = UIBox2.FromDimensions(pos, size);
+            handle.DrawRect(box, new Color(10, 10, 14, 215));
+            var border = new Color(244, 225, 171, 220);
+            handle.DrawLine(box.TopLeft, new Vector2(box.Right, box.Top), border);
+            handle.DrawLine(new Vector2(box.Right, box.Top), box.BottomRight, border);
+            handle.DrawLine(box.BottomRight, new Vector2(box.Left, box.Bottom), border);
+            handle.DrawLine(new Vector2(box.Left, box.Bottom), box.TopLeft, border);
+            handle.DrawString(_tooltipFont, pos + padding, text, Color.White);
+        }
+
+        private bool TryBuildTooltipText(float tilePixel, Vector2 mapOffset, out string text)
+        {
+            text = string.Empty;
+            var worldPos = (_lastMousePosition - mapOffset) / MathF.Max(0.001f, tilePixel);
+
+            if (CurrentRoom.Type == RoomType.Shop)
+            {
+                foreach (var slot in CurrentRoom.ShopSlots)
+                {
+                    if (slot.Sold || Vector2.Distance(worldPos, slot.Position) > 0.5f)
+                        continue;
+
+                    text = BuildShopTooltip(slot);
+                    return !string.IsNullOrWhiteSpace(text);
+                }
+            }
+
+            foreach (var pickup in CurrentRoom.Pickups)
+            {
+                if (Vector2.Distance(worldPos, pickup.Position) > 0.4f)
+                    continue;
+
+                text = BuildPickupTooltip(pickup);
+                return !string.IsNullOrWhiteSpace(text);
+            }
+
+            if (_treasureRelicPosition is { } relicPos && Vector2.Distance(worldPos, relicPos) <= 0.45f && !string.IsNullOrWhiteSpace(_treasureRelicId) &&
+                _prototype.TryIndex<DeepMaintenanceRelicPrototype>(_treasureRelicId, out var relic))
+            {
+                text = BuildRelicTooltip(relic, null);
+                return true;
+            }
+
+            var hudIndex = (int) ((_lastMousePosition.X - 6f) / 28f);
+            if (_lastMousePosition.Y >= 38f && _lastMousePosition.Y <= 62f && hudIndex >= 0 && hudIndex < _activeRelics.Count)
+            {
+                text = BuildRelicTooltip(_activeRelics[hudIndex], null);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string BuildPickupTooltip(PickupData pickup)
+        {
+            return pickup.Type switch
+            {
+                PickupType.Coin => $"{Loc.GetString("deep-maintenance-tooltip-pickup-coin-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-coin-desc")}",
+                PickupType.Bomb => $"{Loc.GetString("deep-maintenance-tooltip-pickup-bomb-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-bomb-desc")}",
+                PickupType.Key => $"{Loc.GetString("deep-maintenance-tooltip-pickup-key-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-key-desc")}",
+                PickupType.Heart => $"{Loc.GetString("deep-maintenance-tooltip-pickup-heart-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-heart-desc")}",
+                _ => string.Empty,
+            };
+        }
+
+        private string BuildShopTooltip(ShopSlotData slot)
+        {
+            var price = ApplyPriceModifiers(slot.Price);
+            return slot.Item switch
+            {
+                ShopItemType.Relic when !string.IsNullOrWhiteSpace(slot.RelicId) && _prototype.TryIndex<DeepMaintenanceRelicPrototype>(slot.RelicId, out var relic)
+                    => BuildRelicTooltip(relic, price),
+                ShopItemType.Bomb => $"{Loc.GetString("deep-maintenance-tooltip-pickup-bomb-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-bomb-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
+                ShopItemType.Heart => $"{Loc.GetString("deep-maintenance-tooltip-pickup-heart-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-heart-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
+                ShopItemType.Key => $"{Loc.GetString("deep-maintenance-tooltip-pickup-key-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-key-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
+                ShopItemType.Coin => $"{Loc.GetString("deep-maintenance-tooltip-pickup-coin-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-coin-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
+                _ => string.Empty,
+            };
+        }
+
+        private static string BuildRelicTooltip(DeepMaintenanceRelicPrototype relic, int? price)
+        {
+            var nameKey = $"deep-maintenance-relic-{relic.ID.ToLowerInvariant()}-name";
+            var descKey = $"deep-maintenance-relic-{relic.ID.ToLowerInvariant()}-desc";
+            var name = Loc.TryGetString(nameKey, out var localizedName) ? localizedName : relic.ID;
+            var desc = Loc.TryGetString(descKey, out var localizedDesc) ? localizedDesc : Loc.GetString("deep-maintenance-tooltip-relic-default-desc");
+            var rarity = relic.BasePrice switch
+            {
+                <= 10 => Loc.GetString("deep-maintenance-tooltip-rarity-common"),
+                <= 17 => Loc.GetString("deep-maintenance-tooltip-rarity-rare"),
+                _ => Loc.GetString("deep-maintenance-tooltip-rarity-legendary"),
+            };
+
+            var lines = new List<string>
+            {
+                name,
+                desc,
+                Loc.GetString("deep-maintenance-tooltip-rarity", ("rarity", rarity)),
+            };
+
+            if (price.HasValue)
+                lines.Add(Loc.GetString("deep-maintenance-tooltip-price", ("price", price.Value)));
+
+            return string.Join("\n", lines);
+        }
+
         private void DrawHealthHearts(DrawingHandleScreen handle)
         {
             var size = Math.Clamp(PixelSize.X / 18f, 14f, 24f);
@@ -695,7 +825,7 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
-        private void DrawShadow(DrawingHandleScreen handle, Vector2 tilePosition, float tilePixel, Vector2 mapOffset, float radius, float alpha)
+        private static void DrawShadow(DrawingHandleScreen handle, Vector2 tilePosition, float tilePixel, Vector2 mapOffset, float radius, float alpha)
         {
             var center = mapOffset + tilePosition * tilePixel;
             var baseSize = MathF.Max(2f, radius * tilePixel * 1.9f);
@@ -843,7 +973,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
 
             var barWidth = Math.Clamp(PixelSize.X * 0.55f, 140f, 320f);
-            var barHeight = 11f;
+            const float barHeight = 11f;
             var topLeft = new Vector2((PixelSize.X - barWidth) * 0.5f, 7f);
             var bg = UIBox2.FromDimensions(topLeft, new Vector2(barWidth, barHeight));
             handle.DrawRect(bg, new Color(20, 8, 8, 220));
@@ -992,7 +1122,7 @@ public sealed partial class DeepMaintenanceUiFragment
         private bool IsRoomVisibleOnMinimap(int roomIndex)
         {
             var room = _rooms[roomIndex];
-            if (room.IsSecret && !room.Cleared && roomIndex != RoomIndex)
+            if (room is { IsSecret: true, Cleared: false } && roomIndex != RoomIndex)
                 return false;
 
             if (_visitedRooms.Contains(roomIndex) || roomIndex == RoomIndex)

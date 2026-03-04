@@ -336,7 +336,7 @@ public sealed partial class DeepMaintenanceUiFragment
         {
             public readonly PickupType Type;
             public readonly int Amount;
-            public readonly Vector2 Position;
+            public Vector2 Position;
             public float SpawnTimer;
             public readonly float SpawnDuration;
 

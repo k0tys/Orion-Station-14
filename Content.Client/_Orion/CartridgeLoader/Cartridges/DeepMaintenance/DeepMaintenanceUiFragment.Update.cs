@@ -69,12 +69,14 @@ public sealed partial class DeepMaintenanceUiFragment
             TickBombs(dt);
             TickBombExplosionEffects(dt);
             TickPickupAnimations(dt);
+            ResolvePickupCollisions(dt);
             HandleContactDamage();
             HandleEnemyDeaths();
             HandlePickups();
             HandleShopPurchases();
             HandleTreasureInteractions();
             HandleRoomState();
+            ResolveDynamicEntitySeparation(dt);
             TickDoorAnimations();
 
             InvalidateMeasure();
@@ -1698,6 +1700,79 @@ public sealed partial class DeepMaintenanceUiFragment
             room.Pickups.Add(new PickupData(type, amount, position, spawnDelay));
         }
 
+        private void ResolvePickupCollisions(float dt)
+        {
+            if (CurrentRoom.Pickups.Count == 0)
+                return;
+
+            var pushStep = MathF.Max(0f, dt) * PickupPushStrength;
+            for (var i = 0; i < CurrentRoom.Pickups.Count; i++)
+            {
+                var pickup = CurrentRoom.Pickups[i];
+                var offset = Vector2.Zero;
+
+                offset += ComputePushOffset(pickup.Position, PickupCollisionRadius, _playerPos, _playerProto.Radius);
+
+                foreach (var enemy in CurrentRoom.Enemies)
+                {
+                    if (enemy.Hp <= 0)
+                        continue;
+
+                    offset += ComputePushOffset(pickup.Position, PickupCollisionRadius, enemy.Position, enemy.Prototype.Radius);
+                }
+
+                foreach (var familiar in _familiars)
+                {
+                    offset += ComputePushOffset(pickup.Position, PickupCollisionRadius, familiar.Position, FamiliarCollisionRadius);
+                }
+
+                if (offset == Vector2.Zero)
+                    continue;
+
+                pickup.Position = ResolveCircleTileCollision(pickup.Position + offset * pushStep, PickupCollisionRadius, CurrentRoom);
+            }
+        }
+
+        private void ResolveDynamicEntitySeparation(float dt)
+        {
+            var step = Math.Clamp(dt * 10f, 0f, 1f);
+
+            foreach (var enemy in CurrentRoom.Enemies)
+            {
+                if (enemy.Hp <= 0)
+                    continue;
+
+                var push = ComputePushOffset(_playerPos, _playerProto.Radius + EntitySeparationBias, enemy.Position, enemy.Prototype.Radius + EntitySeparationBias);
+                if (push != Vector2.Zero)
+                    _playerPos = ResolveCircleTileCollision(_playerPos + push * step, _playerProto.Radius, CurrentRoom);
+            }
+
+            foreach (var familiar in _familiars)
+            {
+                var push = ComputePushOffset(_playerPos, _playerProto.Radius + EntitySeparationBias, familiar.Position, FamiliarCollisionRadius + EntitySeparationBias);
+                if (push != Vector2.Zero)
+                    _playerPos = ResolveCircleTileCollision(_playerPos + push * step, _playerProto.Radius, CurrentRoom);
+            }
+        }
+
+        private static Vector2 ComputePushOffset(Vector2 leftPos, float leftRadius, Vector2 rightPos, float rightRadius)
+        {
+            var delta = leftPos - rightPos;
+            var distance = delta.Length();
+            var minDistance = leftRadius + rightRadius;
+
+            if (distance <= 0.0001f)
+            {
+                delta = new Vector2(1f, 0f);
+                distance = 1f;
+            }
+
+            if (distance >= minDistance)
+                return Vector2.Zero;
+
+            return delta / distance * (minDistance - distance);
+        }
+
         private void SetDoorState(RoomData room, bool open)
         {
             if (room.DoorTargetOpen == open)
@@ -1728,9 +1803,9 @@ public sealed partial class DeepMaintenanceUiFragment
                 return 0f;
 
             var duration = 0f;
-            for (var i = 0; i < delays.Length; i++)
+            foreach (var t in delays)
             {
-                duration += MathF.Max(0.001f, delays[i]);
+                duration += MathF.Max(0.001f, t);
             }
 
             return duration;
@@ -1858,10 +1933,12 @@ public sealed partial class DeepMaintenanceUiFragment
         private void UpdateRoomLighting(RoomData room)
         {
             var baseLight = _activeFloorConfig?.BaseLight ?? 0.72f;
-            if (room.Type == RoomType.Boss)
-                baseLight = _activeFloorConfig?.BossRoomBaseLight ?? MathF.Min(baseLight, 0.45f);
-            else if (room.Type == RoomType.Shop)
-                baseLight = _activeFloorConfig?.ShopRoomBaseLight ?? MathF.Max(baseLight, 0.82f);
+            baseLight = room.Type switch
+            {
+                RoomType.Boss => _activeFloorConfig?.BossRoomBaseLight ?? MathF.Min(baseLight, 0.45f),
+                RoomType.Shop => _activeFloorConfig?.ShopRoomBaseLight ?? MathF.Max(baseLight, 0.82f),
+                _ => baseLight,
+            };
 
             _roomBaseLight = Math.Clamp(baseLight, 0.05f, 1f);
             _roomVignetteStrength = Math.Clamp(_activeFloorConfig?.VignetteStrength ?? 0.2f, 0f, 0.8f);
@@ -1900,9 +1977,12 @@ public sealed partial class DeepMaintenanceUiFragment
                 indexByPos[fallback] = i;
             }
 
-            var bossIndex = roomCount - 1;
-            var treasureIndex = roomCount - 2;
-            var shopIndex = roomCount > 4 ? roomCount - 3 : -1;
+            var bossIndex = SelectBossRoomIndex(positions);
+            var specialTaken = new HashSet<int> { 0, bossIndex };
+            var treasureIndex = SelectSpecialRoomIndex(positions, specialTaken);
+            if (treasureIndex >= 0)
+                specialTaken.Add(treasureIndex);
+            var shopIndex = roomCount > 4 ? SelectSpecialRoomIndex(positions, specialTaken) : -1;
 
             for (var i = 0; i < roomCount; i++)
             {
@@ -1933,13 +2013,22 @@ public sealed partial class DeepMaintenanceUiFragment
                     if (!indexByPos.TryGetValue(room.MapPosition + direction, out var neighborIndex))
                         continue;
 
-                    room.Neighbors[direction] = neighborIndex;
-                    AddDoorway(room, direction);
+                    switch (room.Type)
+                    {
+                        case RoomType.Start when _rooms[neighborIndex].Type == RoomType.Boss:
+                        case RoomType.Boss when _rooms[neighborIndex].Type == RoomType.Start:
+                            continue;
+                        default:
+                            room.Neighbors[direction] = neighborIndex;
+                            AddDoorway(room, direction);
+                            break;
+                    }
                 }
             }
 
             TryAddSecretRoom(indexByPos, positions);
             EnsureBossRoomSingleConnection();
+            EnsureBossReachabilityFromStart();
 
             foreach (var room in _rooms)
             {
@@ -1950,6 +2039,84 @@ public sealed partial class DeepMaintenanceUiFragment
                     room.DoorVisualOpen = true;
                 }
             }
+        }
+
+        private static int SelectBossRoomIndex(List<Vector2i> positions)
+        {
+            var bestIndex = 1;
+            var bestDistance = 0;
+            for (var i = 1; i < positions.Count; i++)
+            {
+                var pos = positions[i];
+                var distance = Math.Abs(pos.X) + Math.Abs(pos.Y);
+                if (distance <= bestDistance)
+                    continue;
+
+                bestDistance = distance;
+                bestIndex = i;
+            }
+
+            return bestIndex;
+        }
+
+        private static int SelectSpecialRoomIndex(List<Vector2i> positions, HashSet<int> excluded)
+        {
+            var bestIndex = -1;
+            var bestDistance = int.MaxValue;
+            for (var i = 1; i < positions.Count; i++)
+            {
+                if (excluded.Contains(i))
+                    continue;
+
+                var pos = positions[i];
+                var distance = Math.Abs(pos.X) + Math.Abs(pos.Y);
+                if (distance >= bestDistance)
+                    continue;
+
+                bestDistance = distance;
+                bestIndex = i;
+            }
+
+            return bestIndex;
+        }
+
+        private void EnsureBossReachabilityFromStart()
+        {
+            var bossIndex = _rooms.FindIndex(room => room.Type == RoomType.Boss);
+            if (bossIndex <= 0)
+                return;
+
+            foreach (var direction in CardinalDirections().ToArray())
+            {
+                if (!_rooms[0].Neighbors.TryGetValue(direction, out var neighborIndex) || neighborIndex != bossIndex)
+                    continue;
+
+                _rooms[0].Neighbors.Remove(direction);
+                _rooms[0].Tiles = SetDoorTile(_rooms[0].Tiles, direction, TileType.Wall);
+                var reverse = new Vector2i(-direction.X, -direction.Y);
+                _rooms[bossIndex].Neighbors.Remove(reverse);
+                _rooms[bossIndex].Tiles = SetDoorTile(_rooms[bossIndex].Tiles, reverse, TileType.Wall);
+            }
+
+            if (_rooms[bossIndex].Neighbors.Values.Any(index => index != 0))
+                return;
+
+            var neighborEntry = _rooms
+                .Select((room, index) => (room, index))
+                .FirstOrDefault(entry => entry.index != 0 && entry.index != bossIndex && entry.room.Type != RoomType.Secret &&
+                                         (Math.Abs(entry.room.MapPosition.X - _rooms[bossIndex].MapPosition.X) +
+                                          Math.Abs(entry.room.MapPosition.Y - _rooms[bossIndex].MapPosition.Y) == 1));
+
+            if (neighborEntry.room == null)
+                return;
+
+            var delta = _rooms[bossIndex].MapPosition - neighborEntry.room.MapPosition;
+            var directionToBoss = new Vector2i(Math.Sign(delta.X), Math.Sign(delta.Y));
+            var reverseDir = new Vector2i(-directionToBoss.X, -directionToBoss.Y);
+            _rooms[neighborEntry.index].Neighbors[directionToBoss] = bossIndex;
+            _rooms[bossIndex].Neighbors[reverseDir] = neighborEntry.index;
+            AddDoorway(_rooms[neighborEntry.index], directionToBoss);
+            AddDoorway(_rooms[bossIndex], reverseDir);
         }
 
         #endregion

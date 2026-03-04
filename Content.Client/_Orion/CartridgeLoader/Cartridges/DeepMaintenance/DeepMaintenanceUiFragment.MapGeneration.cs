@@ -363,22 +363,20 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private static bool IsInsideDoorSpawnExclusion(Vector2 position)
         {
-            var doorCenters = new[]
-            {
-                new Vector2(0f, GridHeight * 0.5f),
-                new Vector2(GridWidth - 1f, GridHeight * 0.5f),
-                new Vector2(GridWidth * 0.5f, 0f),
-                new Vector2(GridWidth * 0.5f, GridHeight - 1f),
-            };
+            const float centerX = GridWidth * 0.5f;
+            const float centerY = GridHeight * 0.5f;
+            const float halfDoorWidth = 1f;
 
-            foreach (var door in doorCenters)
-            {
-                if (MathF.Abs(position.X - door.X) <= DoorSpawnExclusionRadius &&
-                    MathF.Abs(position.Y - door.Y) <= DoorSpawnExclusionRadius)
-                    return true;
-            }
+            var leftSafe = position.X is >= 1f and <= 1f + DoorInnerSafeZoneDepth &&
+                           MathF.Abs(position.Y - centerY) <= halfDoorWidth;
+            var rightSafe = position.X is <= GridWidth - 1f and >= GridWidth - 1f - DoorInnerSafeZoneDepth &&
+                            MathF.Abs(position.Y - centerY) <= halfDoorWidth;
+            var topSafe = position.Y is >= 1f and <= 1f + DoorInnerSafeZoneDepth &&
+                          MathF.Abs(position.X - centerX) <= halfDoorWidth;
+            var bottomSafe = position.Y is <= GridHeight - 1f and >= GridHeight - 1f - DoorInnerSafeZoneDepth &&
+                             MathF.Abs(position.X - centerX) <= halfDoorWidth;
 
-            return false;
+            return leftSafe || rightSafe || topSafe || bottomSafe;
         }
 
         private bool TryFindEnemySpawnPosition(RoomData room, out Vector2 position)

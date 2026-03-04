@@ -152,10 +152,12 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private float _playerDamageFlash;
         private float _meleeSwingTimer;
         private float _animationClock;
+        private Vector2 _lastMousePosition;
         private FacingDirection _meleeSwingFacing = FacingDirection.Down;
         private float _emoteTimer;
 
         private readonly Font _shopPriceFont;
+        private readonly Font _tooltipFont;
 
         private Vector2? _treasureBoxPosition;
         private bool _treasureBoxOpened;
@@ -199,6 +201,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const int InvulnerabilityTicks = 10;
         private const float DoorTransitionMargin = 0.05f;
         private const float DoorSpawnExclusionRadius = 2f;
+        private const float DoorInnerSafeZoneDepth = 2f;
         private const float EntitySpriteTileSize = 1f;
         private const float FacingResetDelaySeconds = 0.18f;
         private const float EnemyHitKnockback = 0.22f;
@@ -212,7 +215,6 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const float EnemyVisionSamplesPerTile = 2.5f;
         private const int EnemyAvoidanceLockTicks = 8;
         private const float EnemyAvoidanceCheckDistance = 0.8f;
-        private const float FamiliarCollisionRadius = 0.2f;
 
         private const int MaxBombs = 99;
         private const int MaxKeys = 99;
@@ -223,6 +225,10 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const float BombExplosionVisualDuration = 0.28f;
         private const float SecretRevealBombRadius = 1.4f;
         private const float PickupRadius = 0.85f;
+        private const float PickupCollisionRadius = 0.28f;
+        private const float FamiliarCollisionRadius = 0.22f;
+        private const float EntitySeparationBias = 0.05f;
+        private const float PickupPushStrength = 0.8f;
         private const float PickupSpawnAnimationDuration = 0.24f;
         private const float ShopPurchaseRadius = 0.72f;
         private const int RoomClearCoinMin = 1;
@@ -342,6 +348,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _entityTable = _entity.System<EntityTableSystem>();
             _inputState = new DeepMaintenanceInputState(_input);
             _shopPriceFont = _resourceCache.GetFont("/Fonts/NotoSans/NotoSans-Bold.ttf", 10);
+            _tooltipFont = _resourceCache.GetFont("/Fonts/NotoSans/NotoSans-Regular.ttf", 11);
 
             CanKeyboardFocus = true;
             KeyboardFocusOnClick = true;
@@ -534,6 +541,12 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
 
             _inputState.Remove(args.Function);
             args.Handle();
+        }
+
+        protected override void MouseMove(GUIMouseMoveEventArgs args)
+        {
+            base.MouseMove(args);
+            _lastMousePosition = args.RelativePosition;
         }
 
         #endregion

@@ -40,7 +40,7 @@
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/triple-eyes.rsi
   headAttachedSpriteState: overlay
   tripleShotAlternating: true
-  shootCooldownMultiplier: 1.25
+  shootCooldownMultiplier: 2
 
 - type: deepMaintenanceRelic
   id: RelicSkeletonSkull

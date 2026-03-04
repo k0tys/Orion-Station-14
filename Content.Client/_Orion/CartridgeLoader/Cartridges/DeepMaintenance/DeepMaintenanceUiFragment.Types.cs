@@ -362,6 +362,20 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
+        private sealed class BombExplosionData
+        {
+            public readonly Vector2 Position;
+            public float Timer;
+            public readonly float Duration;
+
+            public BombExplosionData(Vector2 position, float duration)
+            {
+                Position = position;
+                Duration = MathF.Max(0.05f, duration);
+                Timer = Duration;
+            }
+        }
+
         private sealed class FamiliarData
         {
             public readonly string SourceRelicId;

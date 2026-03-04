@@ -174,6 +174,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private int _keys;
         private int _bombs;
         private readonly List<BombData> _activeBombs = new();
+        private readonly List<BombExplosionData> _bombExplosions = new();
         private float _chainLightningAccumulator;
         private bool _tookDamageInRoom;
         private float _electroRakRoomFireRateBonus;
@@ -211,6 +212,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const float EnemyVisionSamplesPerTile = 2.5f;
         private const int EnemyAvoidanceLockTicks = 8;
         private const float EnemyAvoidanceCheckDistance = 0.8f;
+        private const float FamiliarCollisionRadius = 0.2f;
 
         private const int MaxBombs = 99;
         private const int MaxKeys = 99;
@@ -218,6 +220,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const float BombExplosionRadius = 1.65f;
         private const int BombEnemyDamage = 4;
         private const float BombObjectDamageRadius = 1.3f;
+        private const float BombExplosionVisualDuration = 0.28f;
         private const float SecretRevealBombRadius = 1.4f;
         private const float PickupRadius = 0.85f;
         private const float PickupSpawnAnimationDuration = 0.24f;
@@ -424,6 +427,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _playerVelocity = Vector2.Zero;
             _activeRelics.Clear();
             _activeBombs.Clear();
+            _bombExplosions.Clear();
             _inputState.Clear();
 
             RoomIndex = 0;

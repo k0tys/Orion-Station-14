@@ -129,6 +129,7 @@ public sealed partial class DeepMaintenanceUiFragment
 
             DrawPickups(handle, tilePixel, mapOffset);
             DrawBombs(handle, tilePixel, mapOffset);
+            DrawBombExplosions(handle, tilePixel, mapOffset);
             DrawFloorExit(handle, tilePixel, mapOffset);
             DrawShopSlots(handle, tilePixel, mapOffset);
             DrawLightingOverlay(handle, tilePixel, mapOffset);
@@ -784,10 +785,30 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void DrawPriceTag(DrawingHandleScreen handle, int price, Vector2 center)
         {
-            var text = $"{Math.Max(0, price)}§";
+            var text = $"{Math.Max(0, price)} §";
+            var dimensions = handle.GetDimensions(_shopPriceFont, text, 1f);
+            var centered = center - dimensions / 2f;
             var shadowOffset = new Vector2(1f, 1f);
-            handle.DrawString(_shopPriceFont, center + shadowOffset, text, Color.Black.WithAlpha(0.8f));
-            handle.DrawString(_shopPriceFont, center, text, new Color(255, 216, 89));
+            handle.DrawString(_shopPriceFont, centered + shadowOffset, text, Color.Black.WithAlpha(0.8f));
+            handle.DrawString(_shopPriceFont, centered, text, new Color(255, 216, 89));
+        }
+
+        private void DrawBombExplosions(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
+        {
+            foreach (var explosion in _bombExplosions)
+            {
+                var progress = 1f - Math.Clamp(explosion.Timer / explosion.Duration, 0f, 1f);
+                var center = mapOffset + explosion.Position * tilePixel;
+                var radius = tilePixel * 0.2f + (BombExplosionRadius * tilePixel - tilePixel * 0.2f) * progress;
+                var alpha = Math.Clamp(1f - progress, 0f, 1f);
+
+                var outer = UIBox2.FromDimensions(center - new Vector2(radius, radius), new Vector2(radius * 2f, radius * 2f));
+                var innerRadius = radius * 0.58f;
+                var inner = UIBox2.FromDimensions(center - new Vector2(innerRadius, innerRadius), new Vector2(innerRadius * 2f, innerRadius * 2f));
+
+                handle.DrawRect(outer, new Color(255, 196, 95, (byte) (120 * alpha)));
+                handle.DrawRect(inner, new Color(255, 235, 160, (byte) (190 * alpha)));
+            }
         }
 
         private void DrawEmote(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)

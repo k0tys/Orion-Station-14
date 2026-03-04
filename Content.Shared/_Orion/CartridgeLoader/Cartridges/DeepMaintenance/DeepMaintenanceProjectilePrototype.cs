@@ -22,7 +22,7 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
     public float Speed = 5f;
 
     [DataField]
-    public int Damage = 1;
+    public float Damage = 1f;
 
     [DataField]
     public float Lifetime = 2.2f;

@@ -308,30 +308,57 @@ public sealed partial class DeepMaintenanceUiFragment
                 new Vector2(GridWidth * 0.5f + 2.1f, GridHeight * 0.5f),
             };
 
+            var availableConsumables = new List<ShopItemType>
+            {
+                ShopItemType.Bomb,
+                ShopItemType.Heart,
+            };
+
             for (var i = 0; i < Math.Min(ShopSlotCount, slots.Length); i++)
             {
-                room.ShopSlots.Add(RollShopSlot(slots[i]));
+                room.ShopSlots.Add(RollShopSlot(slots[i], availableConsumables));
             }
         }
 
-        private ShopSlotData RollShopSlot(Vector2 position)
+        private ShopSlotData RollShopSlot(Vector2 position, List<ShopItemType> availableConsumables)
         {
+            if (availableConsumables.Count == 0)
+            {
+                var exhaustedRelicId = RollTreasureRelicId();
+                if (!string.IsNullOrWhiteSpace(exhaustedRelicId) && _prototype.TryIndex<DeepMaintenanceRelicPrototype>(exhaustedRelicId, out var exhaustedRelicPrototype))
+                    return new ShopSlotData(ShopItemType.Relic, 1, CalculateRelicPrice(exhaustedRelicPrototype), position, exhaustedRelicPrototype.HudIconSpritePath, exhaustedRelicPrototype.HudIconSpriteState, 1f, exhaustedRelicId);
+
+                return new ShopSlotData(ShopItemType.None, 0, 0, position, null, null, 1f);
+            }
+
             var roll = _random.Next(100);
-            switch (roll)
+
+            if (roll >= 80)
             {
-                case < 45:
+                var relicId = RollTreasureRelicId();
+                if (!string.IsNullOrWhiteSpace(relicId) && _prototype.TryIndex<DeepMaintenanceRelicPrototype>(relicId, out var relicPrototype))
+                {
+                    return new ShopSlotData(ShopItemType.Relic, 1, CalculateRelicPrice(relicPrototype), position, relicPrototype.HudIconSpritePath, relicPrototype.HudIconSpriteState, 1f, relicId);
+                }
+            }
+
+            ShopItemType chosen = roll switch
+            {
+                < 45 when availableConsumables.Contains(ShopItemType.Bomb) => ShopItemType.Bomb,
+                < 80 when availableConsumables.Contains(ShopItemType.Heart) => ShopItemType.Heart,
+                _ => availableConsumables[_random.Next(availableConsumables.Count)],
+            };
+
+            availableConsumables.Remove(chosen);
+            switch (chosen)
+            {
+                case ShopItemType.Bomb:
                     return new ShopSlotData(ShopItemType.Bomb, 1, CalculatePickupPrice(_bombPickupProto), position, _bombPickupProto.SpritePath, _bombPickupProto.SpriteState, _bombPickupProto.SpriteScale);
-                case < 80:
+                case ShopItemType.Heart:
                     return new ShopSlotData(ShopItemType.Heart, 1, CalculatePickupPrice(_heartPickupProto), position, _heartPickupProto.SpritePath, _heartPickupProto.SpriteState, _heartPickupProto.SpriteScale);
+                default:
+                    return new ShopSlotData(ShopItemType.Bomb, 1, CalculatePickupPrice(_bombPickupProto), position, _bombPickupProto.SpritePath, _bombPickupProto.SpriteState, _bombPickupProto.SpriteScale);
             }
-
-            var relicId = RollTreasureRelicId();
-            if (!string.IsNullOrWhiteSpace(relicId) && _prototype.TryIndex<DeepMaintenanceRelicPrototype>(relicId, out var relicPrototype))
-            {
-                return new ShopSlotData(ShopItemType.Relic, 1, CalculateRelicPrice(relicPrototype), position, relicPrototype.HudIconSpritePath, relicPrototype.HudIconSpriteState, 1f, relicId);
-            }
-
-            return new ShopSlotData(ShopItemType.Bomb, 1, CalculatePickupPrice(_bombPickupProto), position, _bombPickupProto.SpritePath, _bombPickupProto.SpriteState, _bombPickupProto.SpriteScale);
         }
 
         private static bool IsInsideDoorSpawnExclusion(Vector2 position)

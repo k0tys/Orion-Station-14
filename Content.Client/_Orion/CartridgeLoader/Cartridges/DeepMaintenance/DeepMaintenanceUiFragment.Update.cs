@@ -67,6 +67,7 @@ public sealed partial class DeepMaintenanceUiFragment
             TickProjectiles(_playerProjectiles, true, dt);
             TickProjectiles(_enemyProjectiles, false, dt);
             TickBombs(dt);
+            TickBombExplosionEffects(dt);
             TickPickupAnimations(dt);
             HandleContactDamage();
             HandleEnemyDeaths();
@@ -122,6 +123,8 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void ExplodeBomb(Vector2 center)
         {
+            _bombExplosions.Add(new BombExplosionData(center, BombExplosionVisualDuration));
+
             foreach (var enemy in CurrentRoom.Enemies)
             {
                 if (enemy.Hp <= 0)
@@ -161,21 +164,25 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (pickup.SpawnTimer > 0f || Vector2.Distance(_playerPos, pickup.Position) > PickupRadius)
                     continue;
 
+                var picked = false;
                 switch (pickup.Type)
                 {
                     case PickupType.Coin:
-                        AddResource(ResourceType.Coin, pickup.Amount);
+                        picked = TryAddResource(ResourceType.Coin, pickup.Amount);
                         break;
                     case PickupType.Bomb:
-                        AddResource(ResourceType.Bomb, pickup.Amount);
+                        picked = TryAddResource(ResourceType.Bomb, pickup.Amount);
                         break;
                     case PickupType.Key:
-                        AddResource(ResourceType.Key, pickup.Amount);
+                        picked = TryAddResource(ResourceType.Key, pickup.Amount);
                         break;
                     case PickupType.Heart:
-                        SetPlayerHealth(PlayerHp + pickup.Amount, MaxPlayerHp);
+                        picked = TryAddHealth(pickup.Amount);
                         break;
                 }
+
+                if (!picked)
+                    continue;
 
                 CurrentRoom.Pickups.RemoveAt(i);
                 StateChanged?.Invoke();
@@ -196,6 +203,9 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (Vector2.Distance(_playerPos, slot.Position) > ShopPurchaseRadius + _playerProto.Radius)
                     continue;
 
+                if (!CanReceiveShopItem(slot))
+                    continue;
+
                 var effectivePrice = ApplyPriceModifiers(slot.Price);
                 if (!TryConsumeResource(ResourceType.Coin, effectivePrice))
                     continue;
@@ -211,22 +221,34 @@ public sealed partial class DeepMaintenanceUiFragment
             switch (slot.Item)
             {
                 case ShopItemType.Coin:
-                    AddResource(ResourceType.Coin, slot.Amount);
+                    TryAddResource(ResourceType.Coin, slot.Amount);
                     break;
                 case ShopItemType.Bomb:
-                    AddResource(ResourceType.Bomb, slot.Amount);
+                    TryAddResource(ResourceType.Bomb, slot.Amount);
                     break;
                 case ShopItemType.Heart:
-                    SetPlayerHealth(PlayerHp + slot.Amount, MaxPlayerHp);
+                    TryAddHealth(slot.Amount);
                     break;
                 case ShopItemType.Key:
-                    AddResource(ResourceType.Key, slot.Amount);
+                    TryAddResource(ResourceType.Key, slot.Amount);
                     break;
                 case ShopItemType.Relic:
                     if (!string.IsNullOrWhiteSpace(slot.RelicId) && _prototype.TryIndex<DeepMaintenanceRelicPrototype>(slot.RelicId, out var relic))
                         PickupRelic(relic);
                     break;
             }
+        }
+
+        private bool CanReceiveShopItem(ShopSlotData slot)
+        {
+            return slot.Item switch
+            {
+                ShopItemType.Coin => GetResource(ResourceType.Coin) + slot.Amount <= GetResourceMax(ResourceType.Coin),
+                ShopItemType.Bomb => GetResource(ResourceType.Bomb) + slot.Amount <= GetResourceMax(ResourceType.Bomb),
+                ShopItemType.Heart => PlayerHp + slot.Amount <= MaxPlayerHp,
+                ShopItemType.Key => GetResource(ResourceType.Key) + slot.Amount <= GetResourceMax(ResourceType.Key),
+                _ => true,
+            };
         }
 
         private void TickTreasureAnimations(float dt)
@@ -255,6 +277,17 @@ public sealed partial class DeepMaintenanceUiFragment
                     continue;
 
                 enemy.DamageFlash = MathF.Max(0f, enemy.DamageFlash - dt);
+            }
+        }
+
+        private void TickBombExplosionEffects(float dt)
+        {
+            for (var i = _bombExplosions.Count - 1; i >= 0; i--)
+            {
+                var explosion = _bombExplosions[i];
+                explosion.Timer = MathF.Max(0f, explosion.Timer - dt);
+                if (explosion.Timer <= 0f)
+                    _bombExplosions.RemoveAt(i);
             }
         }
 
@@ -1143,7 +1176,16 @@ public sealed partial class DeepMaintenanceUiFragment
                 var familiar = _familiars[i];
                 var side = i % 2 == 0 ? -1f : 1f;
                 var desiredOffset = new Vector2(side * familiar.Config.FollowDistance, -0.85f + (i % 3) * 0.25f);
-                familiar.Position = Vector2.Lerp(familiar.Position, _playerPos + desiredOffset, Math.Clamp(familiar.Config.MoveSpeed * dt, 0f, 1f));
+                var desiredPosition = Vector2.Lerp(familiar.Position, _playerPos + desiredOffset, Math.Clamp(familiar.Config.MoveSpeed * dt, 0f, 1f));
+                familiar.Position = MoveFamiliarWithCollision(familiar.Position, desiredPosition, FamiliarCollisionRadius, CurrentRoom);
+
+                var tetherMaxDistance = MathF.Max(0.9f, familiar.Config.FollowDistance + 0.9f);
+                var toPlayer = familiar.Position - _playerPos;
+                if (toPlayer.LengthSquared() > tetherMaxDistance * tetherMaxDistance)
+                {
+                    var pullTarget = _playerPos + NormalizeSafe(toPlayer) * tetherMaxDistance;
+                    familiar.Position = ResolveCircleTileCollision(pullTarget, FamiliarCollisionRadius, CurrentRoom);
+                }
 
                 if (familiar.Config.SpawnBloodTrail)
                 {
@@ -1201,18 +1243,50 @@ public sealed partial class DeepMaintenanceUiFragment
                 familiar.ShootTimer = MathF.Max(0.05f, familiar.Config.ShootInterval);
                 var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
                 var directions = new List<Vector2>();
+                var hasAnyEnemy = aliveEnemies.Count > 0;
+                if (!hasAnyEnemy)
+                    continue;
 
                 if (familiar.Config.ShootFourDirections)
-                    directions.AddRange(new[] { new Vector2(1,0), new Vector2(-1,0), new Vector2(0,1), new Vector2(0,-1) });
+                {
+                    var candidates = new[] { new Vector2(1,0), new Vector2(-1,0), new Vector2(0,1), new Vector2(0,-1) };
+                    foreach (var candidate in candidates)
+                    {
+                        if (aliveEnemies.Any(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius) &&
+                                                      Vector2.Dot(NormalizeSafe(enemy.Position - familiar.Position), candidate) > 0.5f))
+                            directions.Add(candidate);
+                    }
+                }
                 else if (familiar.Config.ShootAlongPlayerAim)
-                    directions.Add(_lastPlayerShotDirection == Vector2.Zero ? Vector2.UnitX : _lastPlayerShotDirection);
+                {
+                    var aimDirection = _lastPlayerShotDirection == Vector2.Zero ? Vector2.UnitX : NormalizeSafe(_lastPlayerShotDirection);
+                    if (aliveEnemies.Any(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius) &&
+                                                  Vector2.Dot(NormalizeSafe(enemy.Position - familiar.Position), aimDirection) > 0.4f))
+                        directions.Add(aimDirection);
+                }
                 else if (familiar.Config.ShootNearestEnemy && aliveEnemies.Count > 0)
                 {
-                    var target = aliveEnemies.OrderBy(e => Vector2.Distance(e.Position, familiar.Position)).First();
-                    directions.Add(NormalizeSafe(target.Position - familiar.Position));
+                    var target = aliveEnemies
+                        .Where(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius))
+                        .OrderBy(e => Vector2.Distance(e.Position, familiar.Position))
+                        .FirstOrDefault();
+
+                    if (target != null)
+                        directions.Add(NormalizeSafe(target.Position - familiar.Position));
                 }
                 else
-                    directions.Add(new Vector2(1,0));
+                {
+                    var target = aliveEnemies
+                        .Where(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius))
+                        .OrderBy(e => Vector2.Distance(e.Position, familiar.Position))
+                        .FirstOrDefault();
+
+                    if (target != null)
+                        directions.Add(NormalizeSafe(target.Position - familiar.Position));
+                }
+
+                if (directions.Count == 0)
+                    continue;
 
                 foreach (var direction in directions)
                 {
@@ -1245,6 +1319,9 @@ public sealed partial class DeepMaintenanceUiFragment
                             {
                                 var angle = n / (float) familiar.Config.BurstCount * MathF.PI * 2f;
                                 var dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                                if (!aliveEnemies.Any(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius) && Vector2.Dot(NormalizeSafe(enemy.Position - familiar.Position), dir) > 0.35f))
+                                    continue;
+
                                 var dmg = familiar.Config.BurstDamageOptions[_random.Next(familiar.Config.BurstDamageOptions.Count)];
                                 SpawnProjectile(_playerProjectiles, familiar.Position, dir * familiar.Config.ProjectileSpeed, projectilePrototype, 1f, dmg, Color.White, projectilePrototype.Lifetime);
                             }
@@ -1254,6 +1331,27 @@ public sealed partial class DeepMaintenanceUiFragment
                     }
                 }
             }
+        }
+
+        private static Vector2 MoveFamiliarWithCollision(Vector2 current, Vector2 desired, float radius, RoomData room)
+        {
+            var distance = Vector2.Distance(current, desired);
+            var steps = Math.Max(1, (int) MathF.Ceiling(distance / 0.2f));
+            var position = current;
+
+            for (var i = 1; i <= steps; i++)
+            {
+                var nextTarget = Vector2.Lerp(current, desired, i / (float) steps);
+                var resolved = ResolveCircleTileCollision(nextTarget, radius, room);
+
+                // Stop if we strongly collide into geometry to avoid tunneling through walls
+                if (Vector2.DistanceSquared(resolved, nextTarget) > 0.0225f)
+                    break;
+
+                position = resolved;
+            }
+
+            return ResolveCircleTileCollision(position, radius, room);
         }
 
         private void TickBloodTrails(float dt)
@@ -1480,6 +1578,32 @@ public sealed partial class DeepMaintenanceUiFragment
                     _keys = clamped;
                     break;
             }
+        }
+
+        private bool TryAddResource(ResourceType type, int amount)
+        {
+            amount = Math.Max(0, amount);
+            if (amount == 0)
+                return false;
+
+            if (GetResource(type) + amount > GetResourceMax(type))
+                return false;
+
+            AddResource(type, amount);
+            return true;
+        }
+
+        private bool TryAddHealth(int amount)
+        {
+            amount = Math.Max(0, amount);
+            if (amount == 0)
+                return false;
+
+            if (PlayerHp + amount > MaxPlayerHp)
+                return false;
+
+            SetPlayerHealth(PlayerHp + amount, MaxPlayerHp);
+            return true;
         }
 
         private bool TryConsumeResource(ResourceType type, int amount)

@@ -14,6 +14,29 @@
   vignetteStrength: 0.2
   playerLightRadius: 3.8
   playerLightStrength: 0.5
+  musicFadeOut: 0.8
+  musicFadeIn: 0.8
+  musicByRoom:
+  - roomType: Start
+    music:
+      collection: DeepMaintenanceMusicCalm
+    volume: -12
+  - roomType: Normal
+    music:
+      collection: DeepMaintenanceMusicNormal
+    volume: -12
+  - roomType: Treasure
+    music:
+      collection: DeepMaintenanceMusicCalm
+    volume: -13
+  - roomType: Shop
+    music:
+      collection: DeepMaintenanceMusicCalm
+    volume: -14
+  - roomType: Boss
+    music:
+      collection: DeepMaintenanceMusicBoss
+    volume: -11
 
 - type: deepMaintenanceFloor
   parent: FloorConfigBase

@@ -57,6 +57,9 @@
   bodySpriteState: body
   headSpriteState: head
   shootSpriteState: shoot
+  emoteSpriteState: emote
+  emoteDuration: 0.45
+  emoteSound: /Audio/Effects/pop_expl.ogg
 
 # Chaser
 - type: deepMaintenanceEntity

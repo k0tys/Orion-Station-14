@@ -134,6 +134,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private DeepMaintenancePickupPrototype _coinPickupProto = default!;
         private DeepMaintenancePickupPrototype _bombPickupProto = default!;
         private DeepMaintenancePickupPrototype _heartPickupProto = default!;
+        private DeepMaintenancePickupPrototype _keyPickupProto = default!;
 
         private Vector2 _playerPos;
         private Vector2 _playerVelocity;
@@ -185,6 +186,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private bool _nextShotLeftEye = true;
         private bool _claymoreCharging;
         private float _claymoreChargeTimer;
+        private float _claymoreReleaseTimer;
+        private float _claymoreReflectTimer;
         private Vector2 _claymoreChargeDirection = Vector2.UnitX;
 
         private readonly List<FamiliarData> _familiars = new();
@@ -194,6 +197,12 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private float _floorDamageBonus;
         private int _floorDamageBonusStacks;
         private int _roomsEnteredCounter;
+
+        private EntityUid? _musicStream;
+        private SoundSpecifier? _activeRoomMusic;
+        private float _activeRoomMusicVolume;
+        private readonly Dictionary<EntityUid, float> _musicFadingOut = new();
+        private readonly Dictionary<EntityUid, (float Delta, float Target)> _musicFadingIn = new();
 
         private const int GridWidth = 12;
         private const int GridHeight = 11;
@@ -218,23 +227,13 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
 
         private const int MaxBombs = 99;
         private const int MaxKeys = 99;
-        private const float BombTimerSeconds = 1.35f;
-        private const float BombExplosionRadius = 1.65f;
-        private const int BombEnemyDamage = 4;
-        private const float BombObjectDamageRadius = 1.3f;
-        private const float BombExplosionVisualDuration = 0.28f;
-        private const float SecretRevealBombRadius = 1.4f;
-        private const float PickupRadius = 0.85f;
-        private const float PickupCollisionRadius = 0.28f;
         private const float FamiliarCollisionRadius = 0.22f;
         private const float EntitySeparationBias = 0.05f;
         private const float PickupPushStrength = 0.8f;
-        private const float PickupSpawnAnimationDuration = 0.24f;
         private const float ShopPurchaseRadius = 0.72f;
         private const int RoomClearCoinMin = 1;
         private const int RoomClearCoinMax = 3;
         private const int ShopSlotCount = 3;
-        private const float EmoteAnimationDuration = 0.45f;
         private const string EmotePlaceholderState = "emote";
 
         private const float TreasureObjectRadius = 0.34f;
@@ -265,6 +264,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const string PickupCoinPrototypeId = "PickupCoin";
         private const string PickupBombPrototypeId = "PickupBomb";
         private const string PickupHeartPrototypeId = "PickupHeart";
+        private const string PickupKeyPrototypeId = "PickupKey";
 
         private static readonly SoundSpecifier SfxPlayerShoot = new SoundPathSpecifier("/Audio/Weapons/pop.ogg");
         private static readonly SoundSpecifier SfxEnemyShoot = new SoundPathSpecifier("/Audio/Weapons/emitter.ogg");
@@ -272,7 +272,6 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private static readonly SoundSpecifier SfxPlayerDamage = new SoundPathSpecifier("/Audio/Effects/hit_kick.ogg");
         private static readonly SoundSpecifier SfxEnemyDeath = new SoundPathSpecifier("/Audio/Effects/bodyfall1.ogg");
         private static readonly SoundSpecifier SfxPlayerDeath = new SoundPathSpecifier("/Audio/Effects/tesla_collapse.ogg");
-        private static readonly SoundSpecifier SfxPlayerEmote = new SoundPathSpecifier("/Audio/Effects/pop_expl.ogg");
 
         private const string HeartSpritePath = "/Textures/_Orion/DeepMaintenance/HUD/hearts.rsi";
         private const string HeartFullState = "full";
@@ -372,6 +371,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _inputState.Clear();
             if (HasKeyboardFocus())
                 ReleaseKeyboardFocus();
+
+            StopRoomMusic();
         }
 
         #endregion
@@ -479,6 +480,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _nextShotLeftEye = true;
             _claymoreCharging = false;
             _claymoreChargeTimer = 0f;
+            _claymoreReleaseTimer = 0f;
+            _claymoreReflectTimer = 0f;
             _familiars.Clear();
             _bloodTrails.Clear();
             _lastPlayerShotDirection = Vector2.UnitX;
@@ -486,6 +489,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _floorDamageBonus = 0f;
             _floorDamageBonusStacks = 0;
             _roomsEnteredCounter = 0;
+            StopRoomMusic();
 
             ApplyFloorTheme(_currentFloor);
             GenerateMap();

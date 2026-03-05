@@ -169,7 +169,7 @@ public sealed partial class DeepMaintenanceUiFragment
                     continue;
 
                 var doorwayCenter = new Vector2(doorwayTile.X + 0.5f, doorwayTile.Y + 0.5f);
-                if (Vector2.Distance(doorwayCenter, center) > SecretRevealBombRadius)
+                if (Vector2.Distance(doorwayCenter, center) > _bombPickupProto.SecretRevealBombRadius)
                     continue;
 
                 CurrentRoom.Tiles[doorwayTile.X, doorwayTile.Y] = TileType.Door;

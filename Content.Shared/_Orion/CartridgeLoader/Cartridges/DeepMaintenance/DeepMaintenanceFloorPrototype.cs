@@ -1,3 +1,4 @@
+using Robust.Shared.Audio;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype.Array;
 
@@ -11,6 +12,19 @@ public sealed partial class DeepMaintenanceWeightedEntityEntry
 
     [DataField]
     public float Weight = 1f;
+}
+
+[DataDefinition]
+public sealed partial class DeepMaintenanceMusicRoomEntry
+{
+    [DataField(required: true)]
+    public string RoomType = default!;
+
+    [DataField(required: true)]
+    public SoundSpecifier Music = default!;
+
+    [DataField]
+    public float Volume = -8f;
 }
 
 [Prototype("deepMaintenanceFloor")]
@@ -73,4 +87,13 @@ public sealed class DeepMaintenanceFloorPrototype : IPrototype, IInheritingProto
 
     [DataField]
     public List<DeepMaintenanceWeightedEntityEntry> BossPool = new();
+
+    [DataField]
+    public List<DeepMaintenanceMusicRoomEntry> MusicByRoom = new();
+
+    [DataField]
+    public float MusicFadeOut = 0.7f;
+
+    [DataField]
+    public float MusicFadeIn = 0.7f;
 }

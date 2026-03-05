@@ -1,3 +1,4 @@
+using Robust.Shared.Audio;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Serialization.TypeSerializers.Implementations.Custom.Prototype.Array;
 
@@ -86,4 +87,13 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
 
     [DataField]
     public string? ShootSpriteState;
+
+    [DataField]
+    public string? EmoteSpriteState;
+
+    [DataField]
+    public float EmoteDuration = 0.45f;
+
+    [DataField]
+    public SoundSpecifier? EmoteSound;
 }

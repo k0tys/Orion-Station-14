@@ -140,12 +140,11 @@ public sealed partial class DeepMaintenanceUiFragment
             DrawHealthHearts(handle);
             DrawBuffIcons(handle);
             DrawHoveredItemTooltip(handle, tilePixel, mapOffset);
-            DrawEmote(handle, tilePixel, mapOffset);
             DrawBossHealthBar(handle);
             DrawMinimap(handle);
         }
 
-        private Color GetEnemyVisualTint(EnemyData enemy)
+        private static Color GetEnemyVisualTint(EnemyData enemy)
         {
             var tint = Color.White;
             foreach (var effect in enemy.VisualEffects)
@@ -162,6 +161,14 @@ public sealed partial class DeepMaintenanceUiFragment
         private void DrawPlayer(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
         {
             var color = _playerDamageFlash > 0f ? Color.IndianRed : Color.White;
+
+            if (_emoteTimer > 0f)
+            {
+                var emoteState = _playerProto.EmoteSpriteState ?? EmotePlaceholderState;
+                DrawDirectionalEntityLayer(handle, _playerPos, _playerProto.SpritePath, emoteState, _playerShootFacing, tilePixel, _playerProto.SpriteScale, mapOffset, color);
+                return;
+            }
+
             DrawCharacter(handle, _playerPos, _playerProto, _playerBodyFacing, _playerShootFacing, tilePixel, mapOffset, color);
 
             foreach (var relic in _activeRelics)
@@ -182,6 +189,27 @@ public sealed partial class DeepMaintenanceUiFragment
             }
 
             DrawMeleeSwing(handle, tilePixel, mapOffset);
+            DrawClaymoreAnimation(handle, tilePixel, mapOffset);
+        }
+
+        private void DrawClaymoreAnimation(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
+        {
+            if (!HasClaymoreRelic())
+                return;
+
+            const string path = "/Textures/Effects/arcs.rsi";
+            var state = _claymoreReflectTimer > 0f
+                ? "disarm"
+                : _claymoreReleaseTimer > 0f
+                    ? "disarm"
+                    : _claymoreCharging
+                        ? "disarm"
+                        : string.Empty;
+
+            if (string.IsNullOrEmpty(state))
+                return;
+
+            DrawDirectionalEntityLayer(handle, _playerPos + new Vector2(0f, -0.1f), path, state, _playerShootFacing, tilePixel, 1.1f, mapOffset, Color.White.WithAlpha(0.85f));
         }
 
         private FacingDirection ResolveOverlayFacing(FacingDirection bodyFacing, FacingDirection shootFacing)
@@ -554,6 +582,9 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void DrawTreasureObjects(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
         {
+            if (!_hasTreasurePrototype)
+                return;
+
             if (_treasureBoxPosition is { } boxPos)
             {
                 if (_treasureOpeningAnimation || _treasureOpenAnimationTimer > 0f)
@@ -766,7 +797,7 @@ public sealed partial class DeepMaintenanceUiFragment
             {
                 PickupType.Coin => _coinPickupProto,
                 PickupType.Bomb => _bombPickupProto,
-                PickupType.Key => _coinPickupProto,
+                PickupType.Key => _keyPickupProto,
                 PickupType.Heart => _heartPickupProto,
                 _ => _coinPickupProto,
             };
@@ -806,7 +837,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 var center = mapOffset + bomb.Position * tilePixel;
                 var size = tilePixel * 0.58f * MathF.Max(0.1f, _bombPickupProto.SpriteScale);
                 var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
-                var progress = 1f - Math.Clamp(bomb.Timer / BombTimerSeconds, 0f, 1f);
+                var progress = 1f - Math.Clamp(bomb.Timer / MathF.Max(0.05f, _bombPickupProto.BombFuseSeconds), 0f, 1f);
                 DrawShadow(handle, bomb.Position + new Vector2(0f, 0.1f), tilePixel, mapOffset, 0.24f, 0.16f);
 
                 if (TryGetAnimatedSprite(_bombPickupProto.SpritePath, BombPrimedState, progress, out var primed))
@@ -929,7 +960,7 @@ public sealed partial class DeepMaintenanceUiFragment
             {
                 var progress = 1f - Math.Clamp(explosion.Timer / explosion.Duration, 0f, 1f);
                 var center = mapOffset + explosion.Position * tilePixel;
-                var radius = tilePixel * 0.2f + (BombExplosionRadius * tilePixel - tilePixel * 0.2f) * progress;
+                var radius = tilePixel * 0.2f + (_bombPickupProto.BombExplosionRadius * tilePixel - tilePixel * 0.2f) * progress;
                 var alpha = Math.Clamp(1f - progress, 0f, 1f);
 
                 var outer = UIBox2.FromDimensions(center - new Vector2(radius, radius), new Vector2(radius * 2f, radius * 2f));
@@ -947,7 +978,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
 
             var center = mapOffset + (_playerPos + new Vector2(0f, -0.9f)) * tilePixel;
-            var progress = 1f - Math.Clamp(_emoteTimer / EmoteAnimationDuration, 0f, 1f);
+            var progress = 1f - Math.Clamp(_emoteTimer / MathF.Max(0.05f, _playerProto.EmoteDuration), 0f, 1f);
             var bob = MathF.Sin(progress * MathF.PI) * 0.12f;
 
             if (GetDirectionalSprite(_playerProto.SpritePath, EmotePlaceholderState, _playerShootFacing) is { } emoteTexture)

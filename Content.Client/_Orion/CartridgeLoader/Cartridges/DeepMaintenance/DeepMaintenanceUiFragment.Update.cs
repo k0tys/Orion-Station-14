@@ -25,6 +25,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
 
             _animationClock += args.DeltaSeconds;
+            UpdateMusicFades(args.DeltaSeconds);
             MovePlayer(args.DeltaSeconds);
 
             if (_heartDamageFlash > 0f)
@@ -59,6 +60,7 @@ public sealed partial class DeepMaintenanceUiFragment
             UpdateFacingResetTimers(dt);
             TickDamageFlashes(dt);
             TickMeleeSwing(dt);
+            TickClaymoreAnimations(dt);
             TickTreasureAnimations(dt);
             TickEnemies(dt);
             TickChainLightning(dt);
@@ -119,23 +121,24 @@ public sealed partial class DeepMaintenanceUiFragment
             if (!TryConsumeResource(ResourceType.Bomb, 1))
                 return;
 
-            _activeBombs.Add(new BombData(_playerPos, BombTimerSeconds));
+            _activeBombs.Add(new BombData(_playerPos, MathF.Max(0.05f, _bombPickupProto.BombFuseSeconds)));
             StateChanged?.Invoke();
         }
 
         private void ExplodeBomb(Vector2 center)
         {
-            _bombExplosions.Add(new BombExplosionData(center, BombExplosionVisualDuration));
+            _bombExplosions.Add(new BombExplosionData(center, MathF.Max(0.05f, _bombPickupProto.BombExplosionVisualDuration)));
+            PlaySfx(_bombPickupProto.BombExplosionSound, -6f);
 
             foreach (var enemy in CurrentRoom.Enemies)
             {
                 if (enemy.Hp <= 0)
                     continue;
 
-                if (Vector2.Distance(enemy.Position, center) > BombExplosionRadius + enemy.Prototype.Radius)
+                if (Vector2.Distance(enemy.Position, center) > _bombPickupProto.BombExplosionRadius + enemy.Prototype.Radius)
                     continue;
 
-                enemy.Hp -= BombEnemyDamage;
+                enemy.Hp -= _bombPickupProto.BombEnemyDamage;
                 enemy.DamageFlash = EntityDamageFlashDuration;
             }
 
@@ -150,7 +153,7 @@ public sealed partial class DeepMaintenanceUiFragment
                         continue;
 
                     var tileCenter = new Vector2(x + 0.5f, y + 0.5f);
-                    if (Vector2.Distance(tileCenter, center) > BombObjectDamageRadius)
+                    if (Vector2.Distance(tileCenter, center) > _bombPickupProto.BombObjectDamageRadius)
                         continue;
 
                     CurrentRoom.Tiles[x, y] = TileType.Floor;
@@ -163,7 +166,7 @@ public sealed partial class DeepMaintenanceUiFragment
             for (var i = CurrentRoom.Pickups.Count - 1; i >= 0; i--)
             {
                 var pickup = CurrentRoom.Pickups[i];
-                if (pickup.SpawnTimer > 0f || Vector2.Distance(_playerPos, pickup.Position) > PickupRadius)
+                if (pickup.SpawnTimer > 0f || Vector2.Distance(_playerPos, pickup.Position) > GetPickupRadius(pickup.Type))
                     continue;
 
                 var picked = false;
@@ -299,6 +302,15 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
 
             _meleeSwingTimer = MathF.Max(0f, _meleeSwingTimer - dt);
+        }
+
+        private void TickClaymoreAnimations(float dt)
+        {
+            if (_claymoreReleaseTimer > 0f)
+                _claymoreReleaseTimer = MathF.Max(0f, _claymoreReleaseTimer - dt);
+
+            if (_claymoreReflectTimer > 0f)
+                _claymoreReflectTimer = MathF.Max(0f, _claymoreReflectTimer - dt);
         }
 
         private void MovePlayer(float dt)
@@ -1160,7 +1172,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (!Enum.TryParse<PickupType>(familiar.Config.RoomRewardPickupType, true, out var pickupType))
                     pickupType = PickupType.Heart;
 
-                SpawnPickup(CurrentRoom, pickupType, Math.Max(1, familiar.Config.RoomRewardAmount), familiar.Position + new Vector2(0.4f, 0f), PickupSpawnAnimationDuration);
+                SpawnPickup(CurrentRoom, pickupType, Math.Max(1, familiar.Config.RoomRewardAmount), familiar.Position + new Vector2(0.4f, 0f), GetPickupSpawnAnimationDuration(pickupType));
             }
         }
 
@@ -1676,7 +1688,7 @@ public sealed partial class DeepMaintenanceUiFragment
             var coins = _random.Next(RoomClearCoinMin, RoomClearCoinMax + 1);
             for (var i = 0; i < coins; i++)
             {
-                SpawnPickup(room, PickupType.Coin, 1, GetRoomCenter() + new Vector2((_random.NextSingle() - 0.5f) * 1.2f, (_random.NextSingle() - 0.5f) * 1.2f), PickupSpawnAnimationDuration);
+                SpawnPickup(room, PickupType.Coin, 1, GetRoomCenter() + new Vector2((_random.NextSingle() - 0.5f) * 1.2f, (_random.NextSingle() - 0.5f) * 1.2f), GetPickupSpawnAnimationDuration(PickupType.Coin));
             }
 
             if (_random.NextDouble() > 0.35)
@@ -1689,7 +1701,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 _ => PickupType.Bomb,
             };
 
-            SpawnPickup(room, rewardType, 1, GetRoomCenter() + new Vector2(0f, -1f), PickupSpawnAnimationDuration);
+            SpawnPickup(room, rewardType, 1, GetRoomCenter() + new Vector2(0f, -1f), GetPickupSpawnAnimationDuration(rewardType));
         }
 
         private static void SpawnPickup(RoomData room, PickupType type, int amount, Vector2 position, float spawnDelay)
@@ -1708,25 +1720,25 @@ public sealed partial class DeepMaintenanceUiFragment
                 var pickup = CurrentRoom.Pickups[i];
                 var offset = Vector2.Zero;
 
-                offset += ComputePushOffset(pickup.Position, PickupCollisionRadius, _playerPos, _playerProto.Radius);
+                offset += ComputePushOffset(pickup.Position, GetPickupCollisionRadius(pickup.Type), _playerPos, _playerProto.Radius);
 
                 foreach (var enemy in CurrentRoom.Enemies)
                 {
                     if (enemy.Hp <= 0)
                         continue;
 
-                    offset += ComputePushOffset(pickup.Position, PickupCollisionRadius, enemy.Position, enemy.Prototype.Radius);
+                    offset += ComputePushOffset(pickup.Position, GetPickupCollisionRadius(pickup.Type), enemy.Position, enemy.Prototype.Radius);
                 }
 
                 foreach (var familiar in _familiars)
                 {
-                    offset += ComputePushOffset(pickup.Position, PickupCollisionRadius, familiar.Position, FamiliarCollisionRadius);
+                    offset += ComputePushOffset(pickup.Position, GetPickupCollisionRadius(pickup.Type), familiar.Position, FamiliarCollisionRadius);
                 }
 
                 if (offset == Vector2.Zero)
                     continue;
 
-                pickup.Position = ResolveCircleTileCollision(pickup.Position + offset * pushStep, PickupCollisionRadius, CurrentRoom);
+                pickup.Position = ResolveCircleTileCollision(pickup.Position + offset * pushStep, GetPickupCollisionRadius(pickup.Type), CurrentRoom);
             }
         }
 
@@ -1746,6 +1758,9 @@ public sealed partial class DeepMaintenanceUiFragment
 
             foreach (var familiar in _familiars)
             {
+                if (!familiar.Config.CollideWithActors)
+                    continue;
+
                 var push = ComputePushOffset(_playerPos, _playerProto.Radius + EntitySeparationBias, familiar.Position, FamiliarCollisionRadius + EntitySeparationBias);
                 if (push != Vector2.Zero)
                     _playerPos = ResolveCircleTileCollision(_playerPos + push * step, _playerProto.Radius, CurrentRoom);
@@ -1820,7 +1835,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 _floorExitPosition = null;
             }
 
-            if (room.Type == RoomType.Boss && room.Cleared && _floorExitSpawned && _floorExitPosition is { } exitPosition)
+            if (room is { Type: RoomType.Boss, Cleared: true } && _floorExitSpawned && _floorExitPosition is { } exitPosition)
             {
                 if (Vector2.Distance(_playerPos, exitPosition) <= _playerProto.Radius + 0.45f)
                 {
@@ -1893,6 +1908,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 _playerPos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
 
             var room = CurrentRoom;
+            UpdateRoomMusic(room);
             _roomsEnteredCounter++;
             RevealConnectedRooms(RoomIndex);
 

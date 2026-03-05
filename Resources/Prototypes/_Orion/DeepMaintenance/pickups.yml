@@ -13,6 +13,13 @@
   spriteState: icon
   spriteScale: 1.5
   basePrice: 5
+  bombFuseSeconds: 1.35
+  bombExplosionRadius: 1.65
+  bombEnemyDamage: 4
+  bombObjectDamageRadius: 1.3
+  secretRevealBombRadius: 1.4
+  bombExplosionVisualDuration: 0.28
+  bombExplosionSound: /Audio/Effects/explosion1.ogg
 
 - type: deepMaintenancePickup
   id: PickupHeart
@@ -20,4 +27,12 @@
   spritePath: /Textures/_Orion/DeepMaintenance/HUD/hearts.rsi
   spriteState: full
   spriteScale: 1
+  basePrice: 5
+
+- type: deepMaintenancePickup
+  id: PickupKey
+  pickupType: Key
+  spritePath: /Textures/Objects/Devices/encryption_keys.rsi
+  spriteState: crypt_gold
+  spriteScale: 1.0
   basePrice: 5

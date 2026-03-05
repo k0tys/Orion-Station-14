@@ -1,0 +1,30 @@
+- type: soundCollection
+  id: DeepMaintenanceMusicCalm
+  files:
+  - /Audio/_Orion/Jukebox/neheart/neheart_snowfall.ogg
+  - /Audio/_Orion/Jukebox/Home/Home_Resonance.ogg
+  - /Audio/_Orion/Jukebox/TheCaretaker/TheCaretaker_ItsJustBurningMemory.ogg
+  - /Audio/_Orion/Jukebox/Rammstein/Rammstein_DIAMANT.ogg
+  - /Audio/_Orion/Jukebox/BritishSeaPower/BritishSeaPower_EcstaticVibrations.ogg
+
+- type: soundCollection
+  id: DeepMaintenanceMusicNormal
+  files:
+  - /Audio/_Orion/Jukebox/MikeKlubnika/MikeKlubnika_GeneralRelease.ogg
+  - /Audio/_Orion/Jukebox/DavidBowie/DavidBowie_Starman.ogg
+  - /Audio/_Orion/Jukebox/DavidBowie/DavidBowie_TheManWhoSoldTheWorld.ogg
+  - /Audio/_Orion/Jukebox/SurfCurse/SurfCurse_Freaks.ogg
+  - /Audio/_Orion/Jukebox/TheRareOccasions/TheRareOccasions_Notion.ogg
+  - /Audio/_Orion/Jukebox/Gorillaz/Gorillaz_ClintEastwood.ogg
+  - /Audio/_Orion/Jukebox/Nostalghia/Nostalghia_WhoYouTalkinToMan.ogg
+
+- type: soundCollection
+  id: DeepMaintenanceMusicBoss
+  files:
+  - /Audio/_Orion/Jukebox/LeCastleVania/LeCastleVania_LEDSpirals.ogg
+  - /Audio/_Orion/Jukebox/Adamczyk/Adamczyk_TheRebelPath.ogg
+  - /Audio/_Orion/Jukebox/ManonHollander/ManonHollander_MarieDouceurMarieColre.ogg
+  - /Audio/_Orion/Jukebox/MikeKlubnika/MikeKlubnika_GeneralRelease.ogg
+  - /Audio/_Orion/Jukebox/RikiMusic/RikiMusic_Pogonya.ogg
+  - /Audio/_Orion/Jukebox/LolaColette/LolaColette_NowhereToRun.ogg
+  - /Audio/_Orion/Jukebox/MarilynManson/MarilynManson_KillingStrangers.ogg

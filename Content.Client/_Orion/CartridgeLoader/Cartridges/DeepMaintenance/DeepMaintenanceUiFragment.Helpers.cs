@@ -4,6 +4,7 @@ using Content.Shared._Orion.CartridgeLoader.Cartridges.DeepMaintenance;
 using Robust.Client.Graphics;
 using Robust.Client.ResourceManagement;
 using Robust.Shared.Audio;
+using Robust.Shared.Audio.Components;
 using Robust.Shared.Graphics.RSI;
 using Robust.Shared.Player;
 using Robust.Shared.Utility;
@@ -40,6 +41,7 @@ public sealed partial class DeepMaintenanceUiFragment
             _coinPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupCoinPrototypeId);
             _bombPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupBombPrototypeId);
             _heartPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupHeartPrototypeId);
+            _keyPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupKeyPrototypeId);
             _hasTreasurePrototype = _prototype.TryIndex<DeepMaintenanceTreasurePrototype>(TreasurePrototypeId, out var treasurePrototype);
             if (_hasTreasurePrototype)
                 _treasurePrototype = treasurePrototype!;
@@ -48,6 +50,7 @@ public sealed partial class DeepMaintenanceUiFragment
             WarmupSprite(_bombPickupProto.SpritePath, _bombPickupProto.SpriteState);
             WarmupSprite(_bombPickupProto.SpritePath, BombPrimedState);
             WarmupSprite(_heartPickupProto.SpritePath, _heartPickupProto.SpriteState);
+            WarmupSprite(_keyPickupProto.SpritePath, _keyPickupProto.SpriteState);
 
             WarmupSprite(_playerProto.SpritePath, _playerProto.SpriteState);
             WarmupSprite(_playerProto.SpritePath, _playerProto.BodySpriteState);
@@ -332,6 +335,7 @@ public sealed partial class DeepMaintenanceUiFragment
             _claymoreChargeTimer = 0f;
             _meleeSwingFacing = FacingFromVector(_claymoreChargeDirection, _meleeSwingFacing);
             _meleeSwingTimer = MeleeSwingDuration;
+            _claymoreReleaseTimer = 0.18f;
 
             var baseDamage = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype).Damage + GetDamageFlatBonus();
             var damage = charged
@@ -350,6 +354,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 }
 
                 ReflectEnemyProjectiles(_playerPos, chargeRelic.ClaymoreReflectRadius);
+                _claymoreReflectTimer = 0.14f;
             }
             else
             {
@@ -385,6 +390,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 meleeDamage = Math.Max(meleeDamage, relic.MeleeDamage);
                 _meleeSwingFacing = FacingFromVector(direction, _meleeSwingFacing);
                 _meleeSwingTimer = MeleeSwingDuration;
+                _claymoreReleaseTimer = 0.18f;
             }
 
             if (meleeRange <= 0f || meleeDamage <= 0)
@@ -594,6 +600,33 @@ public sealed partial class DeepMaintenanceUiFragment
             return Math.Max(0, pickup.BasePrice);
         }
 
+        private float GetPickupRadius(PickupType type)
+        {
+            return MathF.Max(0.05f, GetPickupPrototypeData(type).PickupRadius);
+        }
+
+        private float GetPickupCollisionRadius(PickupType type)
+        {
+            return MathF.Max(0.01f, GetPickupPrototypeData(type).CollisionRadius);
+        }
+
+        private float GetPickupSpawnAnimationDuration(PickupType type)
+        {
+            return MathF.Max(0.01f, GetPickupPrototypeData(type).SpawnAnimationDuration);
+        }
+
+        private DeepMaintenancePickupPrototype GetPickupPrototypeData(PickupType type)
+        {
+            return type switch
+            {
+                PickupType.Coin => _coinPickupProto,
+                PickupType.Bomb => _bombPickupProto,
+                PickupType.Key => _keyPickupProto,
+                PickupType.Heart => _heartPickupProto,
+                _ => _coinPickupProto,
+            };
+        }
+
         private int CalculateRelicPrice(DeepMaintenanceRelicPrototype relic)
         {
             return Math.Max(0, relic.BasePrice);
@@ -618,8 +651,8 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void TriggerEmote()
         {
-            _emoteTimer = EmoteAnimationDuration;
-            PlaySfx(SfxPlayerEmote, -6f);
+            _emoteTimer = MathF.Max(0.05f, _playerProto.EmoteDuration);
+            PlaySfx(_playerProto.EmoteSound, -6f);
         }
 
         private void AdvanceFloor()
@@ -655,15 +688,131 @@ public sealed partial class DeepMaintenanceUiFragment
                     return FacingDirection.Right;
             }
 
-            if (tileY == 0)
-                return FacingDirection.Up;
-
-            return FacingDirection.Down;
+            return tileY == 0
+                ? FacingDirection.Up
+                : FacingDirection.Down;
         }
 
-        private void PlaySfx(SoundSpecifier sound, float volume)
+        private void PlaySfx(SoundSpecifier? sound, float volume)
         {
+            if (sound == null)
+                return;
+
             _audio.PlayGlobal(sound, Filter.Local(), false, AudioParams.Default.WithVolume(volume));
+        }
+
+        private void UpdateRoomMusic(RoomData room)
+        {
+            DeepMaintenanceMusicRoomEntry? entry = null;
+            foreach (var candidate in _activeFloorConfig.MusicByRoom)
+            {
+                if (!string.Equals(candidate.RoomType, room.Type.ToString(), StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                entry = candidate;
+                break;
+            }
+
+            if (entry == null)
+                return;
+
+            if (_activeRoomMusic != null && _activeRoomMusic.Equals(entry.Music))
+                return;
+
+            var fadeOut = MathF.Max(0.01f, _activeFloorConfig.MusicFadeOut);
+            var fadeIn = MathF.Max(0.01f, _activeFloorConfig.MusicFadeIn);
+
+            if (_musicStream is { } old)
+                FadeOutMusic(old, fadeOut);
+
+            var stream = _audio.PlayGlobal(entry.Music, Filter.Local(), false, AudioParams.Default.WithLoop(true).WithVolume(entry.Volume));
+            if (stream == null)
+                return;
+
+            _musicStream = stream.Value.Entity;
+            _activeRoomMusic = entry.Music;
+            _activeRoomMusicVolume = entry.Volume;
+            FadeInMusic(stream.Value.Entity, fadeIn, entry.Volume);
+        }
+
+        private void StopRoomMusic()
+        {
+            if (_musicStream is { } stream)
+                _audio.Stop(stream);
+
+            foreach (var fadingOut in _musicFadingOut.Keys)
+            {
+                _audio.Stop(fadingOut);
+            }
+
+            foreach (var fadingIn in _musicFadingIn.Keys)
+            {
+                _audio.Stop(fadingIn);
+            }
+
+            _musicStream = null;
+            _activeRoomMusic = null;
+            _activeRoomMusicVolume = 0f;
+            _musicFadingIn.Clear();
+            _musicFadingOut.Clear();
+        }
+
+        private void FadeOutMusic(EntityUid stream, float duration)
+        {
+            if (!_entity.TryGetComponent(stream, out AudioComponent? component))
+                return;
+
+            _musicFadingIn.Remove(stream);
+            var diff = component.Volume + 32f;
+            _musicFadingOut[stream] = diff / MathF.Max(0.01f, duration);
+        }
+
+        private void FadeInMusic(EntityUid stream, float duration, float targetVolume)
+        {
+            if (!_entity.TryGetComponent(stream, out AudioComponent? component))
+                return;
+
+            _musicFadingOut.Remove(stream);
+            component.Volume = -32f;
+            var change = (targetVolume - component.Volume) / MathF.Max(0.01f, duration);
+            _musicFadingIn[stream] = (change, targetVolume);
+            _audio.SetVolume(stream, component.Volume, component);
+        }
+
+        private void UpdateMusicFades(float frameTime)
+        {
+            foreach (var (stream, change) in _musicFadingOut.ToArray())
+            {
+                if (!_entity.TryGetComponent(stream, out AudioComponent? component))
+                {
+                    _musicFadingOut.Remove(stream);
+                    continue;
+                }
+
+                var volume = MathF.Max(-32f, component.Volume - change * frameTime);
+                _audio.SetVolume(stream, volume, component);
+                if (!(volume <= -32f))
+                    continue;
+
+                _audio.Stop(stream);
+                _musicFadingOut.Remove(stream);
+                if (_musicStream == stream)
+                    _musicStream = null;
+            }
+
+            foreach (var (stream, data) in _musicFadingIn.ToArray())
+            {
+                if (!_entity.TryGetComponent(stream, out AudioComponent? component))
+                {
+                    _musicFadingIn.Remove(stream);
+                    continue;
+                }
+
+                var volume = MathF.Min(data.Target, component.Volume + data.Delta * frameTime);
+                _audio.SetVolume(stream, volume, component);
+                if (volume >= data.Target - 0.001f)
+                    _musicFadingIn.Remove(stream);
+            }
         }
 
         private static FacingDirection FacingFromVector(Vector2 direction, FacingDirection fallback)

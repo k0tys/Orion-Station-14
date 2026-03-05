@@ -313,6 +313,9 @@ public sealed partial class DeepMaintenanceFamiliarConfig
     public float MoveSpeed = 7f;
 
     [DataField]
+    public bool CollideWithActors;
+
+    [DataField]
     public float ShootInterval = 0.75f;
 
     [DataField]

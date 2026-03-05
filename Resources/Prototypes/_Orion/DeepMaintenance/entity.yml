@@ -18,7 +18,9 @@
   canStrafe: false
   isBoss: false
   spriteLayer: 0
-  spriteScale: 1.3
+  spriteScale: 1.4
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/grayscale.rsi
+  spriteState: body
 
 - type: deepMaintenanceEntity
   parent: BaseEntity
@@ -76,6 +78,7 @@
   parent: BaseShooter
   id: Pooter
   maxHp: 8
+  contactDamage: 0
   spritePath: /Textures/_Orion/DeepMaintenance/Entity/pooter.rsi
   spriteState: body
   bodySpriteState: body

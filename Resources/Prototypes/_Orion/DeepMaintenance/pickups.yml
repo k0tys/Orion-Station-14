@@ -3,7 +3,7 @@
   pickupType: Coin
   spritePath: /Textures/Objects/Misc/coins.rsi
   spriteState: coin_gold
-  spriteScale: 1.5
+  spriteScale: 2
   basePrice: 0
 
 - type: deepMaintenancePickup
@@ -15,7 +15,7 @@
   basePrice: 5
   bombFuseSeconds: 1.35
   bombExplosionRadius: 1.65
-  bombEnemyDamage: 4
+  bombEnemyDamage: 10
   bombObjectDamageRadius: 1.3
   secretRevealBombRadius: 1.4
   bombExplosionVisualDuration: 0.28
@@ -34,5 +34,5 @@
   pickupType: Key
   spritePath: /Textures/Objects/Devices/encryption_keys.rsi
   spriteState: crypt_gold
-  spriteScale: 1.0
+  spriteScale: 1
   basePrice: 5

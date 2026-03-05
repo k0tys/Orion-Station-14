@@ -11,32 +11,32 @@
   baseLight: 0.72
   bossRoomBaseLight: 0.35
   shopRoomBaseLight: 0.86
-  vignetteStrength: 0.2
+  vignetteStrength: 0.3
   playerLightRadius: 3.8
   playerLightStrength: 0.5
-  musicFadeOut: 0.8
+  musicFadeOut: 1.5
   musicFadeIn: 0.8
   musicByRoom:
   - roomType: Start
     music:
-      collection: DeepMaintenanceMusicCalm
-    volume: -12
+      collection: DeepMaintenanceMusicNormal
+    volume: -13
   - roomType: Normal
     music:
       collection: DeepMaintenanceMusicNormal
-    volume: -12
+    volume: -13
   - roomType: Treasure
     music:
       collection: DeepMaintenanceMusicCalm
-    volume: -13
+    volume: -12
   - roomType: Shop
     music:
       collection: DeepMaintenanceMusicCalm
-    volume: -14
+    volume: -12
   - roomType: Boss
     music:
       collection: DeepMaintenanceMusicBoss
-    volume: -11
+    volume: -12
 
 - type: deepMaintenanceFloor
   parent: FloorConfigBase

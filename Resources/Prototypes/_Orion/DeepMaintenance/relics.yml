@@ -22,6 +22,7 @@
   id: BaseDeepMaintenanceFamiliar
   abstract: true
   basePrice: 18
+  familiarConfigs:
   - behavior: Orbit
     count: 1
     followDistance: 1.15

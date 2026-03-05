@@ -703,6 +703,9 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void UpdateRoomMusic(RoomData room)
         {
+            if (_musicMuted)
+                return;
+
             DeepMaintenanceMusicRoomEntry? entry = null;
             foreach (var candidate in _activeFloorConfig.MusicByRoom)
             {
@@ -716,8 +719,18 @@ public sealed partial class DeepMaintenanceUiFragment
             if (entry == null)
                 return;
 
-            if (_activeRoomMusic != null && _activeRoomMusic.Equals(entry.Music))
+            var entryMusicKey = GetMusicSourceKey(entry.Music);
+            if (_musicStream is { } currentStream && _activeRoomMusicKey == entryMusicKey)
+            {
+                if (!(MathF.Abs(_activeRoomMusicVolume - entry.Volume) > 0.001f) ||
+                    !_entity.TryGetComponent(currentStream, out AudioComponent? component))
+                    return;
+
+                _audio.SetVolume(currentStream, entry.Volume, component);
+                _activeRoomMusicVolume = entry.Volume;
+
                 return;
+            }
 
             var fadeOut = MathF.Max(0.01f, _activeFloorConfig.MusicFadeOut);
             var fadeIn = MathF.Max(0.01f, _activeFloorConfig.MusicFadeIn);
@@ -730,9 +743,19 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
 
             _musicStream = stream.Value.Entity;
-            _activeRoomMusic = entry.Music;
+            _activeRoomMusicKey = entryMusicKey;
             _activeRoomMusicVolume = entry.Volume;
             FadeInMusic(stream.Value.Entity, fadeIn, entry.Volume);
+        }
+
+        private static string GetMusicSourceKey(SoundSpecifier specifier)
+        {
+            return specifier switch
+            {
+                SoundCollectionSpecifier collection => $"collection:{collection.Collection}",
+                SoundPathSpecifier path => $"path:{path.Path}",
+                _ => specifier.ToString() ?? string.Empty,
+            };
         }
 
         private void StopRoomMusic()
@@ -751,7 +774,7 @@ public sealed partial class DeepMaintenanceUiFragment
             }
 
             _musicStream = null;
-            _activeRoomMusic = null;
+            _activeRoomMusicKey = null;
             _activeRoomMusicVolume = 0f;
             _musicFadingIn.Clear();
             _musicFadingOut.Clear();

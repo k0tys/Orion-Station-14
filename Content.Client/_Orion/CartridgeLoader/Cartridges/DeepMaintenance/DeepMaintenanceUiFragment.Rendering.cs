@@ -273,6 +273,13 @@ public sealed partial class DeepMaintenanceUiFragment
             var center = mapOffset + pos * tilePixel;
             var size = tilePixel * EntitySpriteTileSize * MathF.Max(0.05f, spriteScale);
             var box = UIBox2.FromDimensions(center - new Vector2(size * 0.5f, size * 0.5f), new Vector2(size, size));
+            var animationProgress = _animationClock - MathF.Floor(_animationClock);
+
+            if (TryGetDirectionalAnimatedSprite(spritePath, spriteState, facing, animationProgress, out var animatedTexture))
+            {
+                handle.DrawTextureRect(animatedTexture, box, color);
+                return;
+            }
 
             if (GetDirectionalSprite(spritePath, spriteState, facing) is not { } texture)
             {

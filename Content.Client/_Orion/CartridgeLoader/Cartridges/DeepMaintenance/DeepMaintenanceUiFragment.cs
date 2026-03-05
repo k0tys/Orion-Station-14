@@ -23,6 +23,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
     private readonly Label _hud;
     private readonly Label _status;
     private readonly DeepMaintenanceGameControl _game;
+    private readonly TextureButton _musicToggleButton;
+    private readonly IResourceCache _resourceCache;
 
     public DeepMaintenanceUiFragment()
     {
@@ -30,7 +32,9 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         HorizontalExpand = true;
         VerticalExpand = true;
 
-        _hud = new Label { Margin = new Thickness(4, 2, 4, 2) };
+        _resourceCache = IoCManager.Resolve<IResourceCache>();
+
+        _hud = new Label { Margin = new Thickness(4, 2, 4, 2), HorizontalExpand = true };
         _status = new Label { Margin = new Thickness(4, 0, 4, 4) };
 
         _game = new DeepMaintenanceGameControl
@@ -42,12 +46,53 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         };
         _game.StateChanged += UpdateHud;
 
+        _musicToggleButton = new TextureButton
+        {
+            MinSize = new Vector2(24, 24),
+            SetWidth = 24,
+            SetHeight = 24,
+            CanKeyboardFocus = false,
+        };
+        _musicToggleButton.OnPressed += _ =>
+        {
+            _game.ToggleMusicMute();
+            UpdateMusicButtonIcon();
+            _game.EnsureInputFocus();
+        };
+
+        var gameLayout = new LayoutContainer
+        {
+            HorizontalExpand = true,
+            VerticalExpand = true,
+            MinSize = _game.MinSize,
+            Margin = _game.Margin,
+        };
+
+        _game.Margin = new Thickness(0);
+        LayoutContainer.SetAnchorPreset(_game, LayoutContainer.LayoutPreset.Wide);
+        gameLayout.AddChild(_game);
+
+        LayoutContainer.SetAnchorPreset(_musicToggleButton, LayoutContainer.LayoutPreset.BottomRight);
+        LayoutContainer.SetGrowHorizontal(_musicToggleButton, LayoutContainer.GrowDirection.Begin);
+        LayoutContainer.SetGrowVertical(_musicToggleButton, LayoutContainer.GrowDirection.Begin);
+        gameLayout.AddChild(_musicToggleButton);
+
         AddChild(_hud);
         AddChild(_status);
-        AddChild(_game);
+        AddChild(gameLayout);
         AddChild(BuildButtons());
 
+        UpdateMusicButtonIcon();
         UpdateHud();
+    }
+
+    private void UpdateMusicButtonIcon()
+    {
+        var iconPath = _game.IsMusicMuted
+            ? "/Textures/_Orion/Interface/mute.png"
+            : "/Textures/_Orion/Interface/sound.png";
+
+        _musicToggleButton.TextureNormal = _resourceCache.GetTexture(iconPath);
     }
 
     private Control BuildButtons()
@@ -75,7 +120,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
 
     private void UpdateHud()
     {
-        _hud.Text = Loc.GetString("deep-maintenance-ui-hud", ("room", _game.RoomIndex + 1), ("rooms", _game.RoomCount), ("enemies", _game.AliveEnemies), ("floor", _game.Floor), ("coins", _game.Coins), ("keys", _game.Keys), ("bombs", _game.Bombs));
+        UpdateMusicButtonIcon();
+        _hud.Text = Loc.GetString("deep-maintenance-ui-hud", ("room", _game.RoomIndex + 1), ("rooms", _game.RoomCount), ("floor", _game.Floor), ("coins", _game.Coins), ("keys", _game.Keys), ("bombs", _game.Bombs));
         _status.Text = _game.BossName == null
             ? _game.Status
             : $"{_game.Status} | {_game.BossName}: {_game.BossHp}/{_game.BossMaxHp}";
@@ -84,6 +130,11 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
     public void EnsureInputFocus()
     {
         _game.EnsureInputFocus();
+    }
+
+    public void StopGameAudio()
+    {
+        _game.StopAllMusic();
     }
 
     private sealed partial class DeepMaintenanceGameControl : Control
@@ -199,8 +250,9 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private int _roomsEnteredCounter;
 
         private EntityUid? _musicStream;
-        private SoundSpecifier? _activeRoomMusic;
+        private string? _activeRoomMusicKey;
         private float _activeRoomMusicVolume;
+        private bool _musicMuted;
         private readonly Dictionary<EntityUid, float> _musicFadingOut = new();
         private readonly Dictionary<EntityUid, (float Delta, float Target)> _musicFadingIn = new();
 
@@ -288,14 +340,15 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
 
         public event Action? StateChanged;
 
-        public int PlayerHp { get; private set; }
-        public int MaxPlayerHp { get; private set; }
+        private int PlayerHp { get; set; }
+        private int MaxPlayerHp { get; set; }
         public int RoomIndex { get; private set; }
         public int RoomCount => _rooms.Count;
         public int Coins => _coins;
         public int Bombs => _bombs;
         public int Keys => _keys;
         public int Floor => _currentFloor;
+        public bool IsMusicMuted => _musicMuted;
         public int AliveEnemies
         {
             get
@@ -352,6 +405,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             CanKeyboardFocus = true;
             KeyboardFocusOnClick = true;
 
+            OnVisibilityChanged += OnControlVisibilityChanged;
+
             LoadPrototypes();
             Restart();
         }
@@ -373,6 +428,12 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
                 ReleaseKeyboardFocus();
 
             StopRoomMusic();
+        }
+
+        private void OnControlVisibilityChanged(Control control)
+        {
+            if (!control.Visible)
+                StopRoomMusic();
         }
 
         #endregion
@@ -489,6 +550,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _floorDamageBonus = 0f;
             _floorDamageBonusStacks = 0;
             _roomsEnteredCounter = 0;
+            _musicMuted = false;
             StopRoomMusic();
 
             ApplyFloorTheme(_currentFloor);
@@ -512,6 +574,23 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
                 EnsureInputFocus();
 
             StateChanged?.Invoke();
+        }
+
+        public void ToggleMusicMute()
+        {
+            _musicMuted = !_musicMuted;
+
+            if (_musicMuted)
+                StopRoomMusic();
+            else
+                UpdateRoomMusic(CurrentRoom);
+
+            StateChanged?.Invoke();
+        }
+
+        public void StopAllMusic()
+        {
+            StopRoomMusic();
         }
 
         protected override void KeyBindDown(GUIBoundKeyEventArgs args)

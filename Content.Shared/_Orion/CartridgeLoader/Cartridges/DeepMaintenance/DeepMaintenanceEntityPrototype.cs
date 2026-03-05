@@ -19,6 +19,21 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     public float Radius = 0.28f;
 
     [DataField]
+    public DeepMaintenanceHitboxShape HitboxShape = DeepMaintenanceHitboxShape.Circle;
+
+    [DataField]
+    public float HitboxWidth = 0.56f;
+
+    [DataField]
+    public float HitboxHeight = 0.56f;
+
+    [DataField]
+    public float HitboxOffsetX;
+
+    [DataField]
+    public float HitboxOffsetY;
+
+    [DataField]
     public float MoveSpeed = 2.4f;
 
     [DataField]

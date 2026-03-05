@@ -2,6 +2,10 @@
   id: ProjectileBase
   abstract: true
   speed: 5.4
+  radius: 0.09
+  hitboxShape: Circle
+  hitboxWidth: 0.35
+  hitboxHeight: 0.35
   damage: 1
   lifetime: 2.2
   spritePath: /Textures/_Orion/DeepMaintenance/Projectile/blood.rsi

@@ -253,8 +253,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private Vector2? _floorExitPosition;
 
         private const string EntityPlayerPrototypeId = "Player";
-        private const string EntityChaserPrototypeId = "Chaser";
-        private const string EntityShooterPrototypeId = "Shooter";
+        private const string EntityChaserPrototypeId = "Gaper";
+        private const string EntityShooterPrototypeId = "Pooter";
         private const string EntityBossPrototypeId = "Boss";
 
         private const string TileFloorPrototypeId = "Floor";

@@ -79,7 +79,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 WarmupSprite(relic.MeleeArcSpritePath, relic.MeleeArcSpriteState);
             }
 
-            ApplySpriteBasedPhysicsScales();
+            NormalizeConfiguredHitboxes();
         }
 
         private void ApplyFloorTheme(int floor)
@@ -184,45 +184,30 @@ public sealed partial class DeepMaintenanceUiFragment
             _spriteCache[key] = _sprite.Frame0(specifier);
         }
 
-        private void ApplySpriteBasedPhysicsScales()
+        private void NormalizeConfiguredHitboxes()
         {
-            _playerProto.Radius = GetSpriteDrivenRadius(_playerProto.Radius, _playerProto.SpritePath, _playerProto.BodySpriteState ?? _playerProto.SpriteState, _playerProto.SpriteScale, 0.78f);
-            _chaserProto.Radius = GetSpriteDrivenRadius(_chaserProto.Radius, _chaserProto.SpritePath, _chaserProto.BodySpriteState ?? _chaserProto.SpriteState, _chaserProto.SpriteScale, 0.78f);
-            _shooterProto.Radius = GetSpriteDrivenRadius(_shooterProto.Radius, _shooterProto.SpritePath, _shooterProto.BodySpriteState ?? _shooterProto.SpriteState, _shooterProto.SpriteScale, 0.8f);
-            _bossProto.Radius = GetSpriteDrivenRadius(_bossProto.Radius, _bossProto.SpritePath, _bossProto.BodySpriteState ?? _bossProto.SpriteState, _bossProto.SpriteScale, 0.8f);
+            ClampEntityHitbox(_playerProto);
+            ClampEntityHitbox(_chaserProto);
+            ClampEntityHitbox(_shooterProto);
+            ClampEntityHitbox(_bossProto);
 
-            ApplySpriteBasedProjectileRadius(_playerProto.ProjectilePrototype);
-            ApplySpriteBasedProjectileRadius(_chaserProto.ProjectilePrototype);
-            ApplySpriteBasedProjectileRadius(_shooterProto.ProjectilePrototype);
-            ApplySpriteBasedProjectileRadius(_bossProto.ProjectilePrototype);
+            ClampProjectileHitbox(_playerProto.ProjectilePrototype);
+            ClampProjectileHitbox(_chaserProto.ProjectilePrototype);
+            ClampProjectileHitbox(_shooterProto.ProjectilePrototype);
+            ClampProjectileHitbox(_bossProto.ProjectilePrototype);
         }
 
-        private void ApplySpriteBasedProjectileRadius(string projectilePrototypeId)
+        private static void ClampEntityHitbox(DeepMaintenanceEntityPrototype prototype)
+        {
+            prototype.HitboxWidth = Math.Clamp(prototype.HitboxWidth, 0.02f, 3.2f);
+            prototype.HitboxHeight = Math.Clamp(prototype.HitboxHeight, 0.02f, 3.2f);
+        }
+
+        private void ClampProjectileHitbox(string projectilePrototypeId)
         {
             var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(projectilePrototypeId);
-            projectilePrototype.Radius = GetProjectileVisualRadius(projectilePrototype.Radius, projectilePrototype.SpritePath, projectilePrototype.SpriteState, projectilePrototype.SpriteScale);
-        }
-
-        private float GetProjectileVisualRadius(float configuredRadius, string? spritePath, string? spriteState, float spriteScale)
-        {
-            if (GetSprite(spritePath, spriteState) is not { } texture)
-                return Math.Clamp(configuredRadius, ProjectileRadiusMin, ProjectileRadiusMax);
-
-            var dominantPixels = MathF.Max(texture.Width, texture.Height);
-            var spriteRadius = dominantPixels / DefaultSpritePixelsPerTile * 0.5f * MathF.Max(0.05f, spriteScale);
-            var blended = configuredRadius * 0.2f + spriteRadius * 0.8f;
-            return Math.Clamp(blended, ProjectileRadiusMin, ProjectileRadiusMax);
-        }
-
-        private float GetSpriteDrivenRadius(float configuredRadius, string? spritePath, string? spriteState, float spriteScale, float spriteWeight)
-        {
-            if (GetSprite(spritePath, spriteState) is not { } texture)
-                return configuredRadius;
-
-            var dominantPixels = MathF.Min(texture.Width, texture.Height);
-            var spriteRadius = dominantPixels / DefaultSpritePixelsPerTile * 0.5f * MathF.Max(0.05f, spriteScale);
-            var blended = configuredRadius * (1f - spriteWeight) + spriteRadius * spriteWeight;
-            return Math.Clamp(blended, 0.04f, 0.95f);
+            projectilePrototype.HitboxWidth = Math.Clamp(projectilePrototype.HitboxWidth, 0.01f, 2.4f);
+            projectilePrototype.HitboxHeight = Math.Clamp(projectilePrototype.HitboxHeight, 0.01f, 2.4f);
         }
 
         private Texture? GetSprite(string? spritePath, string? spriteState)
@@ -423,11 +408,16 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private static ProjectileData SpawnProjectile(List<ProjectileData> container, Vector2 position, Vector2 velocity, DeepMaintenanceProjectilePrototype projectilePrototype, float radiusScale, float damage, Color tint, float? lifetimeOverride = null, float heightScale = 1f)
         {
+            var projectileRadius = MathF.Max(0.01f, projectilePrototype.HitboxWidth * 0.5f * radiusScale);
             var projectile = new ProjectileData(
                 position,
                 position,
                 velocity,
-                projectilePrototype.Radius * radiusScale,
+                projectileRadius,
+                projectilePrototype.HitboxShape,
+                MathF.Max(0.01f, projectilePrototype.HitboxWidth * radiusScale),
+                MathF.Max(0.01f, projectilePrototype.HitboxHeight * radiusScale),
+                new Vector2(projectilePrototype.HitboxOffsetX, projectilePrototype.HitboxOffsetY),
                 damage,
                 lifetimeOverride ?? projectilePrototype.Lifetime,
                 projectilePrototype.SpritePath,
@@ -844,14 +834,71 @@ public sealed partial class DeepMaintenanceUiFragment
             return IsSolidTile(room, tx, ty);
         }
 
-        private static Vector2 ResolveCircleTileCollision(Vector2 target, float radius, RoomData room)
+        private readonly struct HitboxData
         {
-            var resolved = target;
+            public readonly DeepMaintenanceHitboxShape Shape;
+            public readonly Vector2 Center;
+            public readonly float Radius;
+            public readonly Vector2 HalfExtents;
 
-            var minX = Math.Max(0, (int)MathF.Floor(resolved.X - radius) - 1);
-            var maxX = Math.Min(GridWidth - 1, (int)MathF.Floor(resolved.X + radius) + 1);
-            var minY = Math.Max(0, (int)MathF.Floor(resolved.Y - radius) - 1);
-            var maxY = Math.Min(GridHeight - 1, (int)MathF.Floor(resolved.Y + radius) + 1);
+            public HitboxData(DeepMaintenanceHitboxShape shape, Vector2 center, float radius, Vector2 halfExtents)
+            {
+                Shape = shape;
+                Center = center;
+                Radius = radius;
+                HalfExtents = halfExtents;
+            }
+        }
+
+        private static HitboxData GetEntityHitbox(DeepMaintenanceEntityPrototype prototype, Vector2 position)
+        {
+            var center = position + new Vector2(prototype.HitboxOffsetX, prototype.HitboxOffsetY);
+            if (prototype.HitboxShape == DeepMaintenanceHitboxShape.Rectangle)
+            {
+                var halfExtents = new Vector2(MathF.Max(0.01f, prototype.HitboxWidth * 0.5f), MathF.Max(0.01f, prototype.HitboxHeight * 0.5f));
+                return new HitboxData(DeepMaintenanceHitboxShape.Rectangle, center, 0f, halfExtents);
+            }
+
+            var radius = MathF.Max(0.01f, prototype.HitboxWidth * 0.5f);
+            return new HitboxData(DeepMaintenanceHitboxShape.Circle, center, radius, Vector2.Zero);
+        }
+
+        private static HitboxData GetProjectileHitbox(ProjectileData projectile)
+        {
+            return GetProjectileHitbox(projectile, projectile.Position);
+        }
+
+        private static HitboxData GetProjectileHitbox(ProjectileData projectile, Vector2 position)
+        {
+            var center = position + GetProjectileVisualDrop(projectile, position) + projectile.HitboxOffset;
+            if (projectile.HitboxShape != DeepMaintenanceHitboxShape.Rectangle)
+            {
+                return new HitboxData(DeepMaintenanceHitboxShape.Circle,
+                    center,
+                    MathF.Max(0.01f, projectile.Radius),
+                    Vector2.Zero);
+            }
+
+            var half = new Vector2(MathF.Max(0.01f, projectile.HitboxWidth * 0.5f), MathF.Max(0.01f, projectile.HitboxHeight * 0.5f));
+            return new HitboxData(DeepMaintenanceHitboxShape.Rectangle, center, 0f, half);
+
+        }
+
+        private static Vector2 ResolveEntityTileCollision(Vector2 target, DeepMaintenanceEntityPrototype prototype, RoomData room)
+        {
+            var offset = new Vector2(prototype.HitboxOffsetX, prototype.HitboxOffsetY);
+            var resolvedCenter = ResolveHitboxTileCollision(GetEntityHitbox(prototype, target), room).Center;
+            return resolvedCenter - offset;
+        }
+
+        private static HitboxData ResolveHitboxTileCollision(HitboxData hitbox, RoomData room)
+        {
+            var center = hitbox.Center;
+            var boundsHalf = hitbox.Shape == DeepMaintenanceHitboxShape.Circle ? new Vector2(hitbox.Radius, hitbox.Radius) : hitbox.HalfExtents;
+            var minX = Math.Max(0, (int)MathF.Floor(center.X - boundsHalf.X) - 1);
+            var maxX = Math.Min(GridWidth - 1, (int)MathF.Floor(center.X + boundsHalf.X) + 1);
+            var minY = Math.Max(0, (int)MathF.Floor(center.Y - boundsHalf.Y) - 1);
+            var maxY = Math.Min(GridHeight - 1, (int)MathF.Floor(center.Y + boundsHalf.Y) + 1);
 
             for (var y = minY; y <= maxY; y++)
             {
@@ -860,27 +907,66 @@ public sealed partial class DeepMaintenanceUiFragment
                     if (!IsSolidTile(room, x, y))
                         continue;
 
-                    var nearestX = Math.Clamp(resolved.X, x, x + 1f);
-                    var nearestY = Math.Clamp(resolved.Y, y, y + 1f);
-                    var delta = resolved - new Vector2(nearestX, nearestY);
-                    var distance = delta.Length();
-
-                    if (distance >= radius)
-                        continue;
-
-                    if (distance <= 0.0001f)
+                    if (hitbox.Shape == DeepMaintenanceHitboxShape.Circle)
                     {
-                        delta = new Vector2(1, 0);
-                        distance = 1f;
+                        var nearestX = Math.Clamp(center.X, x, x + 1f);
+                        var nearestY = Math.Clamp(center.Y, y, y + 1f);
+                        var delta = center - new Vector2(nearestX, nearestY);
+                        var distance = delta.Length();
+                        if (distance >= hitbox.Radius)
+                            continue;
+
+                        if (distance <= 0.0001f)
+                        {
+                            delta = new Vector2(1f, 0f);
+                            distance = 1f;
+                        }
+
+                        center += delta / distance * (hitbox.Radius - distance);
+                        continue;
                     }
 
-                    resolved += delta / distance * (radius - distance);
+                    var tileCenter = new Vector2(x + 0.5f, y + 0.5f);
+                    var deltaRect = center - tileCenter;
+                    var overlapX = hitbox.HalfExtents.X + 0.5f - MathF.Abs(deltaRect.X);
+                    var overlapY = hitbox.HalfExtents.Y + 0.5f - MathF.Abs(deltaRect.Y);
+                    if (overlapX <= 0f || overlapY <= 0f)
+                        continue;
+
+                    if (overlapX < overlapY)
+                        center.X += deltaRect.X >= 0f ? overlapX : -overlapX;
+                    else
+                        center.Y += deltaRect.Y >= 0f ? overlapY : -overlapY;
                 }
             }
 
-            resolved.X = Math.Clamp(resolved.X, radius, GridWidth - radius);
-            resolved.Y = Math.Clamp(resolved.Y, radius, GridHeight - radius);
-            return resolved;
+            center.X = Math.Clamp(center.X, boundsHalf.X, GridWidth - boundsHalf.X);
+            center.Y = Math.Clamp(center.Y, boundsHalf.Y, GridHeight - boundsHalf.Y);
+            return new HitboxData(hitbox.Shape, center, hitbox.Radius, hitbox.HalfExtents);
+        }
+
+        private static bool HitboxesOverlap(HitboxData left, HitboxData right)
+        {
+            switch (left.Shape)
+            {
+                case DeepMaintenanceHitboxShape.Circle when right.Shape == DeepMaintenanceHitboxShape.Circle:
+                    return Vector2.Distance(left.Center, right.Center) <= left.Radius + right.Radius;
+                case DeepMaintenanceHitboxShape.Rectangle when right.Shape == DeepMaintenanceHitboxShape.Rectangle:
+                    return MathF.Abs(left.Center.X - right.Center.X) <= left.HalfExtents.X + right.HalfExtents.X &&
+                           MathF.Abs(left.Center.Y - right.Center.Y) <= left.HalfExtents.Y + right.HalfExtents.Y;
+            }
+
+            var circle = left.Shape == DeepMaintenanceHitboxShape.Circle ? left : right;
+            var rect = left.Shape == DeepMaintenanceHitboxShape.Rectangle ? left : right;
+            var nearestX = Math.Clamp(circle.Center.X, rect.Center.X - rect.HalfExtents.X, rect.Center.X + rect.HalfExtents.X);
+            var nearestY = Math.Clamp(circle.Center.Y, rect.Center.Y - rect.HalfExtents.Y, rect.Center.Y + rect.HalfExtents.Y);
+            return Vector2.Distance(circle.Center, new Vector2(nearestX, nearestY)) <= circle.Radius;
+        }
+
+        private static Vector2 ResolveCircleTileCollision(Vector2 target, float radius, RoomData room)
+        {
+            var hitbox = new HitboxData(DeepMaintenanceHitboxShape.Circle, target, MathF.Max(0.01f, radius), Vector2.Zero);
+            return ResolveHitboxTileCollision(hitbox, room).Center;
         }
 
         #endregion

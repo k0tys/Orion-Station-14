@@ -1,7 +1,12 @@
+# Base
 - type: deepMaintenanceEntity
-  id: EntityBase
+  id: BaseEntity
   abstract: true
   radius: 0.28
+  hitboxShape: Circle
+  hitboxWidth: 0.60
+  hitboxHeight: 2
+  hitboxOffsetY: 0.20
   moveSpeed: 2.7
   moveAcceleration: 20
   moveFriction: 18
@@ -13,13 +18,34 @@
   canStrafe: false
   isBoss: false
   spriteLayer: 0
+  spriteScale: 1.3
+
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: BaseBoss
+  moveSpeed: 2.3
+  isBoss: true
+  projectilePrototype: ProjectileBoss
   spriteScale: 1
+
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: BaseChaser
+  moveSpeed: 2
+
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: BaseShooter
+  moveSpeed: 2.1
+  shooter: true
+  canStrafe: true
+  shootCooldownTicks: 15
 
 # Player entity
 - type: deepMaintenanceEntity
-  parent: EntityBase
+  parent: BaseEntity
   id: Player
-  radius: 0.27
+  radius: 0.05
   moveSpeed: 2.8
   maxHp: 6
   contactDamage: 0
@@ -34,46 +60,37 @@
 
 # Chaser
 - type: deepMaintenanceEntity
-  parent: EntityBase
-  id: Chaser
-  radius: 0.27
-  moveSpeed: 2
+  parent: BaseChaser
+  id: Gaper
   maxHp: 10
-  spritePath: /Textures/_Orion/DeepMaintenance/Entity/chaser.rsi
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/gaper.rsi
   spriteState: body
   bodySpriteState: body
   headSpriteState: head
-  shootSpriteState: head
 
 # Shooter
 - type: deepMaintenanceEntity
-  parent: EntityBase
-  id: Shooter
-  radius: 0.30
-  moveSpeed: 2.1
-  maxHp: 10
-  shooter: true
-  canStrafe: true
-  shootCooldownTicks: 15
-  projectilePrototype: ProjectileEnemy
-  spritePath: /Textures/_Orion/DeepMaintenance/Entity/shooter.rsi
+  parent: BaseShooter
+  id: Pooter
+  maxHp: 8
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/pooter.rsi
   spriteState: body
   bodySpriteState: body
-  headSpriteState: head
-  shootSpriteState: head
+  spriteScale: 1
+  hitboxOffsetY: 0
 
 # Boss
 - type: deepMaintenanceEntity
-  parent: EntityBase
+  parent: BaseBoss
   id: Boss
   radius: 0.36
-  moveSpeed: 2.3
+  hitboxWidth: 0.58
+  hitboxHeight: 0.46
+  hitboxOffsetY: 0.14
   maxHp: 60
   shooter: true
   canStrafe: true
-  isBoss: true
   shootCooldownTicks: 13
-  projectilePrototype: ProjectileBoss
   spritePath: /Textures/_Orion/DeepMaintenance/Entity/boss.rsi
   spriteState: body
   bodySpriteState: body

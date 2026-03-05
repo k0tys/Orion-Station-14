@@ -478,6 +478,10 @@ public sealed partial class DeepMaintenanceUiFragment
             public readonly float InitialLifetime;
             public readonly float InitialSpeed;
             public readonly float Radius;
+            public readonly DeepMaintenanceHitboxShape HitboxShape;
+            public readonly float HitboxWidth;
+            public readonly float HitboxHeight;
+            public readonly Vector2 HitboxOffset;
             public readonly float HeightScale;
             public readonly float Damage;
             public bool FreezeOnHit;
@@ -490,7 +494,7 @@ public sealed partial class DeepMaintenanceUiFragment
             public readonly DeepMaintenanceProjectilePrototype Prototype;
             public readonly Color Tint;
 
-            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, float damage, float lifetime, string spritePath, string spriteState, float spriteScale, DeepMaintenanceProjectilePrototype prototype, Color tint, float heightScale)
+            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, DeepMaintenanceHitboxShape hitboxShape, float hitboxWidth, float hitboxHeight, Vector2 hitboxOffset, float damage, float lifetime, string spritePath, string spriteState, float spriteScale, DeepMaintenanceProjectilePrototype prototype, Color tint, float heightScale)
             {
                 Position = position;
                 PreviousPosition = position;
@@ -498,6 +502,10 @@ public sealed partial class DeepMaintenanceUiFragment
                 Velocity = velocity;
                 Direction = NormalizeSafe(velocity);
                 Radius = radius;
+                HitboxShape = hitboxShape;
+                HitboxWidth = hitboxWidth;
+                HitboxHeight = hitboxHeight;
+                HitboxOffset = hitboxOffset;
                 Damage = damage;
                 Lifetime = lifetime;
                 InitialLifetime = lifetime;

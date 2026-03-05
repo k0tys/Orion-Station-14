@@ -1008,24 +1008,24 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void DrawDebugHitboxes(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset, float tickAlpha)
         {
-            DrawDebugCircle(handle, _playerPos, _playerProto.Radius, Color.LimeGreen, tilePixel, mapOffset);
+            DrawDebugHitbox(handle, GetEntityHitbox(_playerProto, _playerPos), Color.LimeGreen, tilePixel, mapOffset);
 
             foreach (var enemy in CurrentRoom.Enemies.Where(enemy => enemy.Hp > 0))
             {
                 var drawPos = Vector2.Lerp(enemy.PreviousPosition, enemy.Position, tickAlpha);
-                DrawDebugCircle(handle, drawPos, enemy.Prototype.Radius, Color.Red, tilePixel, mapOffset);
+                DrawDebugHitbox(handle, GetEntityHitbox(enemy.Prototype, drawPos), Color.Red, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _playerProjectiles)
             {
                 var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
-                DrawDebugCircle(handle, drawPos, projectile.Radius, Color.Yellow, tilePixel, mapOffset);
+                DrawDebugHitbox(handle, GetProjectileHitbox(projectile, drawPos), Color.Yellow, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _enemyProjectiles)
             {
                 var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
-                DrawDebugCircle(handle, drawPos, projectile.Radius, Color.Yellow, tilePixel, mapOffset);
+                DrawDebugHitbox(handle, GetProjectileHitbox(projectile, drawPos), Color.Yellow, tilePixel, mapOffset);
             }
 
             if (_treasureBoxPosition is { } chestPos)
@@ -1033,6 +1033,24 @@ public sealed partial class DeepMaintenanceUiFragment
 
             if (_treasureRelicPosition is { } relicPos)
                 DrawDebugAabb(handle, relicPos, TreasureObjectRadius, Color.CornflowerBlue, tilePixel, mapOffset);
+        }
+
+        private static void DrawDebugHitbox(DrawingHandleScreen handle, HitboxData hitbox, Color color, float tilePixel, Vector2 mapOffset)
+        {
+            if (hitbox.Shape == DeepMaintenanceHitboxShape.Rectangle)
+            {
+                var center = mapOffset + hitbox.Center * tilePixel;
+                var half = hitbox.HalfExtents * tilePixel;
+                var box = UIBox2.FromDimensions(center - half, half * 2f);
+                handle.DrawRect(box, color.WithAlpha(0.15f));
+                handle.DrawLine(new Vector2(box.Left, box.Top), new Vector2(box.Right, box.Top), color);
+                handle.DrawLine(new Vector2(box.Right, box.Top), new Vector2(box.Right, box.Bottom), color);
+                handle.DrawLine(new Vector2(box.Right, box.Bottom), new Vector2(box.Left, box.Bottom), color);
+                handle.DrawLine(new Vector2(box.Left, box.Bottom), new Vector2(box.Left, box.Top), color);
+                return;
+            }
+
+            DrawDebugCircle(handle, hitbox.Center, hitbox.Radius, color, tilePixel, mapOffset);
         }
 
         private static void DrawDebugCircle(DrawingHandleScreen handle, Vector2 centerTile, float radiusTile, Color color, float tilePixel, Vector2 mapOffset)

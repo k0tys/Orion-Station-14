@@ -19,6 +19,21 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
     public float Radius = 0.09f;
 
     [DataField]
+    public DeepMaintenanceHitboxShape HitboxShape = DeepMaintenanceHitboxShape.Circle;
+
+    [DataField]
+    public float HitboxWidth = 0.18f;
+
+    [DataField]
+    public float HitboxHeight = 0.18f;
+
+    [DataField]
+    public float HitboxOffsetX;
+
+    [DataField]
+    public float HitboxOffsetY;
+
+    [DataField]
     public float Speed = 5f;
 
     [DataField]

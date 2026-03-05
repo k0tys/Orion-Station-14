@@ -27,9 +27,9 @@
   doorTreasure: DoorTreasureFloor1
   doorBoss: DoorBossFloor1
   enemyPool:
-  - entity: Chaser
+  - entity: Gaper
     weight: 4
-  - entity: Shooter
+  - entity: Pooter
     weight: 2
   bossPool:
   - entity: Boss
@@ -47,9 +47,9 @@
   doorTreasure: DoorTreasureFloor2
   doorBoss: DoorBossFloor2
   enemyPool:
-  - entity: Chaser
+  - entity: Gaper
     weight: 3
-  - entity: Shooter
+  - entity: Pooter
     weight: 3
   bossPool:
   - entity: Boss
@@ -67,9 +67,9 @@
   doorTreasure: DoorTreasureFloor3
   doorBoss: DoorBossFloor3
   enemyPool:
-  - entity: Chaser
+  - entity: Gaper
     weight: 2
-  - entity: Shooter
+  - entity: Pooter
     weight: 4
   bossPool:
   - entity: Boss
@@ -89,9 +89,9 @@
   doorTreasure: DoorTreasureFloor4
   doorBoss: DoorBossFloor4
   enemyPool:
-  - entity: Chaser
+  - entity: Gaper
     weight: 3
-  - entity: Shooter
+  - entity: Pooter
     weight: 5
   bossPool:
   - entity: Boss
@@ -111,9 +111,9 @@
   doorTreasure: DoorTreasureFloor5
   doorBoss: DoorBossFloor5
   enemyPool:
-  - entity: Chaser
+  - entity: Gaper
     weight: 2
-  - entity: Shooter
+  - entity: Pooter
     weight: 6
   bossPool:
   - entity: Boss
@@ -134,9 +134,9 @@
   doorTreasure: DoorTreasureFloor6
   doorBoss: DoorBossFloor6
   enemyPool:
-  - entity: Chaser
+  - entity: Gaper
     weight: 1
-  - entity: Shooter
+  - entity: Pooter
     weight: 7
   bossPool:
   - entity: Boss

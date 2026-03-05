@@ -322,7 +322,7 @@ public sealed partial class DeepMaintenanceUiFragment
             }
 
             var target = _playerPos + _playerVelocity * dt;
-            _playerPos = ResolveCircleTileCollision(target, _playerProto.Radius, CurrentRoom);
+            _playerPos = ResolveEntityTileCollision(target, _playerProto, CurrentRoom);
             TryRoomTransition();
         }
 
@@ -598,7 +598,7 @@ public sealed partial class DeepMaintenanceUiFragment
             var velocity = pushAway * enemy.Prototype.MoveSpeed * EnemyEscapeSpeedMultiplier * dt;
             enemy.BodyFacing = FacingFromVector(pushAway, enemy.BodyFacing);
             var target = enemy.Position + velocity;
-            enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+            enemy.Position = ResolveEntityTileCollision(target, enemy.Prototype, CurrentRoom);
             return true;
         }
 
@@ -632,7 +632,7 @@ public sealed partial class DeepMaintenanceUiFragment
 
             enemy.BodyFacing = FacingFromVector(chosenDirection, enemy.BodyFacing);
             var target = enemy.Position + chosenDirection * enemy.Prototype.MoveSpeed * speedScale * dt;
-            enemy.Position = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+            enemy.Position = ResolveEntityTileCollision(target, enemy.Prototype, CurrentRoom);
         }
 
         private Vector2 ResolveEnemyMovementDirection(EnemyData enemy, Vector2 preferredDirection, Vector2 fallbackDirection, bool hasDirectVision)
@@ -677,7 +677,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 return false;
 
             var target = enemy.Position + NormalizeSafe(direction) * EnemyAvoidanceCheckDistance;
-            var resolved = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+            var resolved = ResolveEntityTileCollision(target, enemy.Prototype, CurrentRoom);
             return Vector2.DistanceSquared(resolved, target) <= 0.0015f &&
                    HasLineOfSight(enemy.Position, resolved, enemy.Prototype.Radius * 0.55f);
         }
@@ -735,23 +735,19 @@ public sealed partial class DeepMaintenanceUiFragment
                     if (right.Hp <= 0)
                         continue;
 
-                    var delta = right.Position - left.Position;
-                    var distance = delta.Length();
-                    var minDistance = left.Prototype.Radius + right.Prototype.Radius;
-
-                    if (distance <= 0.0001f)
-                    {
-                        delta = new Vector2(1f, 0f);
-                        distance = 1f;
-                    }
-
-                    if (distance >= minDistance)
+                    var leftHitbox = GetEntityHitbox(left.Prototype, left.Position);
+                    var rightHitbox = GetEntityHitbox(right.Prototype, right.Position);
+                    if (!HitboxesOverlap(leftHitbox, rightHitbox))
                         continue;
 
-                    var normal = delta / distance;
-                    var correction = (minDistance - distance) * 0.5f;
-                    left.Position = ResolveCircleTileCollision(left.Position - normal * correction, left.Prototype.Radius, CurrentRoom);
-                    right.Position = ResolveCircleTileCollision(right.Position + normal * correction, right.Prototype.Radius, CurrentRoom);
+                    var delta = rightHitbox.Center - leftHitbox.Center;
+                    if (delta.LengthSquared() <= 0.0001f)
+                        delta = new Vector2(1f, 0f);
+
+                    var normal = Vector2.Normalize(delta);
+                    const float correction = 0.06f;
+                    left.Position = ResolveEntityTileCollision(left.Position - normal * correction, left.Prototype, CurrentRoom);
+                    right.Position = ResolveEntityTileCollision(right.Position + normal * correction, right.Prototype, CurrentRoom);
                 }
             }
         }
@@ -772,8 +768,8 @@ public sealed partial class DeepMaintenanceUiFragment
                     continue;
                 }
 
-                var projectileCollisionCenter = GetProjectileCollisionCenter(projectile);
-                if (!InsideMap(projectileCollisionCenter) || IsSolid(projectileCollisionCenter, CurrentRoom))
+                var projectileHitbox = GetProjectileHitbox(projectile);
+                if (!InsideMap(projectileHitbox.Center) || IsSolid(projectileHitbox.Center, CurrentRoom))
                 {
                     PlaySfx(SfxProjectileHit, -12f);
                     projectiles.RemoveAt(i);
@@ -782,14 +778,15 @@ public sealed partial class DeepMaintenanceUiFragment
 
                 if (playerProjectile)
                 {
-                    if (!TryHitEnemy(projectile, projectileCollisionCenter))
+                    if (!TryHitEnemy(projectile, projectileHitbox))
                         continue;
 
                     projectiles.RemoveAt(i);
                     continue;
                 }
 
-                if (Vector2.Distance(projectileCollisionCenter, _playerPos) > projectile.Radius + _playerProto.Radius)
+                var playerHitbox = GetEntityHitbox(_playerProto, _playerPos);
+                if (!HitboxesOverlap(projectileHitbox, playerHitbox))
                     continue;
 
                 if (TryBluespaceProjectileBlock(projectile, projectiles, i))
@@ -801,14 +798,14 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
-        private bool TryHitEnemy(ProjectileData projectile, Vector2 projectileCollisionCenter)
+        private bool TryHitEnemy(ProjectileData projectile, HitboxData projectileHitbox)
         {
             foreach (var enemy in CurrentRoom.Enemies)
             {
                 if (enemy.Hp <= 0)
                     continue;
 
-                if (Vector2.Distance(projectileCollisionCenter, enemy.Position) > projectile.Radius + enemy.Prototype.Radius)
+                if (!HitboxesOverlap(projectileHitbox, GetEntityHitbox(enemy.Prototype, enemy.Position)))
                     continue;
 
                 enemy.Hp -= (int) MathF.Ceiling(projectile.Damage);
@@ -824,7 +821,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (knockbackDir != Vector2.Zero)
                 {
                     var knockbackTarget = enemy.Position + knockbackDir * EnemyHitKnockback;
-                    enemy.Position = ResolveCircleTileCollision(knockbackTarget, enemy.Prototype.Radius, CurrentRoom);
+                    enemy.Position = ResolveEntityTileCollision(knockbackTarget, enemy.Prototype, CurrentRoom);
                 }
 
                 if (enemy.Hp <= 0)
@@ -848,7 +845,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (enemy.Hp <= 0 || enemy.SpawnGraceTicks > 0)
                     continue;
 
-                if (Vector2.Distance(_playerPos, enemy.Position) > _playerProto.Radius + enemy.Prototype.Radius)
+                if (!HitboxesOverlap(GetEntityHitbox(_playerProto, _playerPos), GetEntityHitbox(enemy.Prototype, enemy.Position)))
                     continue;
 
                 if (enemy.Frozen)
@@ -1431,7 +1428,7 @@ public sealed partial class DeepMaintenanceUiFragment
             var knockback = _activeRelics.Select(relic => relic.ContactBlockKnockback).DefaultIfEmpty(0f).Max();
             var direction = NormalizeSafe(enemy.Position - _playerPos);
             var target = enemy.Position + direction * knockback;
-            var resolved = ResolveCircleTileCollision(target, enemy.Prototype.Radius, CurrentRoom);
+            var resolved = ResolveEntityTileCollision(target, enemy.Prototype, CurrentRoom);
             enemy.Position = resolved;
             ApplyCollisionDamageAfterKnockback(enemy, target, resolved);
             return true;
@@ -1835,36 +1832,45 @@ public sealed partial class DeepMaintenanceUiFragment
             if (!room.Cleared)
                 return;
 
-            var threshold = _playerProto.Radius + DoorTransitionMargin;
-            if (_playerPos.X < threshold && room.Neighbors.TryGetValue(new Vector2i(-1, 0), out var left) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(-1, 0), out var ln) || !_rooms[ln].IsSecret || _rooms[ln].Cleared))
+            var playerHitbox = GetEntityHitbox(_playerProto, _playerPos);
+            var hitboxHalfExtents = playerHitbox.Shape == DeepMaintenanceHitboxShape.Rectangle
+                ? playerHitbox.HalfExtents
+                : new Vector2(playerHitbox.Radius, playerHitbox.Radius);
+
+            var leftEdge = playerHitbox.Center.X - hitboxHalfExtents.X;
+            var rightEdge = playerHitbox.Center.X + hitboxHalfExtents.X;
+            var topEdge = playerHitbox.Center.Y - hitboxHalfExtents.Y;
+            var bottomEdge = playerHitbox.Center.Y + hitboxHalfExtents.Y;
+
+            if (leftEdge < DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(-1, 0), out var left) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(-1, 0), out var ln) || !_rooms[ln].IsSecret || _rooms[ln].Cleared))
             {
                 HandleRoomCompletionTransition(room);
                 EnterRoom(left, false);
-                _playerPos = _playerPos with { X = GridWidth - 1.0f };
+                _playerPos = _playerPos with { X = GridWidth - 1f - hitboxHalfExtents.X - _playerProto.HitboxOffsetX };
                 return;
             }
 
-            if (_playerPos.X > GridWidth - threshold && room.Neighbors.TryGetValue(new Vector2i(1, 0), out var right) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(1, 0), out var rn) || !_rooms[rn].IsSecret || _rooms[rn].Cleared))
+            if (rightEdge > GridWidth - DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(1, 0), out var right) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(1, 0), out var rn) || !_rooms[rn].IsSecret || _rooms[rn].Cleared))
             {
                 HandleRoomCompletionTransition(room);
                 EnterRoom(right, false);
-                _playerPos = _playerPos with { X = 1.0f };
+                _playerPos = _playerPos with { X = 1f + hitboxHalfExtents.X - _playerProto.HitboxOffsetX };
                 return;
             }
 
-            if (_playerPos.Y < threshold && room.Neighbors.TryGetValue(new Vector2i(0, -1), out var up) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, -1), out var un) || !_rooms[un].IsSecret || _rooms[un].Cleared))
+            if (topEdge < DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(0, -1), out var up) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, -1), out var un) || !_rooms[un].IsSecret || _rooms[un].Cleared))
             {
                 HandleRoomCompletionTransition(room);
                 EnterRoom(up, false);
-                _playerPos = _playerPos with { Y = GridHeight - 1.0f };
+                _playerPos = _playerPos with { Y = GridHeight - 1f - hitboxHalfExtents.Y - _playerProto.HitboxOffsetY };
                 return;
             }
 
-            if (_playerPos.Y > GridHeight - threshold && room.Neighbors.TryGetValue(new Vector2i(0, 1), out var down) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, 1), out var dn) || !_rooms[dn].IsSecret || _rooms[dn].Cleared))
+            if (bottomEdge > GridHeight - DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(0, 1), out var down) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, 1), out var dn) || !_rooms[dn].IsSecret || _rooms[dn].Cleared))
             {
                 HandleRoomCompletionTransition(room);
                 EnterRoom(down, false);
-                _playerPos = _playerPos with { Y = 1.0f };
+                _playerPos = _playerPos with { Y = 1f + hitboxHalfExtents.Y - _playerProto.HitboxOffsetY };
             }
         }
 
@@ -1979,10 +1985,10 @@ public sealed partial class DeepMaintenanceUiFragment
 
             var bossIndex = SelectBossRoomIndex(positions);
             var specialTaken = new HashSet<int> { 0, bossIndex };
-            var treasureIndex = SelectSpecialRoomIndex(positions, specialTaken);
+            var treasureIndex = SelectSpecialRoomIndex(positions, specialTaken, _random);
             if (treasureIndex >= 0)
                 specialTaken.Add(treasureIndex);
-            var shopIndex = roomCount > 4 ? SelectSpecialRoomIndex(positions, specialTaken) : -1;
+            var shopIndex = roomCount > 4 ? SelectSpecialRoomIndex(positions, specialTaken, _random) : -1;
 
             for (var i = 0; i < roomCount; i++)
             {
@@ -2059,10 +2065,11 @@ public sealed partial class DeepMaintenanceUiFragment
             return bestIndex;
         }
 
-        private static int SelectSpecialRoomIndex(List<Vector2i> positions, HashSet<int> excluded)
+        private static int SelectSpecialRoomIndex(List<Vector2i> positions, HashSet<int> excluded, Random random)
         {
-            var bestIndex = -1;
-            var bestDistance = int.MaxValue;
+            var candidates = new List<(int Index, float Weight)>();
+            var totalWeight = 0f;
+
             for (var i = 1; i < positions.Count; i++)
             {
                 if (excluded.Contains(i))
@@ -2070,14 +2077,25 @@ public sealed partial class DeepMaintenanceUiFragment
 
                 var pos = positions[i];
                 var distance = Math.Abs(pos.X) + Math.Abs(pos.Y);
-                if (distance >= bestDistance)
-                    continue;
-
-                bestDistance = distance;
-                bestIndex = i;
+                var weight = 1f + distance * 0.35f;
+                candidates.Add((i, weight));
+                totalWeight += weight;
             }
 
-            return bestIndex;
+            if (candidates.Count == 0)
+                return -1;
+
+            var roll = random.NextSingle() * MathF.Max(0.001f, totalWeight);
+            foreach (var candidate in candidates)
+            {
+                roll -= candidate.Weight;
+                if (roll > 0f)
+                    continue;
+
+                return candidate.Index;
+            }
+
+            return candidates[^1].Index;
         }
 
         private void EnsureBossReachabilityFromStart()

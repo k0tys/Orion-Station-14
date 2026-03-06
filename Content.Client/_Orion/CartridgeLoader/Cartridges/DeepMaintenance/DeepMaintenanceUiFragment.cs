@@ -185,6 +185,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private DeepMaintenancePickupPrototype _coinPickupProto = default!;
         private DeepMaintenancePickupPrototype _bombPickupProto = default!;
         private DeepMaintenancePickupPrototype _heartPickupProto = default!;
+        private DeepMaintenancePickupPrototype _heartHalfPickupProto = default!;
         private DeepMaintenancePickupPrototype _keyPickupProto = default!;
 
         private Vector2 _playerPos;
@@ -243,6 +244,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
 
         private readonly List<FamiliarData> _familiars = new();
         private readonly List<BloodTrailData> _bloodTrails = new();
+        private readonly List<EnemyData> _aliveEnemiesScratch = new();
+        private readonly List<Vector2> _familiarDirectionsScratch = new(4);
         private Vector2 _lastPlayerShotDirection = Vector2.UnitX;
         private float _roomKillDamageBonus;
         private float _floorDamageBonus;
@@ -258,7 +261,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
 
         private const int GridWidth = 12;
         private const int GridHeight = 11;
-        private const float TickSeconds = 0.1f;
+        private const float TickSeconds = 1f / 60f;
         private const int InvulnerabilityTicks = 10;
         private const float DoorTransitionMargin = 0.05f;
         private const float DoorSpawnExclusionRadius = 2f;
@@ -280,17 +283,22 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const int MaxBombs = 99;
         private const int MaxKeys = 99;
         private const float FamiliarCollisionRadius = 0.22f;
+        private const float FamiliarFollowAcceleration = 20f;
+        private const float FamiliarFollowDamping = 0.86f;
+        private const float FamiliarAttackSpeed = 5.7f;
+        private const float FamiliarAggroRadius = 7f;
+        private const float FamiliarOrbitalHitRadius = 0.36f;
+        private const float FamiliarOrbitalContactDamage = 12f;
+        private const float FamiliarProjectileSpawnOffset = 0.18f;
+        private const float FamiliarOrbitWobbleAmplitude = 0.07f;
+        private const float FamiliarOrbitWobbleSpeed = 4.5f;
         private const float EntitySeparationBias = 0.05f;
         private const float PickupPushStrength = 0.8f;
         private const float ShopPurchaseRadius = 0.72f;
-        private const int RoomClearCoinMin = 1;
-        private const int RoomClearCoinMax = 3;
         private const int ShopSlotCount = 3;
         private const string EmotePlaceholderState = "emote";
 
         private const float TreasureObjectRadius = 0.34f;
-        private const double TreasureEnemySpawnChance = 0.1;
-        private const double TreasureShooterSpawnChance = 0.5;
         private const string TreasurePrototypeId = "TreasureConfig";
         private const float MeleeSwingDuration = 0.12f;
         private const int TreasureEnemySpawnGraceTicks = 6;
@@ -307,6 +315,19 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const string EntityChaserPrototypeId = "Gaper";
         private const string EntityShooterPrototypeId = "Pooter";
         private const string EntityBossPrototypeId = "Boss";
+        private const string EntityFamiliarOrbitalPrototypeId = "FamiliarOrbital";
+        private const string EntityFamiliarFollowerPrototypeId = "FamiliarFollower";
+        private const string EntityFamiliarShooterPrototypeId = "FamiliarShooter";
+        private const string EntityFamiliarAttackerPrototypeId = "FamiliarAttacker";
+        private const string EntityFamiliarShieldPrototypeId = "FamiliarShield";
+
+        private static readonly Vector2[] FamiliarCardinalDirections =
+        {
+            new(1f, 0f),
+            new(-1f, 0f),
+            new(0f, 1f),
+            new(0f, -1f),
+        };
 
         private const string TileFloorPrototypeId = "Floor";
         private const string TileWallPrototypeId = "Wall";
@@ -316,6 +337,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const string PickupCoinPrototypeId = "PickupCoin";
         private const string PickupBombPrototypeId = "PickupBomb";
         private const string PickupHeartPrototypeId = "PickupHeart";
+        private const string PickupHeartHalfPrototypeId = "PickupHeartHalf";
         private const string PickupKeyPrototypeId = "PickupKey";
 
         private static readonly SoundSpecifier SfxPlayerShoot = new SoundPathSpecifier("/Audio/Weapons/pop.ogg");
@@ -324,6 +346,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private static readonly SoundSpecifier SfxPlayerDamage = new SoundPathSpecifier("/Audio/Effects/hit_kick.ogg");
         private static readonly SoundSpecifier SfxEnemyDeath = new SoundPathSpecifier("/Audio/Effects/bodyfall1.ogg");
         private static readonly SoundSpecifier SfxPlayerDeath = new SoundPathSpecifier("/Audio/Effects/tesla_collapse.ogg");
+        private static readonly SoundSpecifier SfxPickupDefault = new SoundPathSpecifier("/Audio/Effects/pop.ogg");
 
         private const string HeartSpritePath = "/Textures/_Orion/DeepMaintenance/HUD/hearts.rsi";
         private const string HeartFullState = "full";
@@ -433,7 +456,15 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private void OnControlVisibilityChanged(Control control)
         {
             if (!control.Visible)
+            {
                 StopRoomMusic();
+                return;
+            }
+
+            if (_rooms.Count == 0 || _paused || _gameOver || _victory)
+                return;
+
+            UpdateRoomMusic(CurrentRoom);
         }
 
         #endregion

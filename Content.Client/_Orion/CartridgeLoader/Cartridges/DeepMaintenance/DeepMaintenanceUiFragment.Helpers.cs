@@ -41,6 +41,7 @@ public sealed partial class DeepMaintenanceUiFragment
             _coinPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupCoinPrototypeId);
             _bombPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupBombPrototypeId);
             _heartPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupHeartPrototypeId);
+            _heartHalfPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupHeartHalfPrototypeId);
             _keyPickupProto = _prototype.Index<DeepMaintenancePickupPrototype>(PickupKeyPrototypeId);
             _hasTreasurePrototype = _prototype.TryIndex<DeepMaintenanceTreasurePrototype>(TreasurePrototypeId, out var treasurePrototype);
             if (_hasTreasurePrototype)
@@ -50,6 +51,7 @@ public sealed partial class DeepMaintenanceUiFragment
             WarmupSprite(_bombPickupProto.SpritePath, _bombPickupProto.SpriteState);
             WarmupSprite(_bombPickupProto.SpritePath, BombPrimedState);
             WarmupSprite(_heartPickupProto.SpritePath, _heartPickupProto.SpriteState);
+            WarmupSprite(_heartHalfPickupProto.SpritePath, _heartHalfPickupProto.SpriteState);
             WarmupSprite(_keyPickupProto.SpritePath, _keyPickupProto.SpriteState);
 
             WarmupSprite(_playerProto.SpritePath, _playerProto.SpriteState);
@@ -75,6 +77,8 @@ public sealed partial class DeepMaintenanceUiFragment
 
             foreach (var relic in _prototype.EnumeratePrototypes<DeepMaintenanceRelicPrototype>())
             {
+                ApplyRelicEffectEntries(relic);
+
                 WarmupSprite(relic.HudIconSpritePath, relic.HudIconSpriteState);
                 WarmupSprite(relic.VisualEffectSpritePath, relic.VisualEffectSpriteState);
                 WarmupSprite(relic.BodyAttachedSpritePath, relic.BodyAttachedSpriteState);
@@ -83,6 +87,103 @@ public sealed partial class DeepMaintenanceUiFragment
             }
 
             NormalizeConfiguredHitboxes();
+        }
+
+        private static bool TryParseEffectColor(string? colorHex, out Color color)
+        {
+            color = Color.White;
+            if (string.IsNullOrWhiteSpace(colorHex))
+                return false;
+
+            var value = colorHex.Trim();
+            if (value.StartsWith('#'))
+                value = value[1..];
+
+            if (value.Length is not (6 or 8))
+                return false;
+
+            if (!byte.TryParse(value[..2], System.Globalization.NumberStyles.HexNumber, null, out var r) ||
+                !byte.TryParse(value[2..4], System.Globalization.NumberStyles.HexNumber, null, out var g) ||
+                !byte.TryParse(value[4..6], System.Globalization.NumberStyles.HexNumber, null, out var b))
+                return false;
+
+            var a = (byte) 255;
+            if (value.Length == 8 && !byte.TryParse(value[6..8], System.Globalization.NumberStyles.HexNumber, null, out a))
+                return false;
+
+            color = new Color(r, g, b, a);
+            return true;
+        }
+
+        private static void ApplyRelicEffectEntries(DeepMaintenanceRelicPrototype relic)
+        {
+            foreach (var effect in relic.Effects)
+            {
+                switch (effect.Type)
+                {
+                    case "FearAura":
+                        relic.FearAuraRadius = effect.FearRadius;
+                        relic.FearLingerSeconds = effect.FearDuration;
+                        relic.FearBossCooldownSeconds = effect.FearBossCooldown;
+                        break;
+                    case "MeleeOnShoot":
+                        relic.MeleeOnShoot = true;
+                        relic.MeleeRange = effect.MeleeRange;
+                        relic.MeleeDamage = effect.MeleeDamage;
+                        relic.MeleeArcAnimated = effect.MeleeArcAnimated;
+                        relic.MeleeArcSpritePath ??= "/Textures/Effects/arcs.rsi";
+                        relic.MeleeArcSpriteState ??= "disarm";
+                        break;
+                    case "ChainLightning":
+                        relic.ChainLightningEnabled = true;
+                        relic.ChainLightningRate = effect.ChainLightningRate;
+                        relic.ChainLightningDamageMultiplier = effect.ChainLightningDamageMultiplier;
+                        relic.ChainLightningRadius = effect.ChainLightningRadius;
+                        relic.ChainLightningJumpRadius = effect.ChainLightningJumpRadius;
+                        relic.ChainLightningMaxTargets = effect.ChainLightningMaxTargets > 0
+                            ? effect.ChainLightningMaxTargets
+                            : relic.ChainLightningMaxTargets;
+                        break;
+                    case "RadialShootOnDamage":
+                        relic.OnDamageRadialProjectileCount = effect.RadialProjectileCount;
+                        relic.OnDamageRadialProjectileDamage = effect.RadialProjectileDamage;
+                        relic.OnDamageFireRateFirstBonus = effect.RadialFireRateFirstBonus;
+                        relic.OnDamageFireRateStackBonus = effect.RadialFireRateStackBonus;
+                        break;
+                    case "NoDamageRoomFireRate":
+                        relic.NoDamageRoomFireRatePerRoom = effect.NoDamageFireRatePerRoom;
+                        relic.NoDamageRoomFireRateMax = effect.NoDamageFireRateMax;
+                        relic.NoDamageRoomStartBonus = effect.NoDamageStartBonus;
+                        relic.ResetNoDamageBonusOnHit = effect.ResetOnHit;
+                        break;
+                    case "Claymore":
+                        relic.ClaymoreEnabled = true;
+                        relic.ClaymoreMeleeDamageMultiplier = effect.ClaymoreMeleeDamageMultiplier;
+                        relic.ClaymoreChargedDamageMultiplier = effect.ClaymoreChargedDamageMultiplier;
+                        relic.ClaymoreChargeDuration = effect.ClaymoreChargeDuration;
+                        relic.ClaymoreSwingRadius = effect.ClaymoreSwingRadius;
+                        relic.ClaymoreProjectileOnFullHealth = effect.ClaymoreProjectileOnFullHealth;
+                        break;
+                    case "ClaymoreReflect":
+                        relic.ClaymoreReflectRadius = effect.ClaymoreReflectRadius;
+                        relic.ClaymoreProjectileBonusDamage = effect.ClaymoreProjectileBonusDamage;
+                        break;
+                    case "ProjectileBlock":
+                        relic.ContactOrProjectileBlockChance = effect.BlockChance;
+                        relic.ContactBlockKnockback = effect.BlockKnockback;
+                        relic.CollisionDamageBase = effect.CollisionDamageBase;
+                        relic.CollisionDamagePerFloor = effect.CollisionDamagePerFloor;
+                        break;
+                    case "PlayerBodyTint":
+                        if (TryParseEffectColor(effect.Color, out var bodyTint))
+                            relic.BodyTintColor = bodyTint;
+                        break;
+                    case "PlayerHeadTint":
+                        if (TryParseEffectColor(effect.Color, out var headTint))
+                            relic.HeadTintColor = headTint;
+                        break;
+                }
+            }
         }
 
         private void ApplyFloorTheme(int floor)
@@ -142,36 +243,48 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private DeepMaintenanceEntityPrototype ChooseEntityFromPool(List<DeepMaintenanceWeightedEntityEntry> pool, string fallbackPrototype)
         {
-            if (pool.Count == 0)
-                return _prototype.Index<DeepMaintenanceEntityPrototype>(fallbackPrototype);
+            if (TryChooseEntityFromPool(pool, out var entity))
+                return entity;
 
+            return _prototype.Index<DeepMaintenanceEntityPrototype>(fallbackPrototype);
+        }
+
+        private bool TryChooseEntityFromPool(List<DeepMaintenanceWeightedEntityEntry> pool, out DeepMaintenanceEntityPrototype entity)
+        {
+            entity = default!;
+            if (pool.Count == 0)
+                return false;
+
+            var validEntries = new List<(DeepMaintenanceWeightedEntityEntry Entry, DeepMaintenanceEntityPrototype Prototype)>();
             var totalWeight = 0f;
             foreach (var entry in pool)
             {
                 if (entry.Weight <= 0f)
                     continue;
 
+                if (!_prototype.TryIndex(entry.Entity, out var result))
+                    continue;
+
+                validEntries.Add((entry, result));
                 totalWeight += entry.Weight;
             }
 
-            if (totalWeight <= 0.001f)
-                return _prototype.Index<DeepMaintenanceEntityPrototype>(fallbackPrototype);
+            if (validEntries.Count == 0 || totalWeight <= 0.001f)
+                return false;
 
             var roll = _random.NextSingle() * totalWeight;
-            foreach (var entry in pool)
+            foreach (var (entry, prototype) in validEntries)
             {
-                if (entry.Weight <= 0f)
-                    continue;
-
                 roll -= entry.Weight;
                 if (roll > 0f)
                     continue;
 
-                if (_prototype.TryIndex(entry.Entity, out var result))
-                    return result;
+                entity = prototype;
+                return true;
             }
 
-            return _prototype.Index<DeepMaintenanceEntityPrototype>(fallbackPrototype);
+            entity = validEntries[^1].Prototype;
+            return true;
         }
 
         private void WarmupSprite(string? spritePath, string? spriteState)
@@ -333,9 +446,7 @@ public sealed partial class DeepMaintenanceUiFragment
             var chargeDuration = MathF.Max(0.05f, chargeRelic.ClaymoreChargeDuration);
             var charged = _claymoreChargeTimer >= chargeDuration;
             _claymoreChargeTimer = 0f;
-            _meleeSwingFacing = FacingFromVector(_claymoreChargeDirection, _meleeSwingFacing);
-            _meleeSwingTimer = MeleeSwingDuration;
-            _claymoreReleaseTimer = 0.18f;
+            StartMeleeSwing(_claymoreChargeDirection);
 
             var baseDamage = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype).Damage + GetDamageFlatBonus();
             var damage = charged
@@ -344,29 +455,14 @@ public sealed partial class DeepMaintenanceUiFragment
 
             if (charged)
             {
-                foreach (var enemy in CurrentRoom.Enemies)
-                {
-                    if (enemy.Hp <= 0 || Vector2.Distance(enemy.Position, _playerPos) > chargeRelic.ClaymoreSwingRadius + enemy.Prototype.Radius)
-                        continue;
-
-                    enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(damage));
-                    enemy.DamageFlash = EntityDamageFlashDuration;
-                }
-
+                ApplyMeleeStrikeDamage(_playerPos, chargeRelic.ClaymoreSwingRadius, damage, false);
                 ReflectEnemyProjectiles(_playerPos, chargeRelic.ClaymoreReflectRadius);
                 _claymoreReflectTimer = 0.14f;
             }
             else
             {
                 var strikeCenter = _playerPos + _claymoreChargeDirection * chargeRelic.ClaymoreSwingRadius;
-                foreach (var enemy in CurrentRoom.Enemies)
-                {
-                    if (enemy.Hp <= 0 || Vector2.Distance(enemy.Position, strikeCenter) > enemy.Prototype.Radius + 0.65f)
-                        continue;
-
-                    enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(damage));
-                    enemy.DamageFlash = EntityDamageFlashDuration;
-                }
+                ApplyMeleeStrikeDamage(strikeCenter, 0.65f, damage, false);
             }
 
             if (chargeRelic.ClaymoreProjectileOnFullHealth && PlayerHp >= MaxPlayerHp)
@@ -388,26 +484,43 @@ public sealed partial class DeepMaintenanceUiFragment
             {
                 meleeRange = MathF.Max(meleeRange, relic.MeleeRange);
                 meleeDamage = Math.Max(meleeDamage, relic.MeleeDamage);
-                _meleeSwingFacing = FacingFromVector(direction, _meleeSwingFacing);
-                _meleeSwingTimer = MeleeSwingDuration;
-                _claymoreReleaseTimer = 0.18f;
             }
 
             if (meleeRange <= 0f || meleeDamage <= 0)
                 return;
 
+            StartMeleeSwing(direction);
             var strikeCenter = _playerPos + direction * meleeRange;
+            ApplyMeleeStrikeDamage(strikeCenter, 0.65f, meleeDamage, true);
+        }
+
+        private void StartMeleeSwing(Vector2 direction)
+        {
+            _meleeSwingFacing = FacingFromVector(direction, _meleeSwingFacing);
+            _meleeSwingTimer = MeleeSwingDuration;
+            _claymoreReleaseTimer = 0.18f;
+        }
+
+        private void ApplyMeleeStrikeDamage(Vector2 strikeCenter, float hitRadius, float rawDamage, bool playDeathSfx)
+        {
+            if (rawDamage <= 0f || hitRadius <= 0f)
+                return;
+
+            var damage = (int) MathF.Ceiling(ApplyNonTearDamageModifiers(rawDamage));
+            if (damage <= 0)
+                return;
+
             foreach (var enemy in CurrentRoom.Enemies)
             {
                 if (enemy.Hp <= 0)
                     continue;
 
-                if (Vector2.Distance(enemy.Position, strikeCenter) > enemy.Prototype.Radius + 0.65f)
+                if (Vector2.Distance(enemy.Position, strikeCenter) > enemy.Prototype.Radius + hitRadius)
                     continue;
 
-                enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(meleeDamage));
+                enemy.Hp -= damage;
                 enemy.DamageFlash = EntityDamageFlashDuration;
-                if (enemy.Hp <= 0)
+                if (playDeathSfx && enemy.Hp <= 0)
                     PlaySfx(SfxEnemyDeath, -7f);
             }
         }
@@ -465,9 +578,7 @@ public sealed partial class DeepMaintenanceUiFragment
             var multiplier = 1f;
             foreach (var relic in _activeRelics)
             {
-                if (eye == EyeSource.Right)
-                    multiplier *= MathF.Max(0.01f, relic.RightEyeDamageMultiplier);
-                else if (eye == EyeSource.None && _random.NextDouble() < relic.RightEyeFallbackChance)
+                if (eye == EyeSource.Right || eye == EyeSource.None && _random.NextDouble() < relic.RightEyeFallbackChance)
                     multiplier *= MathF.Max(0.01f, relic.RightEyeDamageMultiplier);
 
                 if (!projectileAttack && _random.NextDouble() < relic.NonTearDamageProcChance)
@@ -563,7 +674,7 @@ public sealed partial class DeepMaintenanceUiFragment
             return 1f;
         }
 
-        private float GetShootCooldown(DeepMaintenanceEntityPrototype prototype)
+        private static float GetShootCooldown(DeepMaintenanceEntityPrototype prototype)
         {
             if (prototype.ShootCooldownSeconds is { } cooldownSeconds)
                 return cooldownSeconds;
@@ -571,7 +682,7 @@ public sealed partial class DeepMaintenanceUiFragment
             return MathF.Max(0.05f, prototype.ShootCooldownTicks * TickSeconds);
         }
 
-        private Vector2 GetRoomCenter()
+        private static Vector2 GetRoomCenter()
         {
             return new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
         }
@@ -595,7 +706,7 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
-        private int CalculatePickupPrice(DeepMaintenancePickupPrototype pickup)
+        private static int CalculatePickupPrice(DeepMaintenancePickupPrototype pickup)
         {
             return Math.Max(0, pickup.BasePrice);
         }
@@ -615,6 +726,20 @@ public sealed partial class DeepMaintenanceUiFragment
             return MathF.Max(0.01f, GetPickupPrototypeData(type).SpawnAnimationDuration);
         }
 
+        private void PlayPickupSfx(PickupData pickup)
+        {
+            var prototype = GetPickupPrototypeData(pickup);
+            PlaySfx(prototype.PickupSound ?? SfxPickupDefault, -8f);
+        }
+
+        private DeepMaintenancePickupPrototype GetPickupPrototypeData(PickupData pickup)
+        {
+            if (pickup.Type == PickupType.Heart && pickup.Amount <= 1)
+                return _heartHalfPickupProto;
+
+            return GetPickupPrototypeData(pickup.Type);
+        }
+
         private DeepMaintenancePickupPrototype GetPickupPrototypeData(PickupType type)
         {
             return type switch
@@ -627,7 +752,7 @@ public sealed partial class DeepMaintenanceUiFragment
             };
         }
 
-        private int CalculateRelicPrice(DeepMaintenanceRelicPrototype relic)
+        private static int CalculateRelicPrice(DeepMaintenanceRelicPrototype relic)
         {
             return Math.Max(0, relic.BasePrice);
         }
@@ -652,7 +777,7 @@ public sealed partial class DeepMaintenanceUiFragment
         private void TriggerEmote()
         {
             _emoteTimer = MathF.Max(0.05f, _playerProto.EmoteDuration);
-            PlaySfx(_playerProto.EmoteSound, -6f);
+            PlaySfx(_playerProto.EmoteSound ?? SfxPickupDefault, -6f);
         }
 
         private void AdvanceFloor()
@@ -660,6 +785,7 @@ public sealed partial class DeepMaintenanceUiFragment
             if (_currentFloor >= TotalFloors)
             {
                 _victory = true;
+                StopRoomMusic();
                 return;
             }
 
@@ -678,7 +804,7 @@ public sealed partial class DeepMaintenanceUiFragment
             StateChanged?.Invoke();
         }
 
-        private FacingDirection FacingFromDoorTile(int tileX, int tileY)
+        private static FacingDirection FacingFromDoorTile(int tileX, int tileY)
         {
             switch (tileX)
             {
@@ -703,8 +829,11 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void UpdateRoomMusic(RoomData room)
         {
-            if (_musicMuted)
+            if (_musicMuted || !Visible || !IsInsideTree)
+            {
+                StopRoomMusic();
                 return;
+            }
 
             DeepMaintenanceMusicRoomEntry? entry = null;
             foreach (var candidate in _activeFloorConfig.MusicByRoom)

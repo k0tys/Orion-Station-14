@@ -82,6 +82,7 @@
   spritePath: /Textures/_Orion/DeepMaintenance/Entity/pooter.rsi
   spriteState: body
   bodySpriteState: body
+  shootSpriteState: shoot
   spriteScale: 1
   hitboxOffsetY: 0
 
@@ -102,3 +103,59 @@
   bodySpriteState: body
   headSpriteState: head
   shootSpriteState: head
+
+# Familiar entities
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: FamiliarOrbital
+  familiarBehavior: Orbit
+  orbitRadius: 1.6
+  orbitSpeed: 3.8
+  shootCooldown: 0.9
+  projectilePrototype: ProjectilePlayer
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/grayscale.rsi
+  spriteState: body
+  spriteScale: 0.5
+
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: FamiliarFollower
+  familiarBehavior: Follow
+  followSpeed: 5
+  followLag: 0.15
+  projectilePrototype: ProjectilePlayer
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/grayscale.rsi
+  spriteState: body
+  spriteScale: 0.5
+
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: FamiliarShooter
+  familiarBehavior: Shoot
+  shootCooldown: 0.9
+  projectilePrototype: ProjectilePlayer
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/grayscale.rsi
+  spriteState: body
+  spriteScale: 0.5
+
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: FamiliarAttacker
+  familiarBehavior: Attack
+  followSpeed: 5.7
+  followLag: 0.1
+  projectilePrototype: ProjectilePlayer
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/grayscale.rsi
+  spriteState: body
+  spriteScale: 0.5
+
+- type: deepMaintenanceEntity
+  parent: BaseEntity
+  id: FamiliarShield
+  familiarBehavior: Shield
+  orbitRadius: 1.4
+  orbitSpeed: 3.6
+  projectilePrototype: ProjectilePlayer
+  spritePath: /Textures/_Orion/DeepMaintenance/Entity/grayscale.rsi
+  spriteState: body
+  spriteScale: 0.5

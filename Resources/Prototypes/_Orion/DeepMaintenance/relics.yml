@@ -9,6 +9,12 @@
   relicPickupGraceDuration: 0.25
   relicAppearDuration: 0.24
   relicAppearRise: 0.28
+  enemySpawnChance: 0.1
+  enemyPool:
+  - entity: Gaper
+    weight: 0.65
+  - entity: Pooter
+    weight: 0.35
 
 # Base
 - type: deepMaintenanceRelic
@@ -16,6 +22,8 @@
   abstract: true
   basePrice: 15
   hudIconSpriteState: icon
+  headAttachedSpriteScale: 1.4
+  bodyAttachedSpriteScale: 1.4
 
 - type: deepMaintenanceRelic
   id: BaseDeepMaintenanceFamiliar
@@ -91,15 +99,13 @@
   basePrice: 8
   hudIconSpritePath: /Textures/Objects/Tools/Toolboxes/toolbox_red.rsi
   hudIconSpriteState: icon
-  meleeOnShoot: true
-  meleeRange: 1.3
-  meleeDamage: 5
-  meleeArcSpritePath: /Textures/Effects/arcs.rsi
-  meleeArcSpriteState: disarm
-  meleeArcAnimated: true
-  meleeArcAnimationFps: 14
   bodyAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/toolbox_red.rsi
   bodyAttachedSpriteState: overlay
+  effects:
+  - type: MeleeOnShoot
+    meleeRange: 1.3
+    meleeDamage: 5
+    meleeArcAnimated: true
 
 - type: deepMaintenanceRelic
   parent: BaseDeepMaintenanceRelic
@@ -122,9 +128,15 @@
   headAttachedSpriteState: overlay-head
   bodyAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/too-scary.rsi
   bodyAttachedSpriteState: overlay-body
-  fearAuraRadius: 3.2
-  fearLingerSeconds: 2
-  fearBossCooldownSeconds: 8
+  effects:
+  - type: FearAura
+    fearRadius: 3.2
+    fearDuration: 2
+    fearBossCooldown: 8
+  - type: PlayerBodyTint
+    color: "#AA2B2B"
+  - type: PlayerHeadTint
+    color: "#CF3A3A"
 
 - type: deepMaintenanceRelic
   parent: BaseDeepMaintenanceRelic
@@ -145,12 +157,13 @@
   hudIconSpriteState: static
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/apc.rsi
   headAttachedSpriteState: overlay
-  chainLightningEnabled: true
-  chainLightningRate: 5.3
-  chainLightningDamageMultiplier: 0.75
-  chainLightningRadius: 4.5
-  chainLightningJumpRadius: 2.4
-  chainLightningMaxTargets: 4
+  effects:
+  - type: ChainLightning
+    chainLightningRate: 5.3
+    chainLightningDamageMultiplier: 0.75
+    chainLightningRadius: 4.5
+    chainLightningJumpRadius: 2.4
+    chainLightningMaxTargets: 4
 
 - type: deepMaintenanceRelic
   parent: BaseDeepMaintenanceRelic
@@ -158,10 +171,12 @@
   basePrice: 18
   hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
   hudIconSpriteState: ano3
-  onDamageRadialProjectileCount: 10
-  onDamageRadialProjectileDamage: 10
-  onDamageFireRateFirstBonus: 1.2
-  onDamageFireRateStackBonus: 0.4
+  effects:
+  - type: RadialShootOnDamage
+    radialProjectileCount: 10
+    radialProjectileDamage: 10
+    radialFireRateFirstBonus: 1.2
+    radialFireRateStackBonus: 0.4
 
 - type: deepMaintenanceRelic
   parent: BaseDeepMaintenanceRelic
@@ -178,10 +193,12 @@
   basePrice: 17
   hudIconSpritePath: /Textures/Objects/Weapons/Melee/claymore.rsi
   hudIconSpriteState: icon
-  noDamageRoomFireRatePerRoom: 0.4
-  noDamageRoomFireRateMax: 2.0
-  noDamageRoomStartBonus: 0.4
-  resetNoDamageBonusOnHit: true
+  effects:
+  - type: NoDamageRoomFireRate
+    noDamageFireRatePerRoom: 0.4
+    noDamageFireRateMax: 2
+    noDamageStartBonus: 0.4
+    resetOnHit: true
 
 - type: deepMaintenanceRelic
   parent: BaseDeepMaintenanceRelic
@@ -189,30 +206,16 @@
   basePrice: 21
   hudIconSpritePath: /Textures/Objects/Weapons/Melee/claymore.rsi
   hudIconSpriteState: icon
-  claymoreEnabled: true
-  claymoreMeleeDamageMultiplier: 5
-  claymoreChargedDamageMultiplier: 12
-  claymoreChargeDuration: 0.8
-  claymoreSwingRadius: 1.25
-  claymoreReflectRadius: 1.5
-  claymoreProjectileOnFullHealth: true
-  claymoreProjectileBonusDamage: 2
-
-- type: deepMaintenanceRelic
-  parent: [ BaseDeepMaintenanceRelic, BaseDeepMaintenanceFamiliar ]
-  id: RelicCaretaker
-  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
-  hudIconSpriteState: ano3
-  familiarConfigs:
-  - behavior: Interceptor
-    followDistance: 1.1
-    moveSpeed: 8.5
-    shootNearestEnemy: false
-    interceptRadius: 4.2
-    interceptCooldown: 0.35
-    restChance: 0.22
-    restDuration: 0.5
-    contactDps: 15
+  effects:
+  - type: Claymore
+    claymoreMeleeDamageMultiplier: 5
+    claymoreChargedDamageMultiplier: 12
+    claymoreChargeDuration: 0.8
+    claymoreSwingRadius: 1.25
+    claymoreProjectileOnFullHealth: true
+  - type: ClaymoreReflect
+    claymoreReflectRadius: 1.5
+    claymoreProjectileBonusDamage: 2
 
 - type: deepMaintenanceRelic
   parent: BaseDeepMaintenanceRelic
@@ -243,10 +246,12 @@
   hudIconSpriteState: produce
   headAttachedSpritePath: /Textures/_Orion/DeepMaintenance/Overlays/Relics/bluespace-tomato.rsi
   headAttachedSpriteState: overlay
-  contactOrProjectileBlockChance: 0.5
-  contactBlockKnockback: 3.2
-  collisionDamageBase: 8
-  collisionDamagePerFloor: 2
+  effects:
+  - type: ProjectileBlock
+    blockChance: 0.5
+    blockKnockback: 3.2
+    collisionDamageBase: 8
+    collisionDamagePerFloor: 2
 
 - type: deepMaintenanceRelic
   parent: BaseDeepMaintenanceRelic
@@ -277,6 +282,22 @@
   resourceGrants:
   - resourceType: Key
     amount: 99
+
+- type: deepMaintenanceRelic
+  parent: [ BaseDeepMaintenanceRelic, BaseDeepMaintenanceFamiliar ]
+  id: RelicCaretaker
+  hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
+  hudIconSpriteState: ano3
+  familiarConfigs:
+  - behavior: Shield
+    followDistance: 1.1
+    moveSpeed: 8.5
+    shootNearestEnemy: false
+    interceptRadius: 4.2
+    interceptCooldown: 0.35
+    restChance: 0.22
+    restDuration: 0.5
+    contactDps: 15
 
 - type: deepMaintenanceRelic
   parent: [ BaseDeepMaintenanceRelic, BaseDeepMaintenanceFamiliar ]
@@ -391,7 +412,7 @@
   hudIconSpritePath: /Textures/Objects/Specific/Xenoarchaeology/xeno_artifacts.rsi
   hudIconSpriteState: ano3
   familiarConfigs:
-  - behavior: SideAim
+  - behavior: Shoot
     count: 2
     followDistance: 1.35
     moveSpeed: 8.5

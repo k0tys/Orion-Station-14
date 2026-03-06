@@ -67,6 +67,24 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     [DataField]
     public bool IsBoss;
 
+    [DataField]
+    public DeepMaintenanceFamiliarBehavior FamiliarBehavior = DeepMaintenanceFamiliarBehavior.Follow;
+
+    [DataField]
+    public float OrbitRadius = 1.4f;
+
+    [DataField]
+    public float OrbitSpeed = 3.5f;
+
+    [DataField]
+    public float FollowSpeed = 5f;
+
+    [DataField]
+    public float FollowLag = 0.15f;
+
+    [DataField]
+    public float ShootCooldown = 0.8f;
+
     [DataField(required: true)]
     public string SpritePath = default!;
 

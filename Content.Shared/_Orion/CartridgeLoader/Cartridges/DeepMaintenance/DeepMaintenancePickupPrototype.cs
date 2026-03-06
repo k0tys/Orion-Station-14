@@ -61,4 +61,7 @@ public sealed class DeepMaintenancePickupPrototype : IPrototype, IInheritingProt
 
     [DataField]
     public SoundSpecifier? BombExplosionSound;
+
+    [DataField]
+    public SoundSpecifier? PickupSound;
 }

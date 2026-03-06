@@ -5,6 +5,8 @@
   spriteState: coin_gold
   spriteScale: 2
   basePrice: 0
+  collisionRadius: 0.42
+  pickupSound: /Audio/Effects/pop.ogg
 
 - type: deepMaintenancePickup
   id: PickupBomb
@@ -13,6 +15,8 @@
   spriteState: icon
   spriteScale: 1.5
   basePrice: 5
+  collisionRadius: 0.42
+  pickupSound: /Audio/Effects/pop.ogg
   bombFuseSeconds: 1.35
   bombExplosionRadius: 1.65
   bombEnemyDamage: 10
@@ -28,6 +32,13 @@
   spriteState: full
   spriteScale: 1
   basePrice: 5
+  collisionRadius: 0.42
+  pickupSound: /Audio/Effects/pop.ogg
+
+- type: deepMaintenancePickup
+  parent: PickupHeart
+  id: PickupHeartHalf
+  spriteState: half
 
 - type: deepMaintenancePickup
   id: PickupKey
@@ -36,3 +47,5 @@
   spriteState: crypt_gold
   spriteScale: 1
   basePrice: 5
+  collisionRadius: 0.42
+  pickupSound: /Audio/Effects/pop.ogg

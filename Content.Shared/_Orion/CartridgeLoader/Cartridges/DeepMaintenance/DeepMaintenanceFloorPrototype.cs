@@ -83,6 +83,21 @@ public sealed class DeepMaintenanceFloorPrototype : IPrototype, IInheritingProto
     public float PlayerLightStrength = 0.48f;
 
     [DataField]
+    public int RoomClearCoinMin = 1;
+
+    [DataField]
+    public int RoomClearCoinMax = 3;
+
+    [DataField]
+    public float RoomClearRewardChance = 0.80f;
+
+    [DataField]
+    public float RoomClearExtraRewardChance = 0.25f;
+
+    [DataField]
+    public float RoomClearHalfHeartChance = 0.25f;
+
+    [DataField]
     public List<DeepMaintenanceWeightedEntityEntry> EnemyPool = new();
 
     [DataField]

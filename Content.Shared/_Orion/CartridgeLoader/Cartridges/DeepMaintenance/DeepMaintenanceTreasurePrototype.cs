@@ -40,4 +40,10 @@ public sealed class DeepMaintenanceTreasurePrototype : IPrototype, IInheritingPr
 
     [DataField]
     public float RelicAppearRise = 0.3f;
+
+    [DataField]
+    public float EnemySpawnChance = 0.1f;
+
+    [DataField]
+    public List<DeepMaintenanceWeightedEntityEntry> EnemyPool = new();
 }

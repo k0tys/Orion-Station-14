@@ -8,27 +8,35 @@
   "copyright": "Inspired by The Binding of Isaac by Edmund McMillen | Edited by PuroSlavKing (Github)",
   "states": [
     {
-      "name": "body"
+      "name": "body",
+      "delays": [
+        [
+          0.08,
+          0.08,
+          0.08
+        ]
+      ]
     },
     {
       "name": "shoot",
       "delays": [
         [
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1,
-          0.1
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03,
+          0.03
         ]
       ]
     }

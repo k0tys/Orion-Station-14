@@ -355,7 +355,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 case ShopItemType.Bomb:
                     return new ShopSlotData(ShopItemType.Bomb, 1, CalculatePickupPrice(_bombPickupProto), position, _bombPickupProto.SpritePath, _bombPickupProto.SpriteState, _bombPickupProto.SpriteScale);
                 case ShopItemType.Heart:
-                    return new ShopSlotData(ShopItemType.Heart, 1, CalculatePickupPrice(_heartPickupProto), position, _heartPickupProto.SpritePath, _heartPickupProto.SpriteState, _heartPickupProto.SpriteScale);
+                    return new ShopSlotData(ShopItemType.Heart, 2, CalculatePickupPrice(_heartPickupProto), position, _heartPickupProto.SpritePath, _heartPickupProto.SpriteState, _heartPickupProto.SpriteScale);
                 default:
                     return new ShopSlotData(ShopItemType.Bomb, 1, CalculatePickupPrice(_bombPickupProto), position, _bombPickupProto.SpritePath, _bombPickupProto.SpriteState, _bombPickupProto.SpriteScale);
             }

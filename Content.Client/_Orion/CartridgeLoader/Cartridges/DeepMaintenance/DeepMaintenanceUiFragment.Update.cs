@@ -62,9 +62,9 @@ public sealed partial class DeepMaintenanceUiFragment
             TickMeleeSwing(dt);
             TickClaymoreAnimations(dt);
             TickTreasureAnimations(dt);
+            TickFamiliars(dt);
             TickEnemies(dt);
             TickChainLightning(dt);
-            TickFamiliars(dt);
             TickBloodTrails(dt);
             TickProjectiles(_playerProjectiles, true, dt);
             TickProjectiles(_enemyProjectiles, false, dt);
@@ -130,6 +130,8 @@ public sealed partial class DeepMaintenanceUiFragment
             _bombExplosions.Add(new BombExplosionData(center, MathF.Max(0.05f, _bombPickupProto.BombExplosionVisualDuration)));
             PlaySfx(_bombPickupProto.BombExplosionSound, -6f);
 
+            ApplyBombExplosionKnockback(center);
+
             foreach (var enemy in CurrentRoom.Enemies)
             {
                 if (enemy.Hp <= 0)
@@ -161,6 +163,64 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
+        private void ApplyBombExplosionKnockback(Vector2 center)
+        {
+            var radius = MathF.Max(0.1f, _bombPickupProto.BombExplosionRadius);
+            var maxEnemyPush = 1.2f;
+            var maxPlayerPush = 1.35f;
+            var maxFamiliarPush = 1.1f;
+            var maxPickupPush = 1.0f;
+
+            var playerPush = CalculateExplosionPush(_playerPos, center, radius, maxPlayerPush);
+            if (playerPush != Vector2.Zero)
+            {
+                _playerVelocity += playerPush;
+                _playerPos = ResolveEntityTileCollision(_playerPos + playerPush * 0.2f, _playerProto, CurrentRoom);
+            }
+
+            foreach (var enemy in CurrentRoom.Enemies)
+            {
+                if (enemy.Hp <= 0)
+                    continue;
+
+                var push = CalculateExplosionPush(enemy.Position, center, radius + enemy.Prototype.Radius, maxEnemyPush);
+                if (push == Vector2.Zero)
+                    continue;
+
+                enemy.Position = ResolveEntityTileCollision(enemy.Position + push, enemy.Prototype, CurrentRoom);
+            }
+
+            foreach (var familiar in _familiars)
+            {
+                var push = CalculateExplosionPush(familiar.Position, center, radius + FamiliarCollisionRadius, maxFamiliarPush);
+                if (push == Vector2.Zero)
+                    continue;
+
+                familiar.Position = ResolveCircleTileCollision(familiar.Position + push, FamiliarCollisionRadius, CurrentRoom);
+            }
+
+            foreach (var pickup in CurrentRoom.Pickups)
+            {
+                var push = CalculateExplosionPush(pickup.Position, center, radius + GetPickupCollisionRadius(pickup.Type), maxPickupPush);
+                if (push == Vector2.Zero)
+                    continue;
+
+                pickup.Position = ResolveCircleTileCollision(pickup.Position + push, GetPickupCollisionRadius(pickup.Type), CurrentRoom);
+            }
+        }
+
+        private static Vector2 CalculateExplosionPush(Vector2 target, Vector2 center, float radius, float maxStrength)
+        {
+            var offset = target - center;
+            var distance = offset.Length();
+            if (distance <= 0.0001f || distance > radius)
+                return Vector2.Zero;
+
+            var dir = offset / distance;
+            var force = (1f - distance / MathF.Max(0.001f, radius)) * MathF.Max(0f, maxStrength);
+            return dir * force;
+        }
+
         private void HandlePickups()
         {
             for (var i = CurrentRoom.Pickups.Count - 1; i >= 0; i--)
@@ -189,6 +249,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (!picked)
                     continue;
 
+                PlayPickupSfx(pickup);
                 CurrentRoom.Pickups.RemoveAt(i);
                 StateChanged?.Invoke();
             }
@@ -225,9 +286,6 @@ public sealed partial class DeepMaintenanceUiFragment
         {
             switch (slot.Item)
             {
-                case ShopItemType.Coin:
-                    TryAddResource(ResourceType.Coin, slot.Amount);
-                    break;
                 case ShopItemType.Bomb:
                     TryAddResource(ResourceType.Bomb, slot.Amount);
                     break;
@@ -248,7 +306,6 @@ public sealed partial class DeepMaintenanceUiFragment
         {
             return slot.Item switch
             {
-                ShopItemType.Coin => GetResource(ResourceType.Coin) + slot.Amount <= GetResourceMax(ResourceType.Coin),
                 ShopItemType.Bomb => GetResource(ResourceType.Bomb) + slot.Amount <= GetResourceMax(ResourceType.Bomb),
                 ShopItemType.Heart => PlayerHp + slot.Amount <= MaxPlayerHp,
                 ShopItemType.Key => GetResource(ResourceType.Key) + slot.Amount <= GetResourceMax(ResourceType.Key),
@@ -987,7 +1044,7 @@ public sealed partial class DeepMaintenanceUiFragment
             _treasureBoxOpened = true;
             CurrentRoom.TreasureBoxOpened = true;
 
-            _treasurePendingEnemySpawn = _random.NextDouble() < TreasureEnemySpawnChance;
+            _treasurePendingEnemySpawn = _random.NextDouble() < _treasurePrototype.EnemySpawnChance;
             _treasurePendingRelicSpawn = !_treasurePendingEnemySpawn;
             _treasureOpeningAnimation = true;
             _treasureOpenAnimationTimer = MathF.Max(0f, _treasurePrototype.OpenAnimationDuration);
@@ -1002,11 +1059,13 @@ public sealed partial class DeepMaintenanceUiFragment
             {
                 _treasurePendingEnemySpawn = false;
                 var pos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
-                var fallback = _random.NextDouble() < TreasureShooterSpawnChance ? _chaserProto.ID : _shooterProto.ID;
-                var enemyPool = _activeFloorConfig?.EnemyPool ?? new List<DeepMaintenanceWeightedEntityEntry>();
-                var proto = ChooseEntityFromPool(enemyPool, fallback);
-                CurrentRoom.Enemies.Add(CreateEnemyData(proto, pos, TreasureEnemySpawnGraceTicks));
-                return;
+                if (TryChooseEntityFromPool(_treasurePrototype.EnemyPool, out var proto))
+                {
+                    CurrentRoom.Enemies.Add(CreateEnemyData(proto, pos, TreasureEnemySpawnGraceTicks));
+                    return;
+                }
+
+                _treasurePendingRelicSpawn = true;
             }
 
             if (!_treasurePendingRelicSpawn)
@@ -1100,6 +1159,7 @@ public sealed partial class DeepMaintenanceUiFragment
             if (PlayerHp <= 0)
             {
                 _gameOver = true;
+                StopRoomMusic();
                 PlaySfx(SfxPlayerDeath, -4f);
                 return;
             }
@@ -1153,6 +1213,8 @@ public sealed partial class DeepMaintenanceUiFragment
                     for (var i = 0; i < Math.Max(1, config.Count); i++)
                     {
                         _familiars.Add(new FamiliarData(relic.ID, config, _playerPos));
+                        _familiars[^1].OrbitAngle = _random.NextSingle() * MathF.Tau;
+                        _familiars[^1].BobOffset = _random.NextSingle() * MathF.Tau;
                     }
                 }
             }
@@ -1181,167 +1243,294 @@ public sealed partial class DeepMaintenanceUiFragment
             if (_familiars.Count == 0)
                 return;
 
-            var aliveEnemies = CurrentRoom.Enemies.Where(e => e.Hp > 0).ToList();
+            _aliveEnemiesScratch.Clear();
+            foreach (var enemy in CurrentRoom.Enemies)
+            {
+                if (enemy.Hp > 0)
+                    _aliveEnemiesScratch.Add(enemy);
+            }
+
+            UpdateOrbitalFamiliarPositions(dt);
+
             for (var i = 0; i < _familiars.Count; i++)
             {
                 var familiar = _familiars[i];
-                var side = i % 2 == 0 ? -1f : 1f;
-                var desiredOffset = new Vector2(side * familiar.Config.FollowDistance, -0.85f + (i % 3) * 0.25f);
-                var desiredPosition = Vector2.Lerp(familiar.Position, _playerPos + desiredOffset, Math.Clamp(familiar.Config.MoveSpeed * dt, 0f, 1f));
-                familiar.Position = MoveFamiliarWithCollision(familiar.Position, desiredPosition, FamiliarCollisionRadius, CurrentRoom);
-
-                var tetherMaxDistance = MathF.Max(0.9f, familiar.Config.FollowDistance + 0.9f);
-                var toPlayer = familiar.Position - _playerPos;
-                if (toPlayer.LengthSquared() > tetherMaxDistance * tetherMaxDistance)
+                switch (familiar.Config.Behavior)
                 {
-                    var pullTarget = _playerPos + NormalizeSafe(toPlayer) * tetherMaxDistance;
-                    familiar.Position = ResolveCircleTileCollision(pullTarget, FamiliarCollisionRadius, CurrentRoom);
-                }
-
-                if (familiar.Config.SpawnBloodTrail)
-                {
-                    familiar.TrailTimer -= dt;
-                    if (familiar.TrailTimer <= 0f)
-                    {
-                        familiar.TrailTimer = 0.1f;
-                        _bloodTrails.Add(new BloodTrailData(familiar.Position, familiar.Config.BloodTrailRadius, familiar.Config.BloodTrailDps, familiar.Config.BloodTrailLifetime));
-                    }
-                }
-
-                if (string.Equals(familiar.Config.Behavior, "Interceptor", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (familiar.RestTimer > 0f)
-                    {
-                        familiar.RestTimer = MathF.Max(0f, familiar.RestTimer - dt);
-                    }
-                    else
-                    {
-                        if (familiar.InterceptCooldown > 0f)
-                            familiar.InterceptCooldown = MathF.Max(0f, familiar.InterceptCooldown - dt);
-
-                        if (familiar.InterceptCooldown <= 0f)
-                        {
-                            var idx = _enemyProjectiles.FindIndex(p => Vector2.Distance(p.Position, familiar.Position) <= familiar.Config.InterceptRadius);
-                            if (idx >= 0)
-                            {
-                                var projectile = _enemyProjectiles[idx];
-                                var direction = NormalizeSafe(projectile.Position - _playerPos);
-                                projectile.Velocity = direction * MathF.Max(projectile.Velocity.Length(), 0.5f);
-                                _enemyProjectiles.RemoveAt(idx);
-                                _playerProjectiles.Add(projectile);
-                                familiar.InterceptCooldown = MathF.Max(0.05f, familiar.Config.InterceptCooldown);
-                                if (_random.NextDouble() < familiar.Config.RestChance)
-                                    familiar.RestTimer = MathF.Max(0f, familiar.Config.RestDuration);
-                            }
-                        }
-                    }
-
-                    var contactDamage = familiar.Config.ContactDps * dt;
-                    foreach (var enemy in CurrentRoom.Enemies)
-                    {
-                        if (enemy.Hp <= 0 || Vector2.Distance(enemy.Position, familiar.Position) > enemy.Prototype.Radius + 0.22f)
-                            continue;
-
-                        enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(contactDamage));
-                        enemy.DamageFlash = EntityDamageFlashDuration;
-                    }
-                }
-
-                familiar.ShootTimer -= dt;
-                if (familiar.ShootTimer > 0f)
-                    continue;
-
-                familiar.ShootTimer = MathF.Max(0.05f, familiar.Config.ShootInterval);
-                var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype);
-                var directions = new List<Vector2>();
-                var hasAnyEnemy = aliveEnemies.Count > 0;
-                if (!hasAnyEnemy)
-                    continue;
-
-                if (familiar.Config.ShootFourDirections)
-                {
-                    var candidates = new[] { new Vector2(1,0), new Vector2(-1,0), new Vector2(0,1), new Vector2(0,-1) };
-                    foreach (var candidate in candidates)
-                    {
-                        if (aliveEnemies.Any(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius) &&
-                                                      Vector2.Dot(NormalizeSafe(enemy.Position - familiar.Position), candidate) > 0.5f))
-                            directions.Add(candidate);
-                    }
-                }
-                else if (familiar.Config.ShootAlongPlayerAim)
-                {
-                    var aimDirection = _lastPlayerShotDirection == Vector2.Zero ? Vector2.UnitX : NormalizeSafe(_lastPlayerShotDirection);
-                    if (aliveEnemies.Any(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius) &&
-                                                  Vector2.Dot(NormalizeSafe(enemy.Position - familiar.Position), aimDirection) > 0.4f))
-                        directions.Add(aimDirection);
-                }
-                else if (familiar.Config.ShootNearestEnemy && aliveEnemies.Count > 0)
-                {
-                    var target = aliveEnemies
-                        .Where(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius))
-                        .OrderBy(e => Vector2.Distance(e.Position, familiar.Position))
-                        .FirstOrDefault();
-
-                    if (target != null)
-                        directions.Add(NormalizeSafe(target.Position - familiar.Position));
-                }
-                else
-                {
-                    var target = aliveEnemies
-                        .Where(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius))
-                        .OrderBy(e => Vector2.Distance(e.Position, familiar.Position))
-                        .FirstOrDefault();
-
-                    if (target != null)
-                        directions.Add(NormalizeSafe(target.Position - familiar.Position));
-                }
-
-                if (directions.Count == 0)
-                    continue;
-
-                foreach (var direction in directions)
-                {
-                    if (direction == Vector2.Zero)
-                        continue;
-
-                    var tint = familiar.Config.FixedRedTint ? Color.Red : Color.White;
-                    var damage = familiar.Config.ProjectileDamage;
-                    if (familiar.Config.UsePlayerCurrentDamage)
-                    {
-                        var playerDamage = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype).Damage + GetDamageFlatBonus();
-                        damage = playerDamage * familiar.Config.PlayerDamageScale;
-                    }
-
-                    var projectile = SpawnProjectile(_playerProjectiles, familiar.Position, NormalizeSafe(direction) * familiar.Config.ProjectileSpeed, projectilePrototype, 1f, damage, tint, projectilePrototype.Lifetime);
-                    projectile.FreezeOnHit = familiar.Config.CanFreezeOnHit;
-                    projectile.FreezeChance = familiar.Config.FreezeChance;
-                    projectile.FreezeBosses = familiar.Config.FreezeBosses;
-                }
-
-                switch (familiar.Config)
-                {
-                    case { BurstCount: > 0, BurstDamageOptions.Count: > 0 }:
-                    {
-                        familiar.BurstTimer -= dt;
-                        if (familiar.BurstTimer <= 0f)
-                        {
-                            familiar.BurstTimer = MathF.Max(0.1f, familiar.Config.BurstInterval);
-                            for (var n = 0; n < familiar.Config.BurstCount; n++)
-                            {
-                                var angle = n / (float) familiar.Config.BurstCount * MathF.PI * 2f;
-                                var dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                                if (!aliveEnemies.Any(enemy => HasLineOfSight(familiar.Position, enemy.Position, FamiliarCollisionRadius) && Vector2.Dot(NormalizeSafe(enemy.Position - familiar.Position), dir) > 0.35f))
-                                    continue;
-
-                                var dmg = familiar.Config.BurstDamageOptions[_random.Next(familiar.Config.BurstDamageOptions.Count)];
-                                SpawnProjectile(_playerProjectiles, familiar.Position, dir * familiar.Config.ProjectileSpeed, projectilePrototype, 1f, dmg, Color.White, projectilePrototype.Lifetime);
-                            }
-                        }
-
+                    case DeepMaintenanceFamiliarBehavior.Follow:
+                    case DeepMaintenanceFamiliarBehavior.Shoot:
+                        TickFollowerFamiliar(familiar, dt);
                         break;
-                    }
+                    case DeepMaintenanceFamiliarBehavior.Attack:
+                        TickAttackFamiliar(familiar, dt);
+                        break;
+                    case DeepMaintenanceFamiliarBehavior.Shield:
+                        TickShieldFamiliar(familiar, dt);
+                        break;
+                }
+
+                TickFamiliarBloodTrail(familiar, dt);
+                TickFamiliarShooting(familiar, dt);
+            }
+
+            TickOrbitalFamiliarCollision(dt);
+        }
+
+        private void UpdateOrbitalFamiliarPositions(float dt)
+        {
+            var orbitCount = 0;
+            foreach (var familiar in _familiars)
+            {
+                if (familiar.Config.Behavior is DeepMaintenanceFamiliarBehavior.Orbit or DeepMaintenanceFamiliarBehavior.Shield)
+                    orbitCount++;
+            }
+
+            if (orbitCount == 0)
+                return;
+
+            var orbitIndex = 0;
+            var offsetStep = MathF.Tau / orbitCount;
+            foreach (var familiar in _familiars)
+            {
+                if (familiar.Config.Behavior is not (DeepMaintenanceFamiliarBehavior.Orbit or DeepMaintenanceFamiliarBehavior.Shield))
+                    continue;
+
+                var entityPrototype = GetFamiliarBehaviorPrototype(familiar.Config.Behavior);
+                familiar.OrbitOffset = offsetStep * orbitIndex;
+                familiar.OrbitAngle += entityPrototype.OrbitSpeed * dt;
+                var wobble = MathF.Sin(_animationClock * FamiliarOrbitWobbleSpeed + familiar.BobOffset) * FamiliarOrbitWobbleAmplitude;
+                var baseRadius = familiar.Config.FollowDistance > 0f ? familiar.Config.FollowDistance : entityPrototype.OrbitRadius;
+                var radius = MathF.Max(0.4f, baseRadius + wobble);
+                var angle = familiar.OrbitAngle + familiar.OrbitOffset;
+                var target = _playerPos + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+                familiar.Position = ResolveCircleTileCollision(target, FamiliarCollisionRadius, CurrentRoom);
+                orbitIndex++;
+            }
+        }
+
+        private void TickFollowerFamiliar(FamiliarData familiar, float dt)
+        {
+            var entityPrototype = GetFamiliarBehaviorPrototype(familiar.Config.Behavior);
+            var moveInput = GetMoveDirection();
+            var playerDirection = moveInput == Vector2.Zero ? NormalizeSafe(_lastPlayerShotDirection) : NormalizeSafe(moveInput);
+            var lagDistance = MathF.Max(0.05f, entityPrototype.FollowLag);
+            var targetPos = _playerPos - playerDirection * lagDistance;
+            var delta = targetPos - familiar.Position;
+            familiar.Velocity += delta * MathF.Max(FamiliarFollowAcceleration, entityPrototype.FollowSpeed * 4f) * dt;
+            familiar.Velocity *= MathF.Pow(FamiliarFollowDamping, dt * 60f);
+            var desiredPosition = familiar.Position + familiar.Velocity * dt;
+            familiar.Position = MoveFamiliarWithCollision(familiar.Position, desiredPosition, FamiliarCollisionRadius, CurrentRoom);
+        }
+
+        private void TickAttackFamiliar(FamiliarData familiar, float dt)
+        {
+            var target = TryGetNearestEnemy(familiar.Position, FamiliarAggroRadius);
+            if (target == null)
+            {
+                TickFollowerFamiliar(familiar, dt);
+                return;
+            }
+
+            var entityPrototype = GetFamiliarBehaviorPrototype(familiar.Config.Behavior);
+            var direction = NormalizeSafe(target.Position - familiar.Position);
+            familiar.Velocity = direction * MathF.Max(FamiliarAttackSpeed, entityPrototype.FollowSpeed);
+            familiar.Position = MoveFamiliarWithCollision(familiar.Position, familiar.Position + familiar.Velocity * dt, FamiliarCollisionRadius, CurrentRoom);
+        }
+
+        private void TickShieldFamiliar(FamiliarData familiar, float dt)
+        {
+            var blockRadius = FamiliarOrbitalHitRadius + FamiliarCollisionRadius;
+            for (var i = _enemyProjectiles.Count - 1; i >= 0; i--)
+            {
+                if (Vector2.DistanceSquared(_enemyProjectiles[i].Position, familiar.Position) > blockRadius * blockRadius)
+                    continue;
+
+                _enemyProjectiles.RemoveAt(i);
+                PlaySfx(SfxProjectileHit, -12f);
+            }
+
+            var contactDamage = MathF.Max(FamiliarOrbitalContactDamage, familiar.Config.ContactDps) * dt;
+            foreach (var enemy in _aliveEnemiesScratch)
+            {
+                if (Vector2.DistanceSquared(enemy.Position, familiar.Position) > (enemy.Prototype.Radius + FamiliarOrbitalHitRadius) * (enemy.Prototype.Radius + FamiliarOrbitalHitRadius))
+                    continue;
+
+                enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(contactDamage));
+                enemy.DamageFlash = EntityDamageFlashDuration;
+            }
+        }
+
+        private void TickFamiliarBloodTrail(FamiliarData familiar, float dt)
+        {
+            if (!familiar.Config.SpawnBloodTrail)
+                return;
+
+            familiar.TrailTimer -= dt;
+            if (familiar.TrailTimer > 0f)
+                return;
+
+            familiar.TrailTimer = 0.1f;
+            _bloodTrails.Add(new BloodTrailData(familiar.Position, familiar.Config.BloodTrailRadius, familiar.Config.BloodTrailDps, familiar.Config.BloodTrailLifetime));
+        }
+
+        private void TickFamiliarShooting(FamiliarData familiar, float dt)
+        {
+            if (_aliveEnemiesScratch.Count == 0)
+                return;
+
+            familiar.ShootTimer -= dt;
+            if (familiar.ShootTimer > 0f)
+                return;
+
+            var entityPrototype = GetFamiliarBehaviorPrototype(familiar.Config.Behavior);
+            var shootCooldown = familiar.Config.ShootInterval > 0f
+                ? familiar.Config.ShootInterval
+                : entityPrototype.ShootCooldown;
+            familiar.ShootTimer = MathF.Max(0.05f, shootCooldown);
+            var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(entityPrototype.ProjectilePrototype);
+
+            _familiarDirectionsScratch.Clear();
+            if (familiar.Config.ShootFourDirections)
+            {
+                foreach (var candidate in FamiliarCardinalDirections)
+                {
+                    if (AnyEnemyInDirection(familiar.Position, candidate, 0.5f))
+                        _familiarDirectionsScratch.Add(candidate);
                 }
             }
+            else if (familiar.Config.ShootAlongPlayerAim)
+            {
+                var aimDirection = _lastPlayerShotDirection == Vector2.Zero ? Vector2.UnitX : NormalizeSafe(_lastPlayerShotDirection);
+                if (AnyEnemyInDirection(familiar.Position, aimDirection, 0.35f))
+                    _familiarDirectionsScratch.Add(aimDirection);
+            }
+            else
+            {
+                var target = TryGetNearestEnemy(familiar.Position, FamiliarAggroRadius);
+                if (target != null)
+                    _familiarDirectionsScratch.Add(NormalizeSafe(target.Position - familiar.Position));
+            }
+
+            if (_familiarDirectionsScratch.Count == 0)
+                return;
+
+            foreach (var direction in _familiarDirectionsScratch)
+            {
+                if (direction == Vector2.Zero)
+                    continue;
+
+                var tint = familiar.Config.FixedRedTint ? Color.Red : Color.White;
+                var damage = familiar.Config.ProjectileDamage;
+                if (familiar.Config.UsePlayerCurrentDamage)
+                {
+                    var playerDamage = _prototype.Index<DeepMaintenanceProjectilePrototype>(_playerProto.ProjectilePrototype).Damage + GetDamageFlatBonus();
+                    damage = playerDamage * familiar.Config.PlayerDamageScale;
+                }
+
+                var spawnPos = familiar.Position + NormalizeSafe(direction) * FamiliarProjectileSpawnOffset;
+                var projectile = SpawnProjectile(_playerProjectiles, spawnPos, NormalizeSafe(direction) * familiar.Config.ProjectileSpeed, projectilePrototype, 1f, damage, tint, projectilePrototype.Lifetime);
+                projectile.FreezeOnHit = familiar.Config.CanFreezeOnHit;
+                projectile.FreezeChance = familiar.Config.FreezeChance;
+                projectile.FreezeBosses = familiar.Config.FreezeBosses;
+            }
+
+            if (familiar.Config is not { BurstCount: > 0, BurstDamageOptions.Count: > 0 })
+                return;
+
+            familiar.BurstTimer -= dt;
+            if (familiar.BurstTimer > 0f)
+                return;
+
+            familiar.BurstTimer = MathF.Max(0.1f, familiar.Config.BurstInterval);
+            for (var n = 0; n < familiar.Config.BurstCount; n++)
+            {
+                var angle = n / (float) familiar.Config.BurstCount * MathF.PI * 2f;
+                var dir = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                if (!AnyEnemyInDirection(familiar.Position, dir, 0.35f))
+                    continue;
+
+                var dmg = familiar.Config.BurstDamageOptions[_random.Next(familiar.Config.BurstDamageOptions.Count)];
+                SpawnProjectile(_playerProjectiles, familiar.Position, dir * familiar.Config.ProjectileSpeed, projectilePrototype, 1f, dmg, Color.White, projectilePrototype.Lifetime);
+            }
+        }
+
+        private void TickOrbitalFamiliarCollision(float dt)
+        {
+            var damage = FamiliarOrbitalContactDamage * dt;
+            foreach (var familiar in _familiars)
+            {
+                if (familiar.Config.Behavior is not (DeepMaintenanceFamiliarBehavior.Orbit or DeepMaintenanceFamiliarBehavior.Shield))
+                    continue;
+
+                foreach (var enemy in _aliveEnemiesScratch)
+                {
+                    var hitDistance = enemy.Prototype.Radius + FamiliarOrbitalHitRadius;
+                    if (Vector2.DistanceSquared(enemy.Position, familiar.Position) > hitDistance * hitDistance)
+                        continue;
+
+                    enemy.Hp -= (int) MathF.Ceiling(ApplyNonTearDamageModifiers(damage));
+                    enemy.DamageFlash = EntityDamageFlashDuration;
+                }
+
+                for (var i = _enemyProjectiles.Count - 1; i >= 0; i--)
+                {
+                    if (Vector2.DistanceSquared(_enemyProjectiles[i].Position, familiar.Position) > FamiliarOrbitalHitRadius * FamiliarOrbitalHitRadius)
+                        continue;
+
+                    _enemyProjectiles.RemoveAt(i);
+                    PlaySfx(SfxProjectileHit, -12f);
+                }
+            }
+        }
+
+        private bool AnyEnemyInDirection(Vector2 from, Vector2 direction, float dotThreshold)
+        {
+            foreach (var enemy in _aliveEnemiesScratch)
+            {
+                if (!HasLineOfSight(from, enemy.Position, FamiliarCollisionRadius))
+                    continue;
+
+                var toEnemy = NormalizeSafe(enemy.Position - from);
+                if (Vector2.Dot(toEnemy, direction) > dotThreshold)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private EnemyData? TryGetNearestEnemy(Vector2 source, float maxDistance)
+        {
+            EnemyData? target = null;
+            var bestDistance = maxDistance * maxDistance;
+            foreach (var enemy in _aliveEnemiesScratch)
+            {
+                if (!HasLineOfSight(source, enemy.Position, FamiliarCollisionRadius))
+                    continue;
+
+                var distanceSquared = Vector2.DistanceSquared(source, enemy.Position);
+                if (distanceSquared >= bestDistance)
+                    continue;
+
+                bestDistance = distanceSquared;
+                target = enemy;
+            }
+
+            return target;
+        }
+
+        private DeepMaintenanceEntityPrototype GetFamiliarBehaviorPrototype(DeepMaintenanceFamiliarBehavior behavior)
+        {
+            var protoId = behavior switch
+            {
+                DeepMaintenanceFamiliarBehavior.Orbit => EntityFamiliarOrbitalPrototypeId,
+                DeepMaintenanceFamiliarBehavior.Follow => EntityFamiliarFollowerPrototypeId,
+                DeepMaintenanceFamiliarBehavior.Shoot => EntityFamiliarShooterPrototypeId,
+                DeepMaintenanceFamiliarBehavior.Attack => EntityFamiliarAttackerPrototypeId,
+                DeepMaintenanceFamiliarBehavior.Shield => EntityFamiliarShieldPrototypeId,
+                _ => EntityFamiliarFollowerPrototypeId,
+            };
+
+            return _prototype.Index<DeepMaintenanceEntityPrototype>(protoId);
         }
 
         private static Vector2 MoveFamiliarWithCollision(Vector2 current, Vector2 desired, float radius, RoomData room)
@@ -1685,13 +1874,19 @@ public sealed partial class DeepMaintenanceUiFragment
             if (room.Type is RoomType.Treasure or RoomType.Shop)
                 return;
 
-            var coins = _random.Next(RoomClearCoinMin, RoomClearCoinMax + 1);
+            if (_random.NextDouble() > _activeFloorConfig.RoomClearRewardChance)
+                return;
+
+            var minCoins = Math.Max(0, _activeFloorConfig?.RoomClearCoinMin ?? 1);
+            var maxCoins = Math.Max(minCoins, _activeFloorConfig?.RoomClearCoinMax ?? 3);
+            var coins = _random.Next(minCoins, maxCoins + 1);
             for (var i = 0; i < coins; i++)
             {
                 SpawnPickup(room, PickupType.Coin, 1, GetRoomCenter() + new Vector2((_random.NextSingle() - 0.5f) * 1.2f, (_random.NextSingle() - 0.5f) * 1.2f), GetPickupSpawnAnimationDuration(PickupType.Coin));
             }
 
-            if (_random.NextDouble() > 0.35)
+            var extraRewardChance = _activeFloorConfig?.RoomClearExtraRewardChance ?? 0.35f;
+            if (_random.NextDouble() > extraRewardChance)
                 return;
 
             var rewardType = _random.Next(3) switch
@@ -1701,7 +1896,10 @@ public sealed partial class DeepMaintenanceUiFragment
                 _ => PickupType.Bomb,
             };
 
-            SpawnPickup(room, rewardType, 1, GetRoomCenter() + new Vector2(0f, -1f), GetPickupSpawnAnimationDuration(rewardType));
+            var rewardAmount = rewardType == PickupType.Heart
+                ? (_random.NextDouble() < (_activeFloorConfig?.RoomClearHalfHeartChance ?? 0.5f) ? 1 : 2)
+                : 1;
+            SpawnPickup(room, rewardType, rewardAmount, GetRoomCenter() + new Vector2(0f, -1f), GetPickupSpawnAnimationDuration(rewardType));
         }
 
         private static void SpawnPickup(RoomData room, PickupType type, int amount, Vector2 position, float spawnDelay)

@@ -14,6 +14,11 @@
   vignetteStrength: 0.3
   playerLightRadius: 3.8
   playerLightStrength: 0.5
+  roomClearCoinMin: 1
+  roomClearCoinMax: 3
+  roomClearRewardChance: 0.85
+  roomClearExtraRewardChance: 0.25
+  roomClearHalfHeartChance: 0.25
   musicFadeOut: 1.5
   musicFadeIn: 0.8
   musicByRoom:

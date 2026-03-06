@@ -54,6 +54,12 @@ public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingProto
     public Vector2 HeadAttachedOffset;
 
     [DataField]
+    public Color? BodyTintColor;
+
+    [DataField]
+    public Color? HeadTintColor;
+
+    [DataField]
     public float ProjectileSpeedMultiplier = 1f;
 
     [DataField]
@@ -195,30 +201,6 @@ public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingProto
     public float ClaymoreProjectileBonusDamage = 2f;
 
     [DataField]
-    public bool CaretakerEnabled;
-
-    [DataField]
-    public float CaretakerFollowDistance = 1.1f;
-
-    [DataField]
-    public float CaretakerMoveSpeed = 7f;
-
-    [DataField]
-    public float CaretakerInterceptRadius = 4f;
-
-    [DataField]
-    public float CaretakerDashCooldown = 0.4f;
-
-    [DataField]
-    public float CaretakerRestChance = 0.2f;
-
-    [DataField]
-    public float CaretakerRestDuration = 0.5f;
-
-    [DataField]
-    public float CaretakerContactDps = 15f;
-
-    [DataField]
     public float LeftEyeProjectileSpeedMultiplier = 1f;
 
     [DataField]
@@ -295,13 +277,116 @@ public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingProto
 
     [DataField]
     public float TearHeightBonus;
+
+    [DataField]
+    public List<DeepMaintenanceRelicEffectEntry> Effects = new();
+}
+
+[DataDefinition]
+public sealed partial class DeepMaintenanceRelicEffectEntry
+{
+    [DataField(required: true)]
+    public string Type = default!;
+
+    [DataField]
+    public float MeleeRange;
+
+    [DataField]
+    public int MeleeDamage;
+
+    [DataField]
+    public bool MeleeArcAnimated;
+
+    [DataField]
+    public float FearRadius;
+
+    [DataField]
+    public float FearDuration;
+
+    [DataField]
+    public float FearBossCooldown;
+
+    [DataField]
+    public float ChainLightningRate;
+
+    [DataField]
+    public float ChainLightningDamageMultiplier;
+
+    [DataField]
+    public float ChainLightningRadius;
+
+    [DataField]
+    public float ChainLightningJumpRadius;
+
+    [DataField]
+    public int ChainLightningMaxTargets;
+
+    [DataField]
+    public int RadialProjectileCount;
+
+    [DataField]
+    public float RadialProjectileDamage;
+
+    [DataField]
+    public float RadialFireRateFirstBonus;
+
+    [DataField]
+    public float RadialFireRateStackBonus;
+
+    [DataField]
+    public float NoDamageFireRatePerRoom;
+
+    [DataField]
+    public float NoDamageFireRateMax;
+
+    [DataField]
+    public float NoDamageStartBonus;
+
+    [DataField]
+    public bool ResetOnHit;
+
+    [DataField]
+    public float ClaymoreMeleeDamageMultiplier;
+
+    [DataField]
+    public float ClaymoreChargedDamageMultiplier;
+
+    [DataField]
+    public float ClaymoreChargeDuration;
+
+    [DataField]
+    public float ClaymoreSwingRadius;
+
+    [DataField]
+    public bool ClaymoreProjectileOnFullHealth;
+
+    [DataField]
+    public float ClaymoreReflectRadius;
+
+    [DataField]
+    public float ClaymoreProjectileBonusDamage;
+
+    [DataField]
+    public float BlockChance;
+
+    [DataField]
+    public float BlockKnockback;
+
+    [DataField]
+    public float CollisionDamageBase;
+
+    [DataField]
+    public float CollisionDamagePerFloor;
+
+    [DataField]
+    public string? Color;
 }
 
 [DataDefinition]
 public sealed partial class DeepMaintenanceFamiliarConfig
 {
     [DataField]
-    public string Behavior = "Orbit";
+    public DeepMaintenanceFamiliarBehavior Behavior = DeepMaintenanceFamiliarBehavior.Orbit;
 
     [DataField]
     public int Count = 1;

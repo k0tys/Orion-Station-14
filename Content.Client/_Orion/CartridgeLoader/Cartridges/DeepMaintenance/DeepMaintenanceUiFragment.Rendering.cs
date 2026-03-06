@@ -96,18 +96,21 @@ public sealed partial class DeepMaintenanceUiFragment
             foreach (var enemy in CurrentRoom.Enemies.Where(enemy => enemy.Hp > 0))
             {
                 var drawPos = Vector2.Lerp(enemy.PreviousPosition, enemy.Position, tickAlpha);
-                DrawShadow(handle, drawPos, tilePixel, mapOffset, enemy.Prototype.Radius * 0.95f, 0.23f);
+                DrawShadow(handle, drawPos + new Vector2(0f, 0.12f), tilePixel, mapOffset, MathF.Max(0.24f, enemy.Prototype.Radius * 1.08f), 0.42f);
                 var color = GetEnemyVisualTint(enemy);
-                DrawCharacter(handle, drawPos, enemy.Prototype, enemy.BodyFacing, enemy.ShootFacing, tilePixel, mapOffset, color);
+                DrawCharacter(handle, drawPos, enemy.Prototype, enemy.BodyFacing, enemy.ShootFacing, tilePixel, mapOffset, color, color, false);
             }
 
-            DrawShadow(handle, _playerPos, tilePixel, mapOffset, _playerProto.Radius, 0.26f);
+            DrawShadow(handle, _playerPos + new Vector2(0f, 0.12f), tilePixel, mapOffset, MathF.Max(0.22f, _playerProto.Radius * 3.2f), 0.45f);
             DrawPlayer(handle, tilePixel * GetPlayerVisualScale(), mapOffset);
+            DrawBombs(handle, tilePixel, mapOffset);
 
             foreach (var familiar in _familiars)
             {
-                DrawShadow(handle, familiar.Position, tilePixel, mapOffset, 0.2f, 0.18f);
-                var centerF = mapOffset + familiar.Position * tilePixel;
+                var bob = MathF.Sin(_animationClock * 6f + familiar.BobOffset) * 0.05f;
+                var drawPos = familiar.Position + new Vector2(0f, bob);
+                DrawShadow(handle, familiar.Position + new Vector2(0f, 0.1f), tilePixel, mapOffset, 0.24f, 0.34f);
+                var centerF = mapOffset + drawPos * tilePixel;
                 var sizeF = tilePixel * 0.36f;
                 var boxF = UIBox2.FromDimensions(centerF - new Vector2(sizeF * 0.5f, sizeF * 0.5f), new Vector2(sizeF, sizeF));
                 handle.DrawRect(boxF, familiar.Config.FixedRedTint ? new Color(220, 80, 80) : new Color(190, 190, 255));
@@ -128,11 +131,11 @@ public sealed partial class DeepMaintenanceUiFragment
             }
 
             DrawPickups(handle, tilePixel, mapOffset);
-            DrawBombs(handle, tilePixel, mapOffset);
             DrawBombExplosions(handle, tilePixel, mapOffset);
             DrawFloorExit(handle, tilePixel, mapOffset);
             DrawShopSlots(handle, tilePixel, mapOffset);
             DrawLightingOverlay(handle, tilePixel, mapOffset);
+            DrawRoomPanelShading(handle, tilePixel, mapOffset);
 
             if (_debugHitboxes)
                 DrawDebugHitboxes(handle, tilePixel, mapOffset, tickAlpha);
@@ -169,7 +172,18 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
             }
 
-            DrawCharacter(handle, _playerPos, _playerProto, _playerBodyFacing, _playerShootFacing, tilePixel, mapOffset, color);
+            var bodyTint = color;
+            var headTint = color;
+            foreach (var relic in _activeRelics)
+            {
+                if (relic.BodyTintColor is { } bodyColor)
+                    bodyTint = bodyColor;
+
+                if (relic.HeadTintColor is { } headColor)
+                    headTint = headColor;
+            }
+
+            DrawCharacter(handle, _playerPos, _playerProto, _playerBodyFacing, _playerShootFacing, tilePixel, mapOffset, bodyTint, headTint, _playerShootAnimationTimer > 0f);
 
             foreach (var relic in _activeRelics)
             {
@@ -254,18 +268,25 @@ public sealed partial class DeepMaintenanceUiFragment
             return GetSprite(meleeRelic.MeleeArcSpritePath, state) != null;
         }
 
-        private void DrawCharacter(DrawingHandleScreen handle, Vector2 pos, DeepMaintenanceEntityPrototype prototype, FacingDirection bodyFacing, FacingDirection shootFacing, float tilePixel, Vector2 mapOffset, Color color)
+        private void DrawCharacter(DrawingHandleScreen handle, Vector2 pos, DeepMaintenanceEntityPrototype prototype, FacingDirection bodyFacing, FacingDirection shootFacing, float tilePixel, Vector2 mapOffset, Color bodyColor, Color headColor, bool shootAnimation)
         {
             var bodyState = prototype.BodySpriteState ?? prototype.SpriteState;
-            DrawDirectionalEntityLayer(handle, pos, prototype.SpritePath, bodyState, bodyFacing, tilePixel, prototype.SpriteScale, mapOffset, color);
+            var shootState = prototype.ShootSpriteState;
+            var hasHeadLayer = !string.IsNullOrWhiteSpace(prototype.HeadSpriteState);
 
-            var headState = prototype.HeadSpriteState ?? prototype.ShootSpriteState;
-            if (ReferenceEquals(prototype, _playerProto) && _playerShootAnimationTimer > 0f && !string.IsNullOrWhiteSpace(prototype.ShootSpriteState))
-                headState = prototype.ShootSpriteState;
+            if (shootAnimation && !hasHeadLayer && !string.IsNullOrWhiteSpace(shootState))
+                bodyState = shootState;
+
+            DrawDirectionalEntityLayer(handle, pos, prototype.SpritePath, bodyState, bodyFacing, tilePixel, prototype.SpriteScale, mapOffset, bodyColor);
+
+            var headState = prototype.HeadSpriteState;
+            if (!string.IsNullOrWhiteSpace(shootState) && shootAnimation)
+                headState = shootState;
+
             if (string.IsNullOrWhiteSpace(headState) || headState == bodyState)
                 return;
 
-            DrawDirectionalEntityLayer(handle, pos, prototype.SpritePath, headState, shootFacing, tilePixel, prototype.SpriteScale, mapOffset, color);
+            DrawDirectionalEntityLayer(handle, pos, prototype.SpritePath, headState, shootFacing, tilePixel, prototype.SpriteScale, mapOffset, headColor);
         }
 
         private void DrawDirectionalEntityLayer(DrawingHandleScreen handle, Vector2 pos, string spritePath, string spriteState, FacingDirection facing, float tilePixel, float spriteScale, Vector2 mapOffset, Color color)
@@ -278,6 +299,12 @@ public sealed partial class DeepMaintenanceUiFragment
             if (TryGetDirectionalAnimatedSprite(spritePath, spriteState, facing, animationProgress, out var animatedTexture))
             {
                 handle.DrawTextureRect(animatedTexture, box, color);
+                return;
+            }
+
+            if (TryGetAnimatedSprite(spritePath, spriteState, animationProgress, out var nonDirectionalAnimatedTexture))
+            {
+                handle.DrawTextureRect(nonDirectionalAnimatedTexture, box, color);
                 return;
             }
 
@@ -730,9 +757,26 @@ public sealed partial class DeepMaintenanceUiFragment
                 ShopItemType.Bomb => $"{Loc.GetString("deep-maintenance-tooltip-pickup-bomb-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-bomb-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
                 ShopItemType.Heart => $"{Loc.GetString("deep-maintenance-tooltip-pickup-heart-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-heart-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
                 ShopItemType.Key => $"{Loc.GetString("deep-maintenance-tooltip-pickup-key-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-key-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
-                ShopItemType.Coin => $"{Loc.GetString("deep-maintenance-tooltip-pickup-coin-name")}\n{Loc.GetString("deep-maintenance-tooltip-pickup-coin-desc")}\n{Loc.GetString("deep-maintenance-tooltip-price", ("price", price))}",
                 _ => string.Empty,
             };
+        }
+
+        private static string BuildRelicEffectsSummary(DeepMaintenanceRelicPrototype relic)
+        {
+            if (relic.Effects.Count == 0)
+                return Loc.GetString("deep-maintenance-tooltip-relic-default-desc");
+
+            var labels = relic.Effects
+                .Select(effect => effect.Type)
+                .Distinct()
+                .Take(4)
+                .Select(type => $"• {type}")
+                .ToList();
+
+            if (relic.Effects.Count > 4)
+                labels.Add("• ...");
+
+            return string.Join("\n", labels);
         }
 
         private static string BuildRelicTooltip(DeepMaintenanceRelicPrototype relic, int? price)
@@ -740,7 +784,9 @@ public sealed partial class DeepMaintenanceUiFragment
             var nameKey = $"deep-maintenance-relic-{relic.ID.ToLowerInvariant()}-name";
             var descKey = $"deep-maintenance-relic-{relic.ID.ToLowerInvariant()}-desc";
             var name = Loc.TryGetString(nameKey, out var localizedName) ? localizedName : relic.ID;
-            var desc = Loc.TryGetString(descKey, out var localizedDesc) ? localizedDesc : Loc.GetString("deep-maintenance-tooltip-relic-default-desc");
+            var desc = Loc.TryGetString(descKey, out var localizedDesc)
+                ? localizedDesc
+                : BuildRelicEffectsSummary(relic);
             var rarity = relic.BasePrice switch
             {
                 <= 10 => Loc.GetString("deep-maintenance-tooltip-rarity-common"),
@@ -761,14 +807,44 @@ public sealed partial class DeepMaintenanceUiFragment
             return string.Join("\n", lines);
         }
 
+        private void DrawResourceCounters(DrawingHandleScreen handle)
+        {
+            var entries = new (DeepMaintenancePickupPrototype Proto, int Amount)[]
+            {
+                (_coinPickupProto, _coins),
+                (_bombPickupProto, _bombs),
+                (_keyPickupProto, _keys),
+            };
+
+            var iconSize = Math.Clamp(PixelSize.X / 30f, 14f, 22f);
+            var x = 6f;
+            var y = 6f;
+            foreach (var (proto, amount) in entries)
+            {
+                var box = UIBox2.FromDimensions(new Vector2(x, y), new Vector2(iconSize, iconSize));
+                if (GetSprite(proto.SpritePath, proto.SpriteState) is { } texture)
+                    handle.DrawTextureRect(texture, box);
+                else
+                    handle.DrawRect(box, Color.White);
+
+                var text = $"x{Math.Max(0, amount):00}";
+                var textPos = new Vector2(x + iconSize + 3f, y + 1f);
+                handle.DrawString(_shopPriceFont, textPos + new Vector2(1f, 1f), text, Color.Black.WithAlpha(0.8f));
+                handle.DrawString(_shopPriceFont, textPos, text, Color.WhiteSmoke);
+                y += iconSize + 2f;
+            }
+        }
+
         private void DrawHealthHearts(DrawingHandleScreen handle)
         {
+            DrawResourceCounters(handle);
+
             var size = Math.Clamp(PixelSize.X / 18f, 14f, 24f);
             const float gap = 3f;
             const float rowGap = 4f;
-            var heartsPerRow = Math.Max(1, (int) ((Math.Max(48f, PixelSize.X - 12f) + gap) / (size + gap)));
 
             var maxHearts = (int) MathF.Ceiling(MaxPlayerHp / 2f);
+            var heartsPerRow = Math.Max(1, Math.Min(maxHearts, (int) ((Math.Max(48f, PixelSize.X * 0.45f) + gap) / (size + gap))));
             var damagePulse = _heartDamageFlash > 0f;
             var pulseScale = damagePulse ? 1f + 0.22f * (_heartDamageFlash / HeartDamageFlashDuration) : 1f;
 
@@ -783,7 +859,9 @@ public sealed partial class DeepMaintenanceUiFragment
                 };
                 var column = i % heartsPerRow;
                 var row = i / heartsPerRow;
-                var basePos = new Vector2(6 + column * (size + gap), HeartRowsStartY + row * (size + rowGap));
+                var totalRowWidth = heartsPerRow * size + Math.Max(0, heartsPerRow - 1) * gap;
+                var heartsStartX = Math.Max(6f, PixelSize.X - totalRowWidth - 8f);
+                var basePos = new Vector2(heartsStartX + column * (size + gap), HeartRowsStartY + row * (size + rowGap));
                 var drawSize = new Vector2(size * pulseScale, size * pulseScale);
                 var drawPos = basePos - (drawSize - new Vector2(size, size)) * 0.5f;
                 var box = UIBox2.FromDimensions(drawPos, drawSize);
@@ -798,23 +876,16 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
-        private DeepMaintenancePickupPrototype GetPickupPrototype(PickupType type)
+        private DeepMaintenancePickupPrototype GetPickupPrototype(PickupData pickup)
         {
-            return type switch
-            {
-                PickupType.Coin => _coinPickupProto,
-                PickupType.Bomb => _bombPickupProto,
-                PickupType.Key => _keyPickupProto,
-                PickupType.Heart => _heartPickupProto,
-                _ => _coinPickupProto,
-            };
+            return GetPickupPrototypeData(pickup);
         }
 
         private void DrawPickups(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
         {
             foreach (var pickup in CurrentRoom.Pickups)
             {
-                var prototype = GetPickupPrototype(pickup.Type);
+                var prototype = GetPickupPrototype(pickup);
                 var center = mapOffset + pickup.Position * tilePixel;
                 var appearProgress = pickup.SpawnDuration <= 0f
                     ? 1f
@@ -866,13 +937,14 @@ public sealed partial class DeepMaintenanceUiFragment
         private static void DrawShadow(DrawingHandleScreen handle, Vector2 tilePosition, float tilePixel, Vector2 mapOffset, float radius, float alpha)
         {
             var center = mapOffset + tilePosition * tilePixel;
-            var baseSize = MathF.Max(2f, radius * tilePixel * 1.9f);
-            for (var layer = 0; layer < 3; layer++)
+            var baseSize = MathF.Max(3f, radius * tilePixel * 2.15f);
+            for (var layer = 0; layer < 4; layer++)
             {
-                var scale = 1f - layer * 0.2f;
-                var size = new Vector2(baseSize * scale, baseSize * 0.52f * scale);
+                var scale = 1f - layer * 0.16f;
+                var size = new Vector2(baseSize * scale, baseSize * (0.6f - layer * 0.05f) * scale);
                 var box = UIBox2.FromDimensions(center - size * 0.5f, size);
-                handle.DrawRect(box, Color.Black.WithAlpha(Math.Clamp(alpha * (0.55f - layer * 0.16f), 0f, 0.25f)));
+                var layerAlpha = Math.Clamp(alpha * (0.68f - layer * 0.14f), 0f, 0.5f);
+                handle.DrawRect(box, Color.Black.WithAlpha(layerAlpha));
             }
         }
 
@@ -910,6 +982,27 @@ public sealed partial class DeepMaintenanceUiFragment
             handle.DrawRect(UIBox2.FromDimensions(new Vector2(border.Left, border.Bottom - vignetteInset), new Vector2(border.Width, vignetteInset)), Color.Black.WithAlpha(borderAlpha));
             handle.DrawRect(UIBox2.FromDimensions(new Vector2(border.Left, border.Top), new Vector2(vignetteInset, border.Height)), Color.Black.WithAlpha(borderAlpha));
             handle.DrawRect(UIBox2.FromDimensions(new Vector2(border.Right - vignetteInset, border.Top), new Vector2(vignetteInset, border.Height)), Color.Black.WithAlpha(borderAlpha));
+        }
+
+        private void DrawRoomPanelShading(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
+        {
+            var mapSize = new Vector2(tilePixel * GridWidth, tilePixel * GridHeight);
+            var mapBox = UIBox2.FromDimensions(mapOffset, mapSize);
+            var bandHeight = mapSize.Y / 5f;
+            for (var i = 0; i < 5; i++)
+            {
+                var y = mapOffset.Y + i * bandHeight;
+                var box = UIBox2.FromDimensions(new Vector2(mapOffset.X, y), new Vector2(mapSize.X, bandHeight));
+                var alpha = (i % 2 == 0 ? 0.03f : 0.015f) + _roomVignetteStrength * 0.03f;
+                handle.DrawRect(box, new Color(0, 0, 0, (byte) (255f * Math.Clamp(alpha, 0f, 0.14f))));
+            }
+
+            var lineColor = new Color(0, 0, 0, 80);
+            for (var i = 1; i < 5; i++)
+            {
+                var y = mapOffset.Y + i * bandHeight;
+                handle.DrawLine(new Vector2(mapBox.Left, y), new Vector2(mapBox.Right, y), lineColor.WithAlpha(0.24f));
+            }
         }
 
         private void DrawShopSlots(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)

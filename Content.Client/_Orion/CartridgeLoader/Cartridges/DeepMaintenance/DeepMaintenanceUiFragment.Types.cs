@@ -300,7 +300,6 @@ public sealed partial class DeepMaintenanceUiFragment
         private enum ShopItemType : byte
         {
             None,
-            Coin,
             Bomb,
             Key,
             Heart,
@@ -381,11 +380,13 @@ public sealed partial class DeepMaintenanceUiFragment
             public readonly string SourceRelicId;
             public readonly DeepMaintenanceFamiliarConfig Config;
             public Vector2 Position;
+            public Vector2 Velocity;
             public float ShootTimer;
             public float BurstTimer;
             public float TrailTimer;
-            public float InterceptCooldown;
-            public float RestTimer;
+            public float OrbitAngle;
+            public float OrbitOffset;
+            public float BobOffset;
             public int RoomCounter;
 
             public FamiliarData(string sourceRelicId, DeepMaintenanceFamiliarConfig config, Vector2 position)
@@ -396,8 +397,9 @@ public sealed partial class DeepMaintenanceUiFragment
                 ShootTimer = MathF.Max(0.05f, config.ShootInterval);
                 BurstTimer = MathF.Max(0.1f, config.BurstInterval);
                 TrailTimer = 0.1f;
-                InterceptCooldown = 0f;
-                RestTimer = 0f;
+                OrbitAngle = 0f;
+                OrbitOffset = 0f;
+                BobOffset = 0f;
             }
         }
 

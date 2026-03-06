@@ -1,15 +1,17 @@
 {
   "version": 1,
   "size": {
-    "x": 48,
-    "y": 48
+    "x": 32,
+    "y": 32
   },
   "license": "CC-BY-SA-3.0",
   "copyright": "Sprited by PuroSlavKing",
   "states": [
     {
-      "name": "overlay",
-      "directions": 4
+      "name": "full"
+    },
+    {
+      "name": "half"
     }
   ]
 }

@@ -24,7 +24,7 @@
 - type: deepMaintenancePickup
   id: PickupHeart
   pickupType: Heart
-  spritePath: /Textures/_Orion/DeepMaintenance/HUD/hearts.rsi
+  spritePath: /Textures/_Orion/DeepMaintenance/Pickups/red-hearts.rsi
   spriteState: full
   spriteScale: 1
   basePrice: 5

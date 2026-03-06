@@ -8,7 +8,11 @@
   "copyright": "Sprited by PuroSlavKing",
   "states": [
     {
-      "name": "overlay",
+      "name": "overlay-head",
+      "directions": 4
+    },
+    {
+      "name": "overlay-body",
       "directions": 4
     }
   ]

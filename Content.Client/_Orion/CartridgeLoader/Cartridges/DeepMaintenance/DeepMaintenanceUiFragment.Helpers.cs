@@ -682,9 +682,25 @@ public sealed partial class DeepMaintenanceUiFragment
             return MathF.Max(0.05f, prototype.ShootCooldownTicks * TickSeconds);
         }
 
+        private static float GetEnemyShootCooldown(DeepMaintenanceEntityPrototype prototype)
+        {
+            if (prototype.ShootCooldownSeconds is { } cooldownSeconds)
+                return MathF.Max(0.05f, cooldownSeconds);
+
+            return MathF.Max(0.05f, prototype.ShootCooldownTicks * TickSeconds);
+        }
+
         private static Vector2 GetRoomCenter()
         {
             return new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
+        }
+
+        private float RandomFloatRange(float min, float max)
+        {
+            if (max <= min)
+                return min;
+
+            return min + (float) _random.NextDouble() * (max - min);
         }
 
         private int GetRoomCountForFloor(int floor)

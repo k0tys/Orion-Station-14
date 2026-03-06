@@ -53,8 +53,8 @@ public sealed partial class DeepMaintenanceUiFragment
             if (_playerShootAnimationTimer > 0f)
                 _playerShootAnimationTimer = MathF.Max(0f, _playerShootAnimationTimer - dt);
 
-            if (_invulnerabilityTicks > 0)
-                _invulnerabilityTicks--;
+            if (_invulnerabilityTimer > 0f)
+                _invulnerabilityTimer = MathF.Max(0f, _invulnerabilityTimer - dt);
 
             HandleHeldShootKeys();
             UpdateFacingResetTimers(dt);
@@ -531,8 +531,8 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (enemy.Frozen)
                     continue;
 
-                if (enemy.SpawnGraceTicks > 0)
-                    enemy.SpawnGraceTicks--;
+                if (enemy.SpawnGraceTimer > 0f)
+                    enemy.SpawnGraceTimer = MathF.Max(0f, enemy.SpawnGraceTimer - dt);
 
                 if (enemy.FearTimer > 0f)
                     enemy.FearTimer = MathF.Max(0f, enemy.FearTimer - dt);
@@ -556,14 +556,14 @@ public sealed partial class DeepMaintenanceUiFragment
                 var hasDirectVision = HasLineOfSight(enemy.Position, _playerPos, enemy.Prototype.Radius);
                 enemy.ShootFacing = FacingFromVector(directionToPlayer, enemy.ShootFacing);
 
-                if (enemy.AggroDelayTicks > 0)
+                if (enemy.AggroDelay > 0f)
                 {
-                    enemy.AggroDelayTicks--;
+                    enemy.AggroDelay = MathF.Max(0f, enemy.AggroDelay - dt);
                     continue;
                 }
 
-                if (enemy.ShootCooldownTicks > 0)
-                    enemy.ShootCooldownTicks--;
+                if (enemy.ShootCooldown > 0f)
+                    enemy.ShootCooldown = MathF.Max(0f, enemy.ShootCooldown - dt);
 
                 var escaped = TryEscapeWallTrap(enemy, dt);
                 if (escaped)
@@ -581,25 +581,25 @@ public sealed partial class DeepMaintenanceUiFragment
 
                 if (enemy.Prototype.Shooter)
                 {
-                    if (enemy.ShootCooldownTicks <= 0 && hasDirectVision)
+                    if (enemy.ShootCooldown <= 0f && hasDirectVision)
                     {
                         FireEnemyProjectiles(enemy, directionToPlayer);
                         PlaySfx(SfxEnemyShoot, -10f);
 
-                        enemy.ShootCooldownTicks = enemy.Prototype.ShootCooldownTicks;
+                        enemy.ShootCooldown = GetEnemyShootCooldown(enemy.Prototype);
                     }
 
                     var movement = Vector2.Zero;
                     if (enemy.Prototype.CanStrafe)
                     {
-                        if (enemy.StrafeSwapTicks <= 0)
+                        if (enemy.StrafeSwapTimer <= 0f)
                         {
                             enemy.StrafeDirection *= -1;
-                            enemy.StrafeSwapTicks = _random.Next(6, 14);
+                            enemy.StrafeSwapTimer = RandomFloatRange(EnemyStrafeSwapMinShooterSeconds, EnemyStrafeSwapMaxShooterSeconds);
                         }
                         else
                         {
-                            enemy.StrafeSwapTicks--;
+                            enemy.StrafeSwapTimer = MathF.Max(0f, enemy.StrafeSwapTimer - dt);
                         }
 
                         var toPlayerDistance = toPlayer.Length();
@@ -620,14 +620,14 @@ public sealed partial class DeepMaintenanceUiFragment
                     continue;
                 }
 
-                if (enemy.StrafeSwapTicks <= 0)
+                if (enemy.StrafeSwapTimer <= 0f)
                 {
                     enemy.StrafeDirection *= -1;
-                    enemy.StrafeSwapTicks = _random.Next(10, 18);
+                    enemy.StrafeSwapTimer = RandomFloatRange(EnemyStrafeSwapMinChaserSeconds, EnemyStrafeSwapMaxChaserSeconds);
                 }
                 else
                 {
-                    enemy.StrafeSwapTicks--;
+                    enemy.StrafeSwapTimer = MathF.Max(0f, enemy.StrafeSwapTimer - dt);
                 }
 
                 var flank = new Vector2(-directionToPredictedPlayer.Y, directionToPredictedPlayer.X) * enemy.StrafeDirection * 0.32f;
@@ -651,19 +651,19 @@ public sealed partial class DeepMaintenanceUiFragment
             var pushAway = GetWallPushDirection(enemy.Position, enemy.Prototype.Radius, CurrentRoom);
             if (pushAway == Vector2.Zero)
             {
-                enemy.WallContactTicks = 0;
-                enemy.EscapeTicksRemaining = 0;
+                enemy.WallContactTimer = 0f;
+                enemy.EscapeTimer = 0f;
                 return false;
             }
 
-            enemy.WallContactTicks++;
-            if (enemy.WallContactTicks >= EnemyEscapeWallContactThreshold)
-                enemy.EscapeTicksRemaining = EnemyEscapeTicks;
+            enemy.WallContactTimer += dt;
+            if (enemy.WallContactTimer >= EnemyEscapeWallContactSeconds)
+                enemy.EscapeTimer = EnemyEscapeDurationSeconds;
 
-            if (enemy.EscapeTicksRemaining <= 0)
+            if (enemy.EscapeTimer <= 0f)
                 return false;
 
-            enemy.EscapeTicksRemaining--;
+            enemy.EscapeTimer = MathF.Max(0f, enemy.EscapeTimer - dt);
             var velocity = pushAway * enemy.Prototype.MoveSpeed * EnemyEscapeSpeedMultiplier * dt;
             enemy.BodyFacing = FacingFromVector(pushAway, enemy.BodyFacing);
             var target = enemy.Position + velocity;
@@ -695,7 +695,7 @@ public sealed partial class DeepMaintenanceUiFragment
             if (preferredDirection == Vector2.Zero)
                 preferredDirection = fallbackDirection;
 
-            var chosenDirection = ResolveEnemyMovementDirection(enemy, preferredDirection, fallbackDirection, hasDirectVision);
+            var chosenDirection = ResolveEnemyMovementDirection(enemy, preferredDirection, fallbackDirection, hasDirectVision, dt);
             if (chosenDirection == Vector2.Zero)
                 return;
 
@@ -704,25 +704,25 @@ public sealed partial class DeepMaintenanceUiFragment
             enemy.Position = ResolveEntityTileCollision(target, enemy.Prototype, CurrentRoom);
         }
 
-        private Vector2 ResolveEnemyMovementDirection(EnemyData enemy, Vector2 preferredDirection, Vector2 fallbackDirection, bool hasDirectVision)
+        private Vector2 ResolveEnemyMovementDirection(EnemyData enemy, Vector2 preferredDirection, Vector2 fallbackDirection, bool hasDirectVision, float dt)
         {
             if (preferredDirection == Vector2.Zero)
                 return Vector2.Zero;
 
             if (hasDirectVision && IsDirectionWalkable(enemy, preferredDirection))
             {
-                enemy.AvoidanceTicks = 0;
+                enemy.AvoidanceTimer = 0f;
                 return preferredDirection;
             }
 
-            if (enemy.AvoidanceTicks <= 0)
+            if (enemy.AvoidanceTimer <= 0f)
             {
-                enemy.AvoidanceTicks = EnemyAvoidanceLockTicks;
+                enemy.AvoidanceTimer = EnemyAvoidanceLockSeconds;
                 enemy.AvoidanceDirection = _random.NextDouble() < 0.5 ? -1 : 1;
             }
             else
             {
-                enemy.AvoidanceTicks--;
+                enemy.AvoidanceTimer = MathF.Max(0f, enemy.AvoidanceTimer - dt);
             }
 
             var anchor = fallbackDirection == Vector2.Zero ? preferredDirection : fallbackDirection;
@@ -906,12 +906,12 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void HandleContactDamage()
         {
-            if (_invulnerabilityTicks > 0)
+            if (_invulnerabilityTimer > 0f)
                 return;
 
             foreach (var enemy in CurrentRoom.Enemies)
             {
-                if (enemy.Hp <= 0 || enemy.SpawnGraceTicks > 0)
+                if (enemy.Hp <= 0 || enemy.SpawnGraceTimer > 0f)
                     continue;
 
                 if (!HitboxesOverlap(GetEntityHitbox(_playerProto, _playerPos), GetEntityHitbox(enemy.Prototype, enemy.Position)))
@@ -1061,7 +1061,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 var pos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
                 if (TryChooseEntityFromPool(_treasurePrototype.EnemyPool, out var proto))
                 {
-                    CurrentRoom.Enemies.Add(CreateEnemyData(proto, pos, TreasureEnemySpawnGraceTicks));
+                    CurrentRoom.Enemies.Add(CreateEnemyData(proto, pos, TreasureEnemySpawnGraceSeconds));
                     return;
                 }
 
@@ -1139,7 +1139,7 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void DamagePlayer()
         {
-            if (_invulnerabilityTicks > 0)
+            if (_invulnerabilityTimer > 0f)
                 return;
 
             _tookDamageInRoom = true;
@@ -1152,7 +1152,7 @@ public sealed partial class DeepMaintenanceUiFragment
             if (TryRollHalfHeartRestore())
                 SetPlayerHealth(PlayerHp + 1, MaxPlayerHp);
 
-            _invulnerabilityTicks = InvulnerabilityTicks;
+            _invulnerabilityTimer = InvulnerabilityDuration;
             _heartDamageFlash = HeartDamageFlashDuration;
             _playerDamageFlash = EntityDamageFlashDuration;
 

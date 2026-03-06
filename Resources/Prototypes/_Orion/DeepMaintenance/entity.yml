@@ -13,7 +13,7 @@
   maxHp: 10
   contactDamage: 1
   shooter: false
-  shootCooldownTicks: 8
+  shootCooldownSeconds: 0.8
   projectilePrototype: ProjectileEnemy
   canStrafe: false
   isBoss: false
@@ -41,7 +41,7 @@
   moveSpeed: 2.1
   shooter: true
   canStrafe: true
-  shootCooldownTicks: 15
+  shootCooldownSeconds: 1.5
 
 # Player entity
 - type: deepMaintenanceEntity
@@ -97,7 +97,7 @@
   maxHp: 60
   shooter: true
   canStrafe: true
-  shootCooldownTicks: 13
+  shootCooldownSeconds: 1.4
   spritePath: /Textures/_Orion/DeepMaintenance/Entity/boss.rsi
   spriteState: body
   bodySpriteState: body

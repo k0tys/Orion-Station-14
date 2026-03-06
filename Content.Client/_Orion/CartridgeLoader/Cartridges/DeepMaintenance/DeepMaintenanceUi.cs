@@ -15,6 +15,7 @@ public sealed partial class DeepMaintenanceUi : UIFragment
     public override void Setup(BoundUserInterface userInterface, EntityUid? fragmentOwner)
     {
         _fragment?.StopGameAudio();
+        _fragment?.Dispose();
         _fragment = new DeepMaintenanceUiFragment();
     }
 

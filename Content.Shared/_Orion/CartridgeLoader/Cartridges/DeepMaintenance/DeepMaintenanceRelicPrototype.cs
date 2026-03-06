@@ -36,7 +36,7 @@ public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingProto
     public string? BodyAttachedSpriteState;
 
     [DataField]
-    public float BodyAttachedSpriteScale = 1f;
+    public float BodyAttachedSpriteScale = 1.4f;
 
     [DataField]
     public Vector2 BodyAttachedOffset;
@@ -48,7 +48,7 @@ public sealed class DeepMaintenanceRelicPrototype : IPrototype, IInheritingProto
     public string? HeadAttachedSpriteState;
 
     [DataField]
-    public float HeadAttachedSpriteScale = 1f;
+    public float HeadAttachedSpriteScale = 1.4f;
 
     [DataField]
     public Vector2 HeadAttachedOffset;

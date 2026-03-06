@@ -255,15 +255,22 @@ public sealed partial class DeepMaintenanceUiFragment
             return tiles;
         }
 
-        private EnemyData CreateEnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, int spawnGraceTicks)
+        private EnemyData CreateEnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, float spawnGraceSeconds)
         {
-            var enemy = new EnemyData(prototype, position, _random.Next(EnemyAggroDelayTicksMin, EnemyAggroDelayTicksMax + 1), spawnGraceTicks);
+            var enemy = new EnemyData(
+                prototype,
+                position,
+                RandomFloatRange(EnemyAggroDelayMinSeconds, EnemyAggroDelayMaxSeconds),
+                MathF.Max(0f, spawnGraceSeconds));
+
             if (_currentFloor <= 1)
                 return enemy;
 
             var floorBonus = _currentFloor - 1;
             enemy.Hp += floorBonus;
-            enemy.ShootCooldownTicks = Math.Max(4, enemy.ShootCooldownTicks - floorBonus / 2);
+            enemy.ShootCooldown = MathF.Max(
+                EnemyMinShootCooldownSeconds,
+                enemy.ShootCooldown - floorBonus * EnemyShootCooldownFloorReductionPerLevelSeconds);
             return enemy;
         }
 

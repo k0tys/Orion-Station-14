@@ -439,14 +439,14 @@ public sealed partial class DeepMaintenanceUiFragment
             public Vector2 Position;
             public Vector2 PreviousPosition;
             public int Hp;
-            public int ShootCooldownTicks;
-            public int AggroDelayTicks;
-            public int WallContactTicks;
-            public int EscapeTicksRemaining;
+            public float ShootCooldown;
+            public float AggroDelay;
+            public float WallContactTimer;
+            public float EscapeTimer;
             public int StrafeDirection = 1;
-            public int StrafeSwapTicks;
-            public int SpawnGraceTicks;
-            public int AvoidanceTicks;
+            public float StrafeSwapTimer;
+            public float SpawnGraceTimer;
+            public float AvoidanceTimer;
             public int AvoidanceDirection = 1;
             public FacingDirection BodyFacing = FacingDirection.Down;
             public FacingDirection ShootFacing = FacingDirection.Down;
@@ -457,16 +457,18 @@ public sealed partial class DeepMaintenanceUiFragment
             public bool DeathHandled;
             public readonly List<VisualStatusEffectData> VisualEffects = new();
 
-            public EnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, int aggroDelayTicks, int spawnGraceTicks)
+            public EnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, float aggroDelay, float spawnGrace)
             {
                 Prototype = prototype;
                 Position = position;
                 PreviousPosition = position;
                 Hp = prototype.MaxHp;
-                ShootCooldownTicks = prototype.ShootCooldownTicks;
-                AggroDelayTicks = aggroDelayTicks;
-                StrafeSwapTicks = 8;
-                SpawnGraceTicks = spawnGraceTicks;
+                ShootCooldown = GetEnemyShootCooldown(prototype);
+                AggroDelay = aggroDelay;
+                StrafeSwapTimer = prototype.Shooter
+                    ? EnemyStrafeSwapMinShooterSeconds
+                    : EnemyStrafeSwapMinChaserSeconds;
+                SpawnGraceTimer = spawnGrace;
             }
         }
 

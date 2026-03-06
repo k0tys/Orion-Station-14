@@ -121,7 +121,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
     private void UpdateHud()
     {
         UpdateMusicButtonIcon();
-        _hud.Text = Loc.GetString("deep-maintenance-ui-hud", ("room", _game.RoomIndex + 1), ("rooms", _game.RoomCount), ("floor", _game.Floor), ("coins", _game.Coins), ("keys", _game.Keys), ("bombs", _game.Bombs));
+        _hud.Text = Loc.GetString("deep-maintenance-ui-hud", ("room", _game.RoomIndex + 1), ("rooms", _game.RoomCount), ("floor", _game.Floor));
         _status.Text = _game.BossName == null
             ? _game.Status
             : $"{_game.Status} | {_game.BossName}: {_game.BossHp}/{_game.BossMaxHp}";
@@ -135,6 +135,14 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
     public void StopGameAudio()
     {
         _game.StopAllMusic();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+            _game.StopAllMusic();
+
+        base.Dispose(disposing);
     }
 
     private sealed partial class DeepMaintenanceGameControl : Control
@@ -196,7 +204,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private float _playerShootFacingResetTimer;
         private float _playerShootCooldown;
         private float _playerShootAnimationTimer;
-        private int _invulnerabilityTicks;
+        private float _invulnerabilityTimer;
         private bool _paused;
         private bool _gameOver;
         private bool _victory;
@@ -262,7 +270,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const int GridWidth = 12;
         private const int GridHeight = 11;
         private const float TickSeconds = 1f / 60f;
-        private const int InvulnerabilityTicks = 10;
+        private const float InvulnerabilityDuration = 1f;
         private const float DoorTransitionMargin = 0.05f;
         private const float DoorSpawnExclusionRadius = 2f;
         private const float DoorInnerSafeZoneDepth = 2f;
@@ -270,15 +278,21 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const float FacingResetDelaySeconds = 0.18f;
         private const float EnemyHitKnockback = 0.22f;
         private const float BossSpreadAngleDegrees = 22f;
-        private const int EnemyAggroDelayTicksMin = 3;
-        private const int EnemyAggroDelayTicksMax = 7;
-        private const int EnemyEscapeWallContactThreshold = 6;
-        private const int EnemyEscapeTicks = 8;
+        private const float EnemyAggroDelayMinSeconds = 0.3f;
+        private const float EnemyAggroDelayMaxSeconds = 0.7f;
+        private const float EnemyEscapeWallContactSeconds = 0.6f;
+        private const float EnemyEscapeDurationSeconds = 0.8f;
         private const float EnemyEscapeSpeedMultiplier = 1.22f;
         private const float ShootAnimationDuration = 0.14f;
         private const float EnemyVisionSamplesPerTile = 2.5f;
-        private const int EnemyAvoidanceLockTicks = 8;
+        private const float EnemyAvoidanceLockSeconds = 0.8f;
+        private const float EnemyStrafeSwapMinShooterSeconds = 0.6f;
+        private const float EnemyStrafeSwapMaxShooterSeconds = 1.4f;
+        private const float EnemyStrafeSwapMinChaserSeconds = 1.0f;
+        private const float EnemyStrafeSwapMaxChaserSeconds = 1.8f;
         private const float EnemyAvoidanceCheckDistance = 0.8f;
+        private const float EnemyMinShootCooldownSeconds = 0.4f;
+        private const float EnemyShootCooldownFloorReductionPerLevelSeconds = 0.05f;
 
         private const int MaxBombs = 99;
         private const int MaxKeys = 99;
@@ -301,7 +315,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const float TreasureObjectRadius = 0.34f;
         private const string TreasurePrototypeId = "TreasureConfig";
         private const float MeleeSwingDuration = 0.12f;
-        private const int TreasureEnemySpawnGraceTicks = 6;
+        private const float TreasureEnemySpawnGraceSeconds = 0.6f;
 
         private const int TotalFloors = 6;
         private const int FirstFloorMinRooms = 8;
@@ -540,7 +554,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _playerShootFacingResetTimer = 0f;
             _playerBodyFacing = FacingDirection.Down;
             _playerShootFacing = FacingDirection.Down;
-            _invulnerabilityTicks = 0;
+            _invulnerabilityTimer = 0f;
             _paused = false;
             _currentFloor = 1;
             _gameOver = false;

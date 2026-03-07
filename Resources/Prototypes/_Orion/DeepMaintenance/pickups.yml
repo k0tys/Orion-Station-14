@@ -22,6 +22,12 @@
   bombEnemyDamage: 10
   bombObjectDamageRadius: 1.3
   secretRevealBombRadius: 1.4
+  chainTriggerRadius: 1.15
+  canRevealSecretRooms: true
+  canOpenSpecialDoors: true
+  destroysMushrooms: true
+  destroysRocks: true
+  environmentDamage: 1.0
   bombExplosionVisualDuration: 0.28
   bombExplosionSound: /Audio/Effects/explosion1.ogg
 

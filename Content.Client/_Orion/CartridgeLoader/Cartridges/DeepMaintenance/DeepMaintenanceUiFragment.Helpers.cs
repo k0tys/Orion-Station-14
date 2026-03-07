@@ -200,8 +200,11 @@ public sealed partial class DeepMaintenanceUiFragment
             {
                 _doorPrototypes[RoomType.Normal] = _prototype.Index<DeepMaintenanceDoorPrototype>("DoorNormal");
                 _doorPrototypes[RoomType.Secret] = _doorPrototypes[RoomType.Normal];
+                _doorPrototypes[RoomType.SuperSecret] = _doorPrototypes[RoomType.Normal];
                 _doorPrototypes[RoomType.Treasure] = _prototype.Index<DeepMaintenanceDoorPrototype>("DoorTreasure");
                 _doorPrototypes[RoomType.Boss] = _prototype.Index<DeepMaintenanceDoorPrototype>("DoorBoss");
+                _doorPrototypes[RoomType.Devil] = _doorPrototypes[RoomType.Treasure];
+                _doorPrototypes[RoomType.Angel] = _doorPrototypes[RoomType.Treasure];
                 _doorPrototypes[RoomType.Start] = _doorPrototypes[RoomType.Normal];
                 return;
             }
@@ -214,9 +217,14 @@ public sealed partial class DeepMaintenanceUiFragment
 
             _doorPrototypes[RoomType.Normal] = _prototype.Index(floorConfig.DoorNormal);
             _doorPrototypes[RoomType.Secret] = _doorPrototypes[RoomType.Normal];
+            _doorPrototypes[RoomType.SuperSecret] = _doorPrototypes[RoomType.Normal];
             _doorPrototypes[RoomType.Treasure] = _prototype.Index(floorConfig.DoorTreasure);
             _doorPrototypes[RoomType.Boss] = _prototype.Index(floorConfig.DoorBoss);
+            _doorPrototypes[RoomType.Devil] = _doorPrototypes[RoomType.Treasure];
+            _doorPrototypes[RoomType.Angel] = _doorPrototypes[RoomType.Treasure];
             _doorPrototypes[RoomType.Start] = _doorPrototypes[RoomType.Normal];
+
+            _activeCurse = RollFloorCurse(floorConfig);
 
             WarmupSprite(_floorProto.SpritePath, _floorProto.SpriteState);
             WarmupSprite(_wallProto.SpritePath, _wallProto.SpriteState);
@@ -239,6 +247,55 @@ public sealed partial class DeepMaintenanceUiFragment
                 WarmupSprite(door.SpritePath, door.OpeningState);
                 WarmupSprite(door.SpritePath, door.ClosingState);
             }
+        }
+
+        private CurseType RollFloorCurse(DeepMaintenanceFloorPrototype floorConfig)
+        {
+            if (_random.NextDouble() > Math.Clamp(floorConfig.CurseChance, 0f, 1f))
+                return CurseType.None;
+
+            if (!TryChooseStringFromPool(floorConfig.CursePool, out var curseId))
+                return CurseType.None;
+
+            return Enum.TryParse<CurseType>(curseId, true, out var curse)
+                ? curse
+                : CurseType.None;
+        }
+
+        private bool TryChooseStringFromPool(List<DeepMaintenanceWeightedStringEntry> pool, out string id)
+        {
+            id = string.Empty;
+            if (pool.Count == 0)
+                return false;
+
+            var total = 0f;
+            foreach (var entry in pool)
+            {
+                if (entry.Weight <= 0f)
+                    continue;
+
+                total += entry.Weight;
+            }
+
+            if (total <= 0f)
+                return false;
+
+            var pick = _random.NextSingle() * total;
+            var acc = 0f;
+            foreach (var entry in pool)
+            {
+                if (entry.Weight <= 0f)
+                    continue;
+
+                acc += entry.Weight;
+                if (pick <= acc)
+                {
+                    id = entry.Id;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private DeepMaintenanceEntityPrototype ChooseEntityFromPool(List<DeepMaintenanceWeightedEntityEntry> pool, string fallbackPrototype)
@@ -420,7 +477,7 @@ public sealed partial class DeepMaintenanceUiFragment
 
                 var angle = _random.NextSingle() * MathF.PI * 2f;
                 var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                var velocity = direction * template.Velocity.Length();
+                var velocity = direction * template.PlanarVelocity.Length();
                 SpawnProjectile(_playerProjectiles, _playerPos, velocity, projectilePrototype, 1f, template.Damage, template.Tint, lifetime, heightScale);
             }
         }
@@ -527,6 +584,15 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private static ProjectileData SpawnProjectile(List<ProjectileData> container, Vector2 position, Vector2 velocity, DeepMaintenanceProjectilePrototype projectilePrototype, float radiusScale, float damage, Color tint, float? lifetimeOverride = null, float heightScale = 1f)
         {
+            var lifetime = lifetimeOverride ?? projectilePrototype.Lifetime;
+            var rangeScale = MathF.Max(0.2f, lifetime / MathF.Max(0.1f, projectilePrototype.Lifetime));
+            var gravityScale = MathF.Max(0.1f, projectilePrototype.GravityScale <= 0f ? 1f : projectilePrototype.GravityScale);
+            var gravity = projectilePrototype.Gravity * gravityScale / rangeScale;
+            var scaledArcHeight = MathF.Max(0f, projectilePrototype.ArcHeight) * heightScale * rangeScale;
+            var verticalVelocity = MathF.Max(0f, projectilePrototype.InitialVerticalVelocity) * heightScale;
+            if (projectilePrototype.BallisticEnabled && scaledArcHeight > 0f && gravity > 0f)
+                verticalVelocity = MathF.Max(verticalVelocity, MathF.Sqrt(2f * gravity * scaledArcHeight));
+
             var projectileRadius = MathF.Max(0.01f, projectilePrototype.HitboxWidth * 0.5f * radiusScale);
             var projectile = new ProjectileData(
                 position,
@@ -538,13 +604,16 @@ public sealed partial class DeepMaintenanceUiFragment
                 MathF.Max(0.01f, projectilePrototype.HitboxHeight * radiusScale),
                 new Vector2(projectilePrototype.HitboxOffsetX, projectilePrototype.HitboxOffsetY),
                 damage,
-                lifetimeOverride ?? projectilePrototype.Lifetime,
+                lifetime,
                 projectilePrototype.SpritePath,
                 projectilePrototype.SpriteState,
                 projectilePrototype.SpriteScale,
                 projectilePrototype,
                 tint,
-                heightScale);
+                heightScale,
+                projectilePrototype.InitialHeight * heightScale,
+                verticalVelocity,
+                gravity);
             container.Add(projectile);
             return projectile;
         }
@@ -715,6 +784,12 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void RevealConnectedRooms(int roomIndex)
         {
+            if (_activeCurse == CurseType.Lost)
+            {
+                _knownRooms.Add(roomIndex);
+                return;
+            }
+
             _knownRooms.Add(roomIndex);
             foreach (var neighbor in _rooms[roomIndex].Neighbors.Values)
             {
@@ -809,11 +884,16 @@ public sealed partial class DeepMaintenanceUiFragment
             _rooms.Clear();
             _visitedRooms.Clear();
             _knownRooms.Clear();
+            _specialBossRoomRolled = false;
             _roomKillDamageBonus = 0f;
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
             RoomIndex = 0;
             ApplyFloorTheme(_currentFloor);
+
+            if (_activeCurse == CurseType.Frail)
+                SetPlayerHealth(Math.Min(PlayerHp, Math.Max(1, MaxPlayerHp - 1)), Math.Max(1, MaxPlayerHp - 1));
+
             GenerateMap();
             EnterRoom(0, true);
             RebuildFamiliarsFromRelics();
@@ -1182,12 +1262,12 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private static HitboxData GetProjectileHitbox(ProjectileData projectile)
         {
-            return GetProjectileHitbox(projectile, projectile.Position);
+            return GetProjectileHitbox(projectile, projectile.CollisionPosition);
         }
 
         private static HitboxData GetProjectileHitbox(ProjectileData projectile, Vector2 position)
         {
-            var center = position + GetProjectileVisualDrop(projectile, position) + projectile.HitboxOffset;
+            var center = position + projectile.HitboxOffset;
             if (projectile.HitboxShape != DeepMaintenanceHitboxShape.Rectangle)
             {
                 return new HitboxData(DeepMaintenanceHitboxShape.Circle,

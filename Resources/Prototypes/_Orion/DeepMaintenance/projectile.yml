@@ -13,6 +13,20 @@
   spriteScale: 0.70
   drag: 0.7
   rotateToVelocity: true
+  ballisticEnabled: true
+  gravity: 1.5
+  initialHeight: 0
+  initialVerticalVelocity: 0
+  arcHeight: 0.12
+  maxHeight: 2.0
+  terminalFallSpeed: 10.5
+  landOnZeroHeight: true
+  collideOnlyWhenLow: true
+  collisionMaxHeight: 0.12
+  destroyOnLanding: true
+  impactOnLanding: true
+  shadowScaleByHeight: 0.26
+  spriteLiftMultiplier: 0.78
 
 - type: deepMaintenanceProjectile
   parent: ProjectileBase
@@ -29,3 +43,9 @@
   parent: ProjectileBase
   id: ProjectileBoss
   speed: 5.2
+  spectral: true
+  modifiers:
+  - type: Spiral
+    strength: 1.35
+  - type: Explosive
+    strength: 1.2

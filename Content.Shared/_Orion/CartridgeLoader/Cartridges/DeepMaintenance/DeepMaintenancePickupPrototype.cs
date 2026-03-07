@@ -57,6 +57,24 @@ public sealed class DeepMaintenancePickupPrototype : IPrototype, IInheritingProt
     public float SecretRevealBombRadius = 1.4f;
 
     [DataField]
+    public float ChainTriggerRadius = 1.05f;
+
+    [DataField]
+    public bool CanRevealSecretRooms = true;
+
+    [DataField]
+    public bool CanOpenSpecialDoors;
+
+    [DataField]
+    public bool DestroysMushrooms = true;
+
+    [DataField]
+    public bool DestroysRocks = true;
+
+    [DataField]
+    public float EnvironmentDamage = 1f;
+
+    [DataField]
     public float BombExplosionVisualDuration = 0.28f;
 
     [DataField]

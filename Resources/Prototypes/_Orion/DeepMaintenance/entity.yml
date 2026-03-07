@@ -9,10 +9,14 @@
   hitboxOffsetY: 0.20
   moveSpeed: 2.7
   moveAcceleration: 20
-  moveFriction: 18
+  moveDeceleration: 26
+  moveTurnAcceleration: 30
+  moveReverseAcceleration: 40
+  moveStopThreshold: 0.04
   maxHp: 10
   contactDamage: 1
   shooter: false
+  championEligible: true
   shootCooldownSeconds: 0.8
   projectilePrototype: ProjectileEnemy
   canStrafe: false
@@ -42,6 +46,10 @@
   shooter: true
   canStrafe: true
   shootCooldownSeconds: 1.5
+  attackPatterns:
+  - type: SingleShot
+  - type: DoubleShot
+    spreadAngle: 16
 
 # Player entity
 - type: deepMaintenanceEntity
@@ -61,7 +69,7 @@
   shootSpriteState: shoot
   emoteSpriteState: emote
   emoteDuration: 0.45
-  emoteSound: /Audio/Effects/pop_expl.ogg
+  emoteSound: /Audio/Effects/balloon-pop.ogg
 
 # Chaser
 - type: deepMaintenanceEntity
@@ -103,6 +111,14 @@
   bodySpriteState: body
   headSpriteState: head
   shootSpriteState: head
+  attackPatterns:
+  - type: SpreadCone
+    spreadAngle: 22
+  - type: RingBurst
+    shotCount: 8
+  - type: Spiral
+    angleStep: 18
+    burstDelay: 1.2
 
 # Familiar entities
 - type: deepMaintenanceEntity

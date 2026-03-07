@@ -130,6 +130,8 @@ public sealed partial class DeepMaintenanceUiFragment
             _bombExplosions.Add(new BombExplosionData(center, MathF.Max(0.05f, _bombPickupProto.BombExplosionVisualDuration)));
             PlaySfx(_bombPickupProto.BombExplosionSound, -6f);
 
+            TriggerBombChainReaction(center, MathF.Max(0.1f, _bombPickupProto.ChainTriggerRadius));
+
             ApplyBombExplosionKnockback(center);
 
             foreach (var enemy in CurrentRoom.Enemies)
@@ -144,7 +146,8 @@ public sealed partial class DeepMaintenanceUiFragment
                 enemy.DamageFlash = EntityDamageFlashDuration;
             }
 
-            RevealSecretDoorways(center);
+            if (_bombPickupProto.CanRevealSecretRooms)
+                RevealSecretDoorways(center);
 
             for (var y = 1; y < GridHeight - 1; y++)
             {
@@ -158,18 +161,36 @@ public sealed partial class DeepMaintenanceUiFragment
                     if (Vector2.Distance(tileCenter, center) > _bombPickupProto.BombObjectDamageRadius)
                         continue;
 
+                    if (tileType == TileType.Obstacle && !_bombPickupProto.DestroysRocks)
+                        continue;
+
+                    if (tileType == TileType.Mushroom && !_bombPickupProto.DestroysMushrooms)
+                        continue;
+
                     CurrentRoom.Tiles[x, y] = TileType.Floor;
                 }
+            }
+        }
+
+        private void TriggerBombChainReaction(Vector2 center, float radius)
+        {
+            for (var i = _activeBombs.Count - 1; i >= 0; i--)
+            {
+                var bomb = _activeBombs[i];
+                if (Vector2.DistanceSquared(bomb.Position, center) > radius * radius)
+                    continue;
+
+                bomb.Timer = MathF.Min(bomb.Timer, 0.02f);
             }
         }
 
         private void ApplyBombExplosionKnockback(Vector2 center)
         {
             var radius = MathF.Max(0.1f, _bombPickupProto.BombExplosionRadius);
-            var maxEnemyPush = 1.2f;
-            var maxPlayerPush = 1.35f;
-            var maxFamiliarPush = 1.1f;
-            var maxPickupPush = 1.0f;
+            const float maxEnemyPush = 1.2f;
+            const float maxPlayerPush = 1.35f;
+            const float maxFamiliarPush = 1.1f;
+            const float maxPickupPush = 1.0f;
 
             var playerPush = CalculateExplosionPush(_playerPos, center, radius, maxPlayerPush);
             if (playerPush != Vector2.Zero)
@@ -223,26 +244,36 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void HandlePickups()
         {
+            var hpCostRoom = CurrentRoom.Type == RoomType.Devil;
             for (var i = CurrentRoom.Pickups.Count - 1; i >= 0; i--)
             {
                 var pickup = CurrentRoom.Pickups[i];
                 if (pickup.SpawnTimer > 0f || Vector2.Distance(_playerPos, pickup.Position) > GetPickupRadius(pickup.Type))
                     continue;
 
+                if (hpCostRoom)
+                {
+                    var hpCost = pickup.Type == PickupType.Heart ? 1 : 2;
+                    if (PlayerHp <= hpCost)
+                        continue;
+
+                    SetPlayerHealth(PlayerHp - hpCost, MaxPlayerHp);
+                }
+
                 var picked = false;
                 switch (pickup.Type)
                 {
                     case PickupType.Coin:
-                        picked = TryAddResource(ResourceType.Coin, pickup.Amount);
+                        picked = hpCostRoom || TryAddResource(ResourceType.Coin, pickup.Amount);
                         break;
                     case PickupType.Bomb:
-                        picked = TryAddResource(ResourceType.Bomb, pickup.Amount);
+                        picked = hpCostRoom || TryAddResource(ResourceType.Bomb, pickup.Amount);
                         break;
                     case PickupType.Key:
-                        picked = TryAddResource(ResourceType.Key, pickup.Amount);
+                        picked = hpCostRoom || TryAddResource(ResourceType.Key, pickup.Amount);
                         break;
                     case PickupType.Heart:
-                        picked = TryAddHealth(pickup.Amount);
+                        picked = hpCostRoom || TryAddHealth(pickup.Amount);
                         break;
                 }
 
@@ -372,27 +403,130 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private void MovePlayer(float dt)
         {
-            var moveDirection = GetMoveDirection();
-            var targetVelocity = moveDirection * _playerProto.MoveSpeed;
-            var acceleration = MathF.Max(0f, _playerProto.MoveAcceleration);
-            var friction = MathF.Max(0f, _playerProto.MoveFriction);
-            var blend = moveDirection == Vector2.Zero
-                ? Math.Clamp(friction * dt, 0f, 1f)
-                : Math.Clamp(acceleration * dt, 0f, 1f);
+            _playerInputDirection = GetMoveDirection();
 
-            _playerVelocity = Vector2.Lerp(_playerVelocity, targetVelocity, blend);
-            if (_playerVelocity.LengthSquared() <= 0.0002f)
-                _playerVelocity = Vector2.Zero;
+            var maxSpeed = GetPlayerMoveMaxSpeed();
+            _playerDesiredVelocity = _playerInputDirection * maxSpeed;
+            _playerVelocity = UpdatePlayerVelocity(_playerVelocity, _playerDesiredVelocity, dt);
+
+            if (_activeCurse == CurseType.Turbulence)
+            {
+                var turbulence = new Vector2(
+                    MathF.Sin(_animationClock * 5.2f),
+                    MathF.Cos(_animationClock * 4.8f)) * 0.06f;
+                _playerVelocity += turbulence;
+            }
+
+            var displacement = _playerVelocity * dt;
+            _playerPos = MovePlayerWithWallSlide(_playerPos, displacement, dt);
 
             if (_playerVelocity != Vector2.Zero)
             {
-                _playerBodyFacing = FacingFromVector(_playerVelocity, _playerBodyFacing);
+                _playerLastMoveDirection = NormalizeSafe(_playerVelocity);
+                _playerBodyFacing = FacingFromVector(_playerLastMoveDirection, _playerBodyFacing);
                 _playerBodyFacingResetTimer = FacingResetDelaySeconds;
             }
 
-            var target = _playerPos + _playerVelocity * dt;
-            _playerPos = ResolveEntityTileCollision(target, _playerProto, CurrentRoom);
             TryRoomTransition();
+        }
+
+        private float GetPlayerMoveMaxSpeed()
+        {
+            var multiplier = GetPlayerMoveSpeedMultiplier();
+            return MathF.Max(0.1f, _playerProto.MoveSpeed * multiplier);
+        }
+
+        private float GetPlayerMoveSpeedMultiplier()
+        {
+            return 1f;
+        }
+
+        private Vector2 UpdatePlayerVelocity(Vector2 currentVelocity, Vector2 desiredVelocity, float dt)
+        {
+            var maxDelta = GetPlayerAccelerationStep(currentVelocity, desiredVelocity) * dt;
+            var velocity = MoveTowards(currentVelocity, desiredVelocity, MathF.Max(0f, maxDelta));
+            return ApplyStopThreshold(velocity);
+        }
+
+        private float GetPlayerAccelerationStep(Vector2 currentVelocity, Vector2 desiredVelocity)
+        {
+            var acceleration = MathF.Max(0f, _playerProto.MoveAcceleration);
+            var deceleration = MathF.Max(0f, _playerProto.MoveDeceleration);
+            var turnAcceleration = MathF.Max(acceleration, _playerProto.MoveTurnAcceleration);
+            var reverseAcceleration = MathF.Max(turnAcceleration, _playerProto.MoveReverseAcceleration);
+
+            if (desiredVelocity == Vector2.Zero)
+                return deceleration;
+
+            if (currentVelocity == Vector2.Zero)
+                return acceleration;
+
+            var desiredDir = Vector2.Normalize(desiredVelocity);
+            var currentDir = Vector2.Normalize(currentVelocity);
+            var alignment = Vector2.Dot(currentDir, desiredDir);
+            if (alignment < -0.15f)
+                return reverseAcceleration;
+
+            if (alignment < 0.65f)
+                return turnAcceleration;
+
+            return acceleration;
+        }
+
+        private Vector2 MovePlayerWithWallSlide(Vector2 position, Vector2 displacement, float dt)
+        {
+            if (displacement == Vector2.Zero)
+                return position;
+
+            var start = position;
+            var afterX = position;
+            if (MathF.Abs(displacement.X) > 0.0001f)
+            {
+                var moved = ResolveEntityTileCollision(position + new Vector2(displacement.X, 0f), _playerProto, CurrentRoom);
+                afterX = new Vector2(moved.X, position.Y);
+                if (MathF.Abs(afterX.X - (position.X + displacement.X)) > 0.0001f)
+                    _playerVelocity = _playerVelocity with { X = 0f };
+            }
+
+            var afterY = afterX;
+            if (MathF.Abs(displacement.Y) > 0.0001f)
+            {
+                var moved = ResolveEntityTileCollision(afterX + new Vector2(0f, displacement.Y), _playerProto, CurrentRoom);
+                afterY = new Vector2(afterX.X, moved.Y);
+                if (MathF.Abs(afterY.Y - (afterX.Y + displacement.Y)) > 0.0001f)
+                    _playerVelocity = _playerVelocity with { Y = 0f };
+            }
+
+            var finalPos = ResolveEntityTileCollision(afterY, _playerProto, CurrentRoom);
+            if (Vector2.DistanceSquared(start, finalPos) <= 0.0000005f && _playerInputDirection != Vector2.Zero)
+                _playerVelocity = ApplyStopThreshold(_playerVelocity * MathF.Max(0f, 1f - dt * 30f));
+
+            return finalPos;
+        }
+
+        private Vector2 ApplyStopThreshold(Vector2 velocity)
+        {
+            var stopThreshold = MathF.Max(0.001f, _playerProto.MoveStopThreshold);
+            if (MathF.Abs(velocity.X) < stopThreshold)
+                velocity = velocity with { X = 0f };
+
+            if (MathF.Abs(velocity.Y) < stopThreshold)
+                velocity = velocity with { Y = 0f };
+
+            return velocity;
+        }
+
+        private static Vector2 MoveTowards(Vector2 current, Vector2 target, float maxDelta)
+        {
+            if (maxDelta <= 0f)
+                return current;
+
+            var delta = target - current;
+            var distance = delta.Length();
+            if (distance <= maxDelta || distance <= 0.0001f)
+                return target;
+
+            return current + delta / distance * maxDelta;
         }
 
         private void HandleHeldShootKeys()
@@ -664,7 +798,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 return false;
 
             enemy.EscapeTimer = MathF.Max(0f, enemy.EscapeTimer - dt);
-            var velocity = pushAway * enemy.Prototype.MoveSpeed * EnemyEscapeSpeedMultiplier * dt;
+            var velocity = pushAway * enemy.Prototype.MoveSpeed * enemy.ChampionSpeedMultiplier * EnemyEscapeSpeedMultiplier * dt;
             enemy.BodyFacing = FacingFromVector(pushAway, enemy.BodyFacing);
             var target = enemy.Position + velocity;
             enemy.Position = ResolveEntityTileCollision(target, enemy.Prototype, CurrentRoom);
@@ -700,7 +834,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
 
             enemy.BodyFacing = FacingFromVector(chosenDirection, enemy.BodyFacing);
-            var target = enemy.Position + chosenDirection * enemy.Prototype.MoveSpeed * speedScale * dt;
+            var target = enemy.Position + chosenDirection * enemy.Prototype.MoveSpeed * enemy.ChampionSpeedMultiplier * speedScale * dt;
             enemy.Position = ResolveEntityTileCollision(target, enemy.Prototype, CurrentRoom);
         }
 
@@ -778,6 +912,13 @@ public sealed partial class DeepMaintenanceUiFragment
             var projectilePrototype = _prototype.Index<DeepMaintenanceProjectilePrototype>(enemy.Prototype.ProjectilePrototype);
             var baseVelocity = directionToPlayer * projectilePrototype.Speed;
 
+            if (enemy.Prototype.AttackPatterns.Count > 0)
+            {
+                var pattern = enemy.Prototype.AttackPatterns[_random.Next(enemy.Prototype.AttackPatterns.Count)];
+                ExecuteEnemyAttackPattern(enemy, projectilePrototype, baseVelocity, pattern);
+                return;
+            }
+
             SpawnProjectile(_enemyProjectiles, enemy.Position, baseVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
 
             if (!enemy.Prototype.IsBoss)
@@ -788,6 +929,67 @@ public sealed partial class DeepMaintenanceUiFragment
             var rightVelocity = Rotate(baseVelocity, angle);
             SpawnProjectile(_enemyProjectiles, enemy.Position, leftVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
             SpawnProjectile(_enemyProjectiles, enemy.Position, rightVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+        }
+
+        private void ExecuteEnemyAttackPattern(EnemyData enemy, DeepMaintenanceProjectilePrototype projectilePrototype, Vector2 baseVelocity, DeepMaintenanceAttackPatternEntry pattern)
+        {
+            var patternType = pattern.Type.Trim().ToLowerInvariant();
+            switch (patternType)
+            {
+                case "tripleshot":
+                case "spreadcone":
+                {
+                    var spread = MathF.Max(2f, pattern.SpreadAngle) * MathF.PI / 180f;
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, Rotate(baseVelocity, -spread), projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, baseVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, Rotate(baseVelocity, spread), projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    return;
+                }
+                case "radialburst":
+                case "ringburst":
+                {
+                    var count = Math.Max(4, pattern.ShotCount);
+                    for (var i = 0; i < count; i++)
+                    {
+                        var angle = i / (float) count * MathF.Tau;
+                        var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                        SpawnProjectile(_enemyProjectiles, enemy.Position, direction * projectilePrototype.Speed, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    }
+
+                    return;
+                }
+                case "spiral":
+                {
+                    var step = MathF.Max(6f, pattern.AngleStep) * MathF.PI / 180f;
+                    var rotate = (_animationClock * MathF.Max(0.2f, pattern.BurstDelay)) % MathF.Tau;
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, Rotate(baseVelocity, rotate), projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, Rotate(baseVelocity, rotate + step), projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    return;
+                }
+                case "doubleshot":
+                case "alternatingspray":
+                {
+                    var spread = MathF.Max(2f, pattern.SpreadAngle) * 0.5f * MathF.PI / 180f;
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, Rotate(baseVelocity, -spread), projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, Rotate(baseVelocity, spread), projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    return;
+                }
+                case "shotgun":
+                {
+                    var count = Math.Max(3, pattern.ShotCount);
+                    var spread = MathF.Max(8f, pattern.SpreadAngle) * MathF.PI / 180f;
+                    for (var i = 0; i < count; i++)
+                    {
+                        var t = count == 1 ? 0f : i / (float) (count - 1) - 0.5f;
+                        SpawnProjectile(_enemyProjectiles, enemy.Position, Rotate(baseVelocity, t * spread), projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    }
+
+                    return;
+                }
+                default:
+                    SpawnProjectile(_enemyProjectiles, enemy.Position, baseVelocity, projectilePrototype, 1f, projectilePrototype.Damage, Color.White);
+                    return;
+            }
         }
 
         private void ResolveEntityCollisions(List<EnemyData> enemies)
@@ -826,20 +1028,24 @@ public sealed partial class DeepMaintenanceUiFragment
             for (var i = projectiles.Count - 1; i >= 0; i--)
             {
                 var projectile = projectiles[i];
-                projectile.PreviousPosition = projectile.Position;
-                projectile.Velocity *= MathF.Max(0f, 1f - projectile.Prototype.Drag * dt);
-                projectile.Position += projectile.Velocity * dt;
+                TickProjectileBallistics(projectile, dt);
+                projectile.TimeSinceSpawn += dt;
                 projectile.Lifetime -= dt;
 
                 if (projectile.Lifetime <= 0f)
                 {
+                    TrySplitProjectileOnDeath(projectiles, projectile);
                     projectiles.RemoveAt(i);
                     continue;
                 }
 
+                if (!CanProjectileCollide(projectile))
+                    continue;
+
                 var projectileHitbox = GetProjectileHitbox(projectile);
-                if (!InsideMap(projectileHitbox.Center) || IsSolid(projectileHitbox.Center, CurrentRoom))
+                if (!InsideMap(projectile.GroundPosition) || !projectile.Spectral && IsSolid(projectile.CollisionPosition, CurrentRoom))
                 {
+                    TrySplitProjectileOnDeath(projectiles, projectile);
                     PlaySfx(SfxProjectileHit, -12f);
                     projectiles.RemoveAt(i);
                     continue;
@@ -847,24 +1053,174 @@ public sealed partial class DeepMaintenanceUiFragment
 
                 if (playerProjectile)
                 {
-                    if (!TryHitEnemy(projectile, projectileHitbox))
+                    if (TryHitEnemy(projectile, projectileHitbox))
+                    {
+                        projectiles.RemoveAt(i);
                         continue;
+                    }
 
-                    projectiles.RemoveAt(i);
+                    if (projectile.HasLanded && projectile.DestroyOnLanding)
+                    {
+                        TrySplitProjectileOnDeath(projectiles, projectile);
+                        if (projectile.ImpactOnLanding)
+                            PlaySfx(SfxProjectileHit, -12f);
+
+                        projectiles.RemoveAt(i);
+                        continue;
+                    }
+
                     continue;
                 }
 
                 var playerHitbox = GetEntityHitbox(_playerProto, _playerPos);
                 if (!HitboxesOverlap(projectileHitbox, playerHitbox))
+                {
+                    if (projectile.HasLanded && projectile.DestroyOnLanding)
+                    {
+                        TrySplitProjectileOnDeath(projectiles, projectile);
+                        if (projectile.ImpactOnLanding)
+                            PlaySfx(SfxProjectileHit, -12f);
+
+                        projectiles.RemoveAt(i);
+                    }
+
                     continue;
+                }
 
                 if (TryBluespaceProjectileBlock(projectile, projectiles, i))
                     continue;
 
                 DamagePlayer();
+                if (projectile.Explosive)
+                    ExplodeBomb(projectile.CollisionPosition);
                 PlaySfx(SfxProjectileHit, -10f);
                 projectiles.RemoveAt(i);
             }
+        }
+
+        private void TickProjectileBallistics(ProjectileData projectile, float dt)
+        {
+            projectile.PreviousGroundPosition = projectile.GroundPosition;
+            projectile.PreviousCollisionPosition = projectile.CollisionPosition;
+            projectile.PreviousHeight = projectile.Height;
+
+            projectile.PlanarVelocity *= MathF.Max(0f, 1f - projectile.Prototype.Drag * projectile.HeavyMultiplier * dt);
+
+            if (projectile.Boomerang && projectile.TimeSinceSpawn > projectile.InitialLifetime * 0.45f)
+            {
+                var toSource = NormalizeSafe(projectile.SourcePosition - projectile.GroundPosition);
+                if (toSource != Vector2.Zero)
+                    projectile.PlanarVelocity = Vector2.Lerp(projectile.PlanarVelocity, toSource * MathF.Max(0.5f, projectile.InitialPlanarSpeed), Math.Clamp(projectile.ModifierStrength * dt, 0f, 1f));
+            }
+
+            if (projectile.SpiralTurnRate > 0f)
+                projectile.PlanarVelocity = Rotate(projectile.PlanarVelocity, projectile.SpiralTurnRate * dt);
+
+            if (projectile.SinWaveAmplitude > 0f)
+            {
+                var normal = new Vector2(-projectile.Direction.Y, projectile.Direction.X);
+                projectile.GroundPosition += normal * MathF.Sin(projectile.TimeSinceSpawn * projectile.SinWaveFrequency * MathF.Tau) * projectile.SinWaveAmplitude * dt;
+            }
+
+            projectile.GroundPosition += projectile.PlanarVelocity * dt;
+
+            if (projectile.PlanarVelocity.LengthSquared() > 0.0001f)
+                projectile.Direction = Vector2.Normalize(projectile.PlanarVelocity);
+
+            if (projectile.HomingStrength > 0f)
+            {
+                var nearest = FindNearestHomingTarget(projectile.CollisionPosition);
+                if (nearest != null)
+                {
+                    var toTarget = NormalizeSafe(nearest.Position - projectile.CollisionPosition);
+                    if (toTarget != Vector2.Zero)
+                    {
+                        var targetVelocity = toTarget * MathF.Max(0.6f, projectile.PlanarVelocity.Length());
+                        projectile.PlanarVelocity = Vector2.Lerp(projectile.PlanarVelocity, targetVelocity, Math.Clamp(projectile.HomingStrength * dt, 0f, 1f));
+                    }
+                }
+            }
+
+            if (projectile.BallisticEnabled && !projectile.HasLanded)
+            {
+                projectile.VerticalVelocity -= projectile.Gravity * dt;
+                if (projectile.TerminalFallSpeed > 0f)
+                    projectile.VerticalVelocity = MathF.Max(-projectile.TerminalFallSpeed, projectile.VerticalVelocity);
+
+                projectile.Height += projectile.VerticalVelocity * dt;
+                var maxHeight = MathF.Max(0f, projectile.Prototype.MaxHeight * projectile.HeightScale);
+                if (maxHeight > 0f && projectile.Height > maxHeight)
+                {
+                    projectile.Height = maxHeight;
+                    projectile.VerticalVelocity = MathF.Min(0f, projectile.VerticalVelocity);
+                }
+
+                if (projectile.LandOnZeroHeight && projectile.Height <= 0f)
+                {
+                    projectile.Height = 0f;
+                    projectile.VerticalVelocity = 0f;
+                    projectile.HasLanded = true;
+                }
+            }
+
+            projectile.CollisionPosition = projectile.GroundPosition;
+        }
+
+        private EnemyData? FindNearestHomingTarget(Vector2 from)
+        {
+            EnemyData? nearest = null;
+            var nearestDist = float.MaxValue;
+            foreach (var enemy in CurrentRoom.Enemies)
+            {
+                if (enemy.Hp <= 0)
+                    continue;
+
+                var dist = Vector2.DistanceSquared(enemy.Position, from);
+                if (dist >= nearestDist)
+                    continue;
+
+                nearestDist = dist;
+                nearest = enemy;
+            }
+
+            return nearest;
+        }
+
+        private void TrySplitProjectileOnDeath(List<ProjectileData> projectiles, ProjectileData projectile)
+        {
+            if (!projectile.SplitOnDeath || projectile.SplitCount <= 1)
+                return;
+
+            SpawnSplitProjectiles(projectiles, projectile);
+        }
+
+        private void SpawnSplitProjectiles(List<ProjectileData> projectiles, ProjectileData projectile)
+        {
+            var count = Math.Clamp(projectile.SplitCount, 2, 8);
+            var speed = MathF.Max(1f, projectile.InitialPlanarSpeed * 0.75f);
+            for (var s = 0; s < count; s++)
+            {
+                var angle = s / (float) count * MathF.Tau;
+                var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                var split = SpawnProjectile(projectiles, projectile.CollisionPosition, direction * speed, projectile.Prototype, 0.8f, projectile.Damage * 0.55f, projectile.Tint, MathF.Max(0.15f, projectile.Lifetime * 0.45f), projectile.HeightScale);
+                split.SplitOnDeath = false;
+                split.SplitOnHit = false;
+                split.SplitCount = 0;
+            }
+        }
+
+        private static bool CanProjectileCollide(ProjectileData projectile)
+        {
+            if (!projectile.BallisticEnabled)
+                return true;
+
+            if (projectile.HasLanded)
+                return true;
+
+            if (!projectile.CollideOnlyWhenLow)
+                return true;
+
+            return projectile.Height <= projectile.CollisionMaxHeight;
         }
 
         private bool TryHitEnemy(ProjectileData projectile, HitboxData projectileHitbox)
@@ -877,8 +1233,21 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (!HitboxesOverlap(projectileHitbox, GetEntityHitbox(enemy.Prototype, enemy.Position)))
                     continue;
 
-                enemy.Hp -= (int) MathF.Ceiling(projectile.Damage);
+                var damage = projectile.Damage;
+                if (enemy.IsChampion)
+                    damage *= enemy.ChampionDamageMultiplier;
+
+                enemy.Hp -= (int) MathF.Ceiling(damage);
                 enemy.DamageFlash = EntityDamageFlashDuration;
+
+                if (projectile.Explosive)
+                    ExplodeBomb(projectile.CollisionPosition);
+
+                if (projectile.SplitOnHit)
+                    SpawnSplitProjectiles(_playerProjectiles, projectile);
+
+                if (projectile.Sticky)
+                    projectile.PlanarVelocity *= 0.2f;
 
                 if (projectile.FreezeOnHit && _random.NextDouble() < projectile.FreezeChance && (projectile.FreezeBosses || !enemy.Prototype.IsBoss))
                 {
@@ -897,6 +1266,14 @@ public sealed partial class DeepMaintenanceUiFragment
                     PlaySfx(SfxEnemyDeath, -7f);
                 else
                     PlaySfx(SfxProjectileHit, -11f);
+
+                if (projectile.Piercing)
+                {
+                    if (projectile.RemainingPierces > 0)
+                        projectile.RemainingPierces--;
+
+                    return projectile.RemainingPierces <= 0;
+                }
 
                 return true;
             }
@@ -941,7 +1318,18 @@ public sealed partial class DeepMaintenanceUiFragment
                 enemy.DeathHandled = true;
                 ApplyOnKillDamageBonuses();
                 SpawnEnemyDeathBurstProjectiles(enemy);
+                HandleChampionDeath(enemy);
             }
+        }
+
+        private void HandleChampionDeath(EnemyData enemy)
+        {
+            if (!enemy.IsChampion)
+                return;
+
+            SpawnPickup(CurrentRoom, PickupType.Coin, 1, enemy.Position, 0f);
+            if (enemy.ChampionType.Equals("ExplosiveOnDeath", StringComparison.OrdinalIgnoreCase))
+                ExplodeBomb(enemy.Position);
         }
 
         private void ApplyOnKillDamageBonuses()
@@ -1218,6 +1606,27 @@ public sealed partial class DeepMaintenanceUiFragment
                     }
                 }
             }
+
+            SnapFamiliarsNearPlayer();
+        }
+
+        private void SnapFamiliarsNearPlayer()
+        {
+            if (_familiars.Count == 0)
+                return;
+
+            var step = MathF.Tau / _familiars.Count;
+            for (var i = 0; i < _familiars.Count; i++)
+            {
+                var familiar = _familiars[i];
+                var offsetRadius = familiar.Config.Behavior is DeepMaintenanceFamiliarBehavior.Orbit or DeepMaintenanceFamiliarBehavior.Shield
+                    ? MathF.Max(0.55f, familiar.Config.FollowDistance)
+                    : 0.45f;
+                var angle = i * step + familiar.BobOffset * 0.3f;
+                var target = _playerPos + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * offsetRadius;
+                familiar.Position = ResolveCircleTileCollision(target, FamiliarCollisionRadius, CurrentRoom);
+                familiar.Velocity = Vector2.Zero;
+            }
         }
 
         private void HandleFamiliarRoomRewards()
@@ -1311,15 +1720,19 @@ public sealed partial class DeepMaintenanceUiFragment
         private void TickFollowerFamiliar(FamiliarData familiar, float dt)
         {
             var entityPrototype = GetFamiliarBehaviorPrototype(familiar.Config.Behavior);
-            var moveInput = GetMoveDirection();
+            var moveInput = _playerInputDirection;
             var playerDirection = moveInput == Vector2.Zero ? NormalizeSafe(_lastPlayerShotDirection) : NormalizeSafe(moveInput);
             var lagDistance = MathF.Max(0.05f, entityPrototype.FollowLag);
-            var targetPos = _playerPos - playerDirection * lagDistance;
+            var targetPos = ResolveCircleTileCollision(_playerPos - playerDirection * lagDistance, FamiliarCollisionRadius, CurrentRoom);
             var delta = targetPos - familiar.Position;
             familiar.Velocity += delta * MathF.Max(FamiliarFollowAcceleration, entityPrototype.FollowSpeed * 4f) * dt;
             familiar.Velocity *= MathF.Pow(FamiliarFollowDamping, dt * 60f);
             var desiredPosition = familiar.Position + familiar.Velocity * dt;
-            familiar.Position = MoveFamiliarWithCollision(familiar.Position, desiredPosition, FamiliarCollisionRadius, CurrentRoom);
+            var resolved = MoveFamiliarWithCollision(familiar.Position, desiredPosition, FamiliarCollisionRadius, CurrentRoom);
+            if (Vector2.DistanceSquared(resolved, desiredPosition) > 0.003f)
+                familiar.Velocity *= 0.35f;
+
+            familiar.Position = resolved;
         }
 
         private void TickAttackFamiliar(FamiliarData familiar, float dt)
@@ -1334,15 +1747,20 @@ public sealed partial class DeepMaintenanceUiFragment
             var entityPrototype = GetFamiliarBehaviorPrototype(familiar.Config.Behavior);
             var direction = NormalizeSafe(target.Position - familiar.Position);
             familiar.Velocity = direction * MathF.Max(FamiliarAttackSpeed, entityPrototype.FollowSpeed);
-            familiar.Position = MoveFamiliarWithCollision(familiar.Position, familiar.Position + familiar.Velocity * dt, FamiliarCollisionRadius, CurrentRoom);
+            var desiredPosition = familiar.Position + familiar.Velocity * dt;
+            var resolved = MoveFamiliarWithCollision(familiar.Position, desiredPosition, FamiliarCollisionRadius, CurrentRoom);
+            if (Vector2.DistanceSquared(resolved, desiredPosition) > 0.003f)
+                familiar.Velocity *= 0.4f;
+
+            familiar.Position = resolved;
         }
 
         private void TickShieldFamiliar(FamiliarData familiar, float dt)
         {
-            var blockRadius = FamiliarOrbitalHitRadius + FamiliarCollisionRadius;
+            const float blockRadius = FamiliarOrbitalHitRadius + FamiliarCollisionRadius;
             for (var i = _enemyProjectiles.Count - 1; i >= 0; i--)
             {
-                if (Vector2.DistanceSquared(_enemyProjectiles[i].Position, familiar.Position) > blockRadius * blockRadius)
+                if (Vector2.DistanceSquared(_enemyProjectiles[i].GroundPosition, familiar.Position) > blockRadius * blockRadius)
                     continue;
 
                 _enemyProjectiles.RemoveAt(i);
@@ -1474,7 +1892,7 @@ public sealed partial class DeepMaintenanceUiFragment
 
                 for (var i = _enemyProjectiles.Count - 1; i >= 0; i--)
                 {
-                    if (Vector2.DistanceSquared(_enemyProjectiles[i].Position, familiar.Position) > FamiliarOrbitalHitRadius * FamiliarOrbitalHitRadius)
+                    if (Vector2.DistanceSquared(_enemyProjectiles[i].GroundPosition, familiar.Position) > FamiliarOrbitalHitRadius * FamiliarOrbitalHitRadius)
                         continue;
 
                     _enemyProjectiles.RemoveAt(i);
@@ -1642,8 +2060,9 @@ public sealed partial class DeepMaintenanceUiFragment
                 return false;
 
             source.RemoveAt(index);
-            var dir = NormalizeSafe(projectile.Position - _playerPos);
-            projectile.Velocity = dir * MathF.Max(0.5f, projectile.Velocity.Length());
+            var dir = NormalizeSafe(projectile.GroundPosition - _playerPos);
+            projectile.PlanarVelocity = dir * MathF.Max(0.5f, projectile.PlanarVelocity.Length());
+            projectile.Direction = dir;
             _playerProjectiles.Add(projectile);
             return true;
         }
@@ -1716,12 +2135,13 @@ public sealed partial class DeepMaintenanceUiFragment
             for (var i = _enemyProjectiles.Count - 1; i >= 0; i--)
             {
                 var projectile = _enemyProjectiles[i];
-                if (Vector2.Distance(projectile.Position, center) > radius)
+                if (Vector2.Distance(projectile.GroundPosition, center) > radius)
                     continue;
 
                 _enemyProjectiles.RemoveAt(i);
-                var direction = NormalizeSafe(projectile.Position - _playerPos);
-                projectile.Velocity = direction * MathF.Max(0.5f, projectile.Velocity.Length());
+                var direction = NormalizeSafe(projectile.GroundPosition - _playerPos);
+                projectile.PlanarVelocity = direction * MathF.Max(0.5f, projectile.PlanarVelocity.Length());
+                projectile.Direction = direction;
                 _playerProjectiles.Add(projectile);
             }
         }
@@ -1866,15 +2286,98 @@ public sealed partial class DeepMaintenanceUiFragment
             {
                 _floorExitSpawned = true;
                 _floorExitPosition = GetRoomCenter();
+                TrySpawnPostBossSpecialRoom(room);
             }
+        }
+
+        private void TrySpawnPostBossSpecialRoom(RoomData bossRoom)
+        {
+            if (_specialBossRoomRolled)
+                return;
+
+            _specialBossRoomRolled = true;
+            var devilChance = Math.Clamp(_activeFloorConfig?.DevilRoomChance ?? 0f, 0f, 1f);
+            var angelChance = Math.Clamp(_activeFloorConfig?.AngelRoomChance ?? 0f, 0f, 1f);
+            if (_devilRoomOffered)
+                devilChance *= 0.5f;
+            if (_angelRoomOffered)
+                angelChance *= 0.5f;
+
+            var roll = _random.NextDouble();
+            var type = roll < angelChance
+                ? RoomType.Angel
+                : roll < angelChance + devilChance
+                    ? RoomType.Devil
+                    : (RoomType?) null;
+            if (type == null)
+                return;
+
+            if (!TryAttachSpecialRoomToBoss(bossRoom, type.Value))
+                return;
+
+            if (type == RoomType.Devil)
+                _devilRoomOffered = true;
+            else
+                _angelRoomOffered = true;
+        }
+
+        private bool TryAttachSpecialRoomToBoss(RoomData bossRoom, RoomType type)
+        {
+            foreach (var direction in CardinalDirections())
+            {
+                var candidatePos = bossRoom.MapPosition + direction;
+                if (_rooms.Any(r => r.MapPosition == candidatePos))
+                    continue;
+
+                var specialRoom = new RoomData(type, candidatePos, BuildTileMap(type))
+                {
+                    Cleared = false,
+                    DoorTargetOpen = true,
+                    DoorVisualOpen = true,
+                };
+
+                if (type == RoomType.Devil)
+                    SpawnPickup(specialRoom, PickupType.Heart, 2, GetRoomCenter() + new Vector2(-0.8f, 0f), 0f);
+                else
+                    SpawnPickup(specialRoom, PickupType.Key, 1, GetRoomCenter() + new Vector2(0.8f, 0f), 0f);
+
+                var newIndex = _rooms.Count;
+                _rooms.Add(specialRoom);
+                bossRoom.Neighbors[direction] = newIndex;
+                AddDoorway(bossRoom, direction);
+
+                var reverse = new Vector2i(-direction.X, -direction.Y);
+                specialRoom.Neighbors[reverse] = _rooms.IndexOf(bossRoom);
+                AddDoorway(specialRoom, reverse);
+                return true;
+            }
+
+            return false;
         }
 
         private void SpawnRoomClearRewards(RoomData room)
         {
+            if (room.Type == RoomType.SuperSecret)
+            {
+                SpawnPickup(room, PickupType.Key, 1, GetRoomCenter() + new Vector2(-0.4f, 0f), 0f);
+                SpawnPickup(room, PickupType.Heart, 2, GetRoomCenter() + new Vector2(0.4f, 0f), 0f);
+                return;
+            }
+
+            if (room.Type == RoomType.Secret)
+            {
+                SpawnPickup(room, PickupType.Bomb, 1, GetRoomCenter(), 0f);
+                return;
+            }
+
             if (room.Type is RoomType.Treasure or RoomType.Shop)
                 return;
 
-            if (_random.NextDouble() > _activeFloorConfig.RoomClearRewardChance)
+            var rewardChance = _activeFloorConfig.RoomClearRewardChance;
+            if (_activeCurse == CurseType.Scarcity)
+                rewardChance *= 0.65f;
+
+            if (_random.NextDouble() > rewardChance)
                 return;
 
             var minCoins = Math.Max(0, _activeFloorConfig?.RoomClearCoinMin ?? 1);
@@ -2058,7 +2561,7 @@ public sealed partial class DeepMaintenanceUiFragment
             if (leftEdge < DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(-1, 0), out var left) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(-1, 0), out var ln) || !_rooms[ln].IsSecret || _rooms[ln].Cleared))
             {
                 HandleRoomCompletionTransition(room);
-                EnterRoom(left, false);
+                EnterRoom(ResolveTransitionRoom(left, room), false);
                 _playerPos = _playerPos with { X = GridWidth - 1f - hitboxHalfExtents.X - _playerProto.HitboxOffsetX };
                 return;
             }
@@ -2066,7 +2569,7 @@ public sealed partial class DeepMaintenanceUiFragment
             if (rightEdge > GridWidth - DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(1, 0), out var right) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(1, 0), out var rn) || !_rooms[rn].IsSecret || _rooms[rn].Cleared))
             {
                 HandleRoomCompletionTransition(room);
-                EnterRoom(right, false);
+                EnterRoom(ResolveTransitionRoom(right, room), false);
                 _playerPos = _playerPos with { X = 1f + hitboxHalfExtents.X - _playerProto.HitboxOffsetX };
                 return;
             }
@@ -2074,7 +2577,7 @@ public sealed partial class DeepMaintenanceUiFragment
             if (topEdge < DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(0, -1), out var up) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, -1), out var un) || !_rooms[un].IsSecret || _rooms[un].Cleared))
             {
                 HandleRoomCompletionTransition(room);
-                EnterRoom(up, false);
+                EnterRoom(ResolveTransitionRoom(up, room), false);
                 _playerPos = _playerPos with { Y = GridHeight - 1f - hitboxHalfExtents.Y - _playerProto.HitboxOffsetY };
                 return;
             }
@@ -2082,9 +2585,33 @@ public sealed partial class DeepMaintenanceUiFragment
             if (bottomEdge > GridHeight - DoorTransitionMargin && room.Neighbors.TryGetValue(new Vector2i(0, 1), out var down) && (!CurrentRoom.Neighbors.TryGetValue(new Vector2i(0, 1), out var dn) || !_rooms[dn].IsSecret || _rooms[dn].Cleared))
             {
                 HandleRoomCompletionTransition(room);
-                EnterRoom(down, false);
+                EnterRoom(ResolveTransitionRoom(down, room), false);
                 _playerPos = _playerPos with { Y = 1f + hitboxHalfExtents.Y - _playerProto.HitboxOffsetY };
             }
+        }
+
+        private int ResolveTransitionRoom(int intendedRoom, RoomData fromRoom)
+        {
+            if (_activeCurse != CurseType.Maze)
+                return intendedRoom;
+
+            var candidates = new List<int>();
+            foreach (var neighbor in fromRoom.Neighbors.Values)
+            {
+                if (neighbor == intendedRoom)
+                    continue;
+
+                var room = _rooms[neighbor];
+                if (room.IsSecret && !room.Cleared)
+                    continue;
+
+                candidates.Add(neighbor);
+            }
+
+            if (candidates.Count == 0 || _random.NextDouble() > 0.45)
+                return intendedRoom;
+
+            return candidates[_random.Next(candidates.Count)];
         }
 
         private void EnterRoom(int roomIndex, bool centerPlayer)
@@ -2094,6 +2621,8 @@ public sealed partial class DeepMaintenanceUiFragment
             _knownRooms.Add(roomIndex);
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
+            _playerInputDirection = Vector2.Zero;
+            _playerDesiredVelocity = Vector2.Zero;
             _playerVelocity = Vector2.Zero;
             _tookDamageInRoom = false;
             _electroRakRoomFireRateBonus = 0f;
@@ -2104,6 +2633,8 @@ public sealed partial class DeepMaintenanceUiFragment
 
             if (centerPlayer)
                 _playerPos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
+
+            SnapFamiliarsNearPlayer();
 
             var room = CurrentRoom;
             UpdateRoomMusic(room);
@@ -2160,10 +2691,19 @@ public sealed partial class DeepMaintenanceUiFragment
                 _ => baseLight,
             };
 
+            if (_activeCurse == CurseType.Darkness)
+                baseLight *= 0.72f;
+
             _roomBaseLight = Math.Clamp(baseLight, 0.05f, 1f);
             _roomVignetteStrength = Math.Clamp(_activeFloorConfig?.VignetteStrength ?? 0.2f, 0f, 0.8f);
             _playerLightRadius = Math.Clamp(_activeFloorConfig?.PlayerLightRadius ?? 3.8f, 1.2f, 8f);
             _playerLightStrength = Math.Clamp(_activeFloorConfig?.PlayerLightStrength ?? 0.5f, 0f, 1f);
+
+            if (_activeCurse == CurseType.Darkness)
+            {
+                _roomVignetteStrength = Math.Clamp(_roomVignetteStrength + 0.18f, 0f, 0.9f);
+                _playerLightRadius = Math.Clamp(_playerLightRadius * 0.8f, 1f, 8f);
+            }
         }
 
         private void GenerateMap()
@@ -2247,6 +2787,7 @@ public sealed partial class DeepMaintenanceUiFragment
             }
 
             TryAddSecretRoom(indexByPos, positions);
+            TryAddSuperSecretRoom(indexByPos, positions);
             EnsureBossRoomSingleConnection();
             EnsureBossReachabilityFromStart();
 

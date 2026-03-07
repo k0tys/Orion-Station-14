@@ -241,9 +241,24 @@ public sealed partial class DeepMaintenanceUiFragment
             Start,
             Normal,
             Secret,
+            SuperSecret,
             Shop,
             Treasure,
             Boss,
+            Devil,
+            Angel,
+        }
+
+        private enum CurseType : byte
+        {
+            None,
+            Darkness,
+            Lost,
+            Maze,
+            Blind,
+            Frail,
+            Scarcity,
+            Turbulence,
         }
 
         private enum PickupType : byte
@@ -455,6 +470,10 @@ public sealed partial class DeepMaintenanceUiFragment
             public float FearBossCooldown;
             public bool Frozen;
             public bool DeathHandled;
+            public bool IsChampion;
+            public string ChampionType = string.Empty;
+            public float ChampionSpeedMultiplier = 1f;
+            public float ChampionDamageMultiplier = 1f;
             public readonly List<VisualStatusEffectData> VisualEffects = new();
 
             public EnemyData(DeepMaintenanceEntityPrototype prototype, Vector2 position, float aggroDelay, float spawnGrace)
@@ -474,19 +493,51 @@ public sealed partial class DeepMaintenanceUiFragment
 
         private sealed class ProjectileData
         {
-            public Vector2 Position;
-            public Vector2 PreviousPosition;
+            public Vector2 GroundPosition;
+            public Vector2 PreviousGroundPosition;
+            public Vector2 CollisionPosition;
+            public Vector2 PreviousCollisionPosition;
             public readonly Vector2 SourcePosition;
-            public Vector2 Velocity;
-            public readonly Vector2 Direction;
+            public Vector2 PlanarVelocity;
+            public Vector2 Direction;
             public readonly float InitialLifetime;
-            public readonly float InitialSpeed;
+            public readonly float InitialPlanarSpeed;
             public readonly float Radius;
             public readonly DeepMaintenanceHitboxShape HitboxShape;
             public readonly float HitboxWidth;
             public readonly float HitboxHeight;
             public readonly Vector2 HitboxOffset;
             public readonly float HeightScale;
+            public float Height;
+            public float PreviousHeight;
+            public float VerticalVelocity;
+            public readonly float Gravity;
+            public readonly float TerminalFallSpeed;
+            public readonly float CollisionMaxHeight;
+            public readonly float SpriteLiftMultiplier;
+            public readonly float ShadowScaleByHeight;
+            public readonly bool BallisticEnabled;
+            public readonly bool LandOnZeroHeight;
+            public readonly bool CollideOnlyWhenLow;
+            public readonly bool DestroyOnLanding;
+            public readonly bool ImpactOnLanding;
+            public bool HasLanded;
+            public bool Spectral;
+            public bool Piercing;
+            public int RemainingPierces;
+            public bool SplitOnHit;
+            public bool SplitOnDeath;
+            public int SplitCount;
+            public bool Explosive;
+            public bool Sticky;
+            public bool Boomerang;
+            public float ModifierStrength = 1f;
+            public float HomingStrength;
+            public float SinWaveAmplitude;
+            public float SinWaveFrequency;
+            public float SpiralTurnRate;
+            public float HeavyMultiplier = 1f;
+            public float TimeSinceSpawn;
             public readonly float Damage;
             public bool FreezeOnHit;
             public float FreezeChance = 0.5f;
@@ -498,12 +549,14 @@ public sealed partial class DeepMaintenanceUiFragment
             public readonly DeepMaintenanceProjectilePrototype Prototype;
             public readonly Color Tint;
 
-            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, DeepMaintenanceHitboxShape hitboxShape, float hitboxWidth, float hitboxHeight, Vector2 hitboxOffset, float damage, float lifetime, string spritePath, string spriteState, float spriteScale, DeepMaintenanceProjectilePrototype prototype, Color tint, float heightScale)
+            public ProjectileData(Vector2 position, Vector2 sourcePosition, Vector2 velocity, float radius, DeepMaintenanceHitboxShape hitboxShape, float hitboxWidth, float hitboxHeight, Vector2 hitboxOffset, float damage, float lifetime, string spritePath, string spriteState, float spriteScale, DeepMaintenanceProjectilePrototype prototype, Color tint, float heightScale, float initialHeight, float initialVerticalVelocity, float gravity)
             {
-                Position = position;
-                PreviousPosition = position;
+                GroundPosition = position;
+                PreviousGroundPosition = position;
+                CollisionPosition = position;
+                PreviousCollisionPosition = position;
                 SourcePosition = sourcePosition;
-                Velocity = velocity;
+                PlanarVelocity = velocity;
                 Direction = NormalizeSafe(velocity);
                 Radius = radius;
                 HitboxShape = hitboxShape;
@@ -513,13 +566,80 @@ public sealed partial class DeepMaintenanceUiFragment
                 Damage = damage;
                 Lifetime = lifetime;
                 InitialLifetime = lifetime;
-                InitialSpeed = velocity.Length();
+                InitialPlanarSpeed = velocity.Length();
                 HeightScale = MathF.Max(0.1f, heightScale);
+                Height = MathF.Max(0f, initialHeight);
+                PreviousHeight = Height;
+                VerticalVelocity = initialVerticalVelocity;
+                Gravity = MathF.Max(0f, gravity);
+                TerminalFallSpeed = MathF.Max(0f, prototype.TerminalFallSpeed);
+                CollisionMaxHeight = MathF.Max(0f, prototype.CollisionMaxHeight) * HeightScale;
+                SpriteLiftMultiplier = MathF.Max(0f, prototype.SpriteLiftMultiplier);
+                ShadowScaleByHeight = MathF.Max(0f, prototype.ShadowScaleByHeight);
+                BallisticEnabled = prototype.BallisticEnabled;
+                LandOnZeroHeight = prototype.LandOnZeroHeight;
+                CollideOnlyWhenLow = prototype.CollideOnlyWhenLow;
+                DestroyOnLanding = prototype.DestroyOnLanding;
+                ImpactOnLanding = prototype.ImpactOnLanding;
+                Spectral = prototype.Spectral;
+                Piercing = prototype.Piercing;
+                RemainingPierces = Math.Max(0, prototype.PierceCount);
                 SpritePath = spritePath;
                 SpriteState = spriteState;
                 SpriteScale = spriteScale;
                 Prototype = prototype;
                 Tint = tint;
+
+                foreach (var modifier in prototype.Modifiers)
+                {
+                    var modifierType = modifier.Type?.Trim().ToLowerInvariant();
+                    var strength = MathF.Max(0f, modifier.Strength);
+                    switch (modifierType)
+                    {
+                        case "spectral":
+                            Spectral = true;
+                            break;
+                        case "piercing":
+                            Piercing = true;
+                            RemainingPierces = Math.Max(RemainingPierces, Math.Max(1, modifier.Intensity));
+                            break;
+                        case "splitonhit":
+                            SplitOnHit = true;
+                            SplitCount = Math.Max(SplitCount, Math.Max(2, modifier.Intensity));
+                            break;
+                        case "splitondeath":
+                            SplitOnDeath = true;
+                            SplitCount = Math.Max(SplitCount, Math.Max(2, modifier.Intensity));
+                            break;
+                        case "explosive":
+                            Explosive = true;
+                            ModifierStrength = MathF.Max(ModifierStrength, MathF.Max(0.5f, strength));
+                            break;
+                        case "sticky":
+                            Sticky = true;
+                            break;
+                        case "boomerang":
+                            Boomerang = true;
+                            ModifierStrength = MathF.Max(ModifierStrength, MathF.Max(0.5f, strength));
+                            break;
+                        case "homing":
+                            HomingStrength = MathF.Max(HomingStrength, strength <= 0f ? 1.8f : strength);
+                            break;
+                        case "sinwave":
+                            SinWaveAmplitude = MathF.Max(SinWaveAmplitude, strength <= 0f ? 0.35f : strength);
+                            SinWaveFrequency = MathF.Max(SinWaveFrequency, Math.Max(1f, modifier.Intensity));
+                            break;
+                        case "spiral":
+                            SpiralTurnRate = MathF.Max(SpiralTurnRate, strength <= 0f ? 1.5f : strength);
+                            break;
+                        case "heavy":
+                            HeavyMultiplier = MathF.Min(HeavyMultiplier, strength <= 0f ? 0.72f : MathF.Min(1f, strength));
+                            break;
+                        case "fast":
+                            PlanarVelocity *= strength <= 0f ? 1.28f : strength;
+                            break;
+                    }
+                }
             }
         }
     }

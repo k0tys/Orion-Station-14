@@ -98,6 +98,30 @@ public sealed class DeepMaintenanceFloorPrototype : IPrototype, IInheritingProto
     public float RoomClearHalfHeartChance = 0.25f;
 
     [DataField]
+    public float ChampionChance = 0.06f;
+
+    [DataField]
+    public float ChampionChancePerFloor = 0.015f;
+
+    [DataField]
+    public List<DeepMaintenanceWeightedStringEntry> ChampionPool = new();
+
+    [DataField]
+    public float CurseChance = 0.25f;
+
+    [DataField]
+    public List<DeepMaintenanceWeightedStringEntry> CursePool = new();
+
+    [DataField]
+    public float DevilRoomChance = 0.22f;
+
+    [DataField]
+    public float AngelRoomChance = 0.11f;
+
+    [DataField]
+    public float SuperSecretRoomChance = 0.55f;
+
+    [DataField]
     public List<DeepMaintenanceWeightedEntityEntry> EnemyPool = new();
 
     [DataField]
@@ -111,4 +135,14 @@ public sealed class DeepMaintenanceFloorPrototype : IPrototype, IInheritingProto
 
     [DataField]
     public float MusicFadeIn = 0.7f;
+}
+
+[DataDefinition]
+public sealed partial class DeepMaintenanceWeightedStringEntry
+{
+    [DataField(required: true)]
+    public string Id = string.Empty;
+
+    [DataField]
+    public float Weight = 1f;
 }

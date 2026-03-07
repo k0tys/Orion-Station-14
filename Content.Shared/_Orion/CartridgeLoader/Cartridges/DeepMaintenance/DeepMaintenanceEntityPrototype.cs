@@ -41,7 +41,16 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
     public float MoveAcceleration = 24f;
 
     [DataField]
-    public float MoveFriction = 18f;
+    public float MoveDeceleration = 28f;
+
+    [DataField]
+    public float MoveTurnAcceleration = 34f;
+
+    [DataField]
+    public float MoveReverseAcceleration = 42f;
+
+    [DataField]
+    public float MoveStopThreshold = 0.04f;
 
     [DataField]
     public int MaxHp = 1;
@@ -66,6 +75,12 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
 
     [DataField]
     public bool IsBoss;
+
+    [DataField]
+    public bool ChampionEligible = true;
+
+    [DataField]
+    public List<DeepMaintenanceAttackPatternEntry> AttackPatterns = new();
 
     [DataField]
     public DeepMaintenanceFamiliarBehavior FamiliarBehavior = DeepMaintenanceFamiliarBehavior.Follow;
@@ -114,4 +129,23 @@ public sealed class DeepMaintenanceEntityPrototype : IPrototype, IInheritingProt
 
     [DataField]
     public SoundSpecifier? EmoteSound;
+}
+
+[DataDefinition]
+public sealed partial class DeepMaintenanceAttackPatternEntry
+{
+    [DataField(required: true)]
+    public string Type = "SingleShot";
+
+    [DataField]
+    public int ShotCount = 1;
+
+    [DataField]
+    public float SpreadAngle = 20f;
+
+    [DataField]
+    public float AngleStep = 18f;
+
+    [DataField]
+    public float BurstDelay = 0.07f;
 }

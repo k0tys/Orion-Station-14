@@ -19,6 +19,28 @@
   roomClearRewardChance: 0.85
   roomClearExtraRewardChance: 0.25
   roomClearHalfHeartChance: 0.25
+  championChance: 0.07
+  championChancePerFloor: 0.015
+  championPool:
+  - id: Tanky
+    weight: 2
+  - id: Fast
+    weight: 2
+  - id: RapidFire
+    weight: 1
+  - id: ExplosiveOnDeath
+    weight: 1
+  curseChance: 0.15
+  cursePool:
+  - id: Darkness
+    weight: 3
+  - id: Lost
+    weight: 2
+  - id: Blind
+    weight: 2
+  devilRoomChance: 0.12
+  angelRoomChance: 0.12
+  superSecretRoomChance: 0.60
   musicFadeOut: 1.5
   musicFadeIn: 0.8
   musicByRoom:

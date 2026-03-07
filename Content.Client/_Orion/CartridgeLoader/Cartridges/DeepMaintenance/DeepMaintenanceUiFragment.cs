@@ -137,6 +137,12 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         _game.StopAllMusic();
     }
 
+    protected override void ExitedTree()
+    {
+        base.ExitedTree();
+        _game.StopAllMusic();
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -197,7 +203,10 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private DeepMaintenancePickupPrototype _keyPickupProto = default!;
 
         private Vector2 _playerPos;
+        private Vector2 _playerInputDirection;
+        private Vector2 _playerDesiredVelocity;
         private Vector2 _playerVelocity;
+        private Vector2 _playerLastMoveDirection = Vector2.UnitY;
         private FacingDirection _playerBodyFacing = FacingDirection.Down;
         private FacingDirection _playerShootFacing = FacingDirection.Down;
         private float _playerBodyFacingResetTimer;
@@ -322,8 +331,12 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
         private const int FloorMaxRooms = 18;
 
         private int _currentFloor = 1;
+        private CurseType _activeCurse = CurseType.None;
         private bool _floorExitSpawned;
         private Vector2? _floorExitPosition;
+        private bool _specialBossRoomRolled;
+        private bool _devilRoomOffered;
+        private bool _angelRoomOffered;
 
         private const string EntityPlayerPrototypeId = "Player";
         private const string EntityChaserPrototypeId = "Gaper";
@@ -421,7 +434,9 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
                             ? Loc.GetString("deep-maintenance-ui-status-paused")
                             : Loc.GetString("deep-maintenance-ui-status-controls");
 
-                return baseStatus;
+                return _activeCurse == CurseType.None
+                    ? baseStatus
+                    : $"{baseStatus} | Curse: {_activeCurse}";
             }
         }
 
@@ -538,6 +553,8 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _runSeenRelicIds.Clear();
             _playerProjectiles.Clear();
             _enemyProjectiles.Clear();
+            _playerInputDirection = Vector2.Zero;
+            _playerDesiredVelocity = Vector2.Zero;
             _playerVelocity = Vector2.Zero;
             _activeRelics.Clear();
             _activeBombs.Clear();
@@ -547,7 +564,10 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             RoomIndex = 0;
             SetPlayerHealth(_playerProto.MaxHp, _playerProto.MaxHp);
             _playerPos = new Vector2(GridWidth * 0.5f, GridHeight * 0.5f);
+            _playerInputDirection = Vector2.Zero;
+            _playerDesiredVelocity = Vector2.Zero;
             _playerVelocity = Vector2.Zero;
+            _playerLastMoveDirection = Vector2.UnitY;
             _playerShootCooldown = 0f;
             _playerShootAnimationTimer = 0f;
             _playerBodyFacingResetTimer = 0f;
@@ -557,6 +577,7 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _invulnerabilityTimer = 0f;
             _paused = false;
             _currentFloor = 1;
+            _activeCurse = CurseType.None;
             _gameOver = false;
             _victory = false;
             _accumulator = 0f;
@@ -566,6 +587,9 @@ public sealed partial class DeepMaintenanceUiFragment : BoxContainer
             _emoteTimer = 0f;
             _floorExitSpawned = false;
             _floorExitPosition = null;
+            _specialBossRoomRolled = false;
+            _devilRoomOffered = false;
+            _angelRoomOffered = false;
             _treasureOpeningAnimation = false;
             _treasureOpenAnimationTimer = 0f;
             _treasurePendingEnemySpawn = false;

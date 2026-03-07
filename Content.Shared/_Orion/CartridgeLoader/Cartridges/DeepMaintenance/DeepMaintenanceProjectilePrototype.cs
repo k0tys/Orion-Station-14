@@ -58,6 +58,60 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
     public float GravityScale;
 
     [DataField]
+    public bool BallisticEnabled = true;
+
+    [DataField]
+    public float Gravity = 18f;
+
+    [DataField]
+    public float InitialHeight;
+
+    [DataField]
+    public float InitialVerticalVelocity = 3.2f;
+
+    [DataField]
+    public float ArcHeight = 0.5f;
+
+    [DataField]
+    public float MaxHeight = 3.5f;
+
+    [DataField]
+    public float TerminalFallSpeed = 11f;
+
+    [DataField]
+    public bool LandOnZeroHeight = true;
+
+    [DataField]
+    public bool CollideOnlyWhenLow;
+
+    [DataField]
+    public float CollisionMaxHeight = 0.2f;
+
+    [DataField]
+    public bool DestroyOnLanding = true;
+
+    [DataField]
+    public bool ImpactOnLanding = true;
+
+    [DataField]
+    public float ShadowScaleByHeight = 0.22f;
+
+    [DataField]
+    public float SpriteLiftMultiplier = 0.75f;
+
+    [DataField]
+    public bool Spectral;
+
+    [DataField]
+    public bool Piercing;
+
+    [DataField]
+    public int PierceCount;
+
+    [DataField]
+    public List<DeepMaintenanceProjectileModifierEntry> Modifiers = new();
+
+    [DataField]
     public bool RotateToVelocity;
 
     [DataField]
@@ -65,4 +119,17 @@ public sealed class DeepMaintenanceProjectilePrototype : IPrototype, IInheriting
 
     [DataField]
     public float FinalDropDistance = 0.35f;
+}
+
+[DataDefinition]
+public sealed partial class DeepMaintenanceProjectileModifierEntry
+{
+    [DataField(required: true)]
+    public string Type = "Fast";
+
+    [DataField]
+    public float Strength = 1f;
+
+    [DataField]
+    public int Intensity = 1;
 }

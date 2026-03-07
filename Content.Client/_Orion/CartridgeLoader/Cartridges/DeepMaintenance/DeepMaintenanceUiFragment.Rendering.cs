@@ -118,16 +118,20 @@ public sealed partial class DeepMaintenanceUiFragment
 
             foreach (var projectile in _playerProjectiles)
             {
-                var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
-                DrawShadow(handle, drawPos + new Vector2(0f, 0.08f), tilePixel, mapOffset, projectile.Radius * 0.7f, 0.12f);
-                DrawProjectile(handle, drawPos, projectile, tilePixel, mapOffset);
+                var groundPos = Vector2.Lerp(projectile.PreviousGroundPosition, projectile.GroundPosition, tickAlpha);
+                var height = projectile.PreviousHeight + (projectile.Height - projectile.PreviousHeight) * tickAlpha;
+                var shadowScale = MathF.Max(0.12f, projectile.Radius * 0.7f * (1f - height * projectile.ShadowScaleByHeight));
+                DrawShadow(handle, groundPos + new Vector2(0f, 0.08f), tilePixel, mapOffset, shadowScale, 0.12f);
+                DrawProjectile(handle, groundPos, height, projectile, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _enemyProjectiles)
             {
-                var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
-                DrawShadow(handle, drawPos + new Vector2(0f, 0.08f), tilePixel, mapOffset, projectile.Radius * 0.7f, 0.12f);
-                DrawProjectile(handle, drawPos, projectile, tilePixel, mapOffset);
+                var groundPos = Vector2.Lerp(projectile.PreviousGroundPosition, projectile.GroundPosition, tickAlpha);
+                var height = projectile.PreviousHeight + (projectile.Height - projectile.PreviousHeight) * tickAlpha;
+                var shadowScale = MathF.Max(0.12f, projectile.Radius * 0.7f * (1f - height * projectile.ShadowScaleByHeight));
+                DrawShadow(handle, groundPos + new Vector2(0f, 0.08f), tilePixel, mapOffset, shadowScale, 0.12f);
+                DrawProjectile(handle, groundPos, height, projectile, tilePixel, mapOffset);
             }
 
             DrawPickups(handle, tilePixel, mapOffset);
@@ -198,8 +202,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 if (string.IsNullOrWhiteSpace(relic.HeadAttachedSpritePath) || string.IsNullOrWhiteSpace(relic.HeadAttachedSpriteState))
                     continue;
 
-                var facing = ResolveOverlayFacing(_playerBodyFacing, _playerShootFacing);
-                DrawDirectionalEntityLayer(handle, _playerPos + relic.HeadAttachedOffset, relic.HeadAttachedSpritePath, relic.HeadAttachedSpriteState, facing, tilePixel, relic.HeadAttachedSpriteScale, mapOffset, Color.White);
+                DrawDirectionalEntityLayer(handle, _playerPos + relic.HeadAttachedOffset, relic.HeadAttachedSpritePath, relic.HeadAttachedSpriteState, _playerShootFacing, tilePixel, relic.HeadAttachedSpriteScale, mapOffset, Color.White);
             }
 
             DrawMeleeSwing(handle, tilePixel, mapOffset);
@@ -224,13 +227,6 @@ public sealed partial class DeepMaintenanceUiFragment
                 return;
 
             DrawDirectionalEntityLayer(handle, _playerPos + new Vector2(0f, -0.1f), path, state, _playerShootFacing, tilePixel, 1.1f, mapOffset, Color.White.WithAlpha(0.85f));
-        }
-
-        private FacingDirection ResolveOverlayFacing(FacingDirection bodyFacing, FacingDirection shootFacing)
-        {
-            return _playerShootAnimationTimer > 0f || _inputState.AnyShootKeyHeld()
-                ? shootFacing
-                : bodyFacing;
         }
 
         private void DrawMeleeSwing(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
@@ -527,6 +523,8 @@ public sealed partial class DeepMaintenanceUiFragment
                 RoomType.Boss => 3,
                 RoomType.Treasure => 2,
                 RoomType.Shop => 2,
+                RoomType.Devil => 2,
+                RoomType.Angel => 2,
                 _ => 1,
             };
         }
@@ -560,11 +558,10 @@ public sealed partial class DeepMaintenanceUiFragment
                 : _doorPrototypes[RoomType.Normal];
         }
 
-        private void DrawProjectile(DrawingHandleScreen handle, Vector2 pos, ProjectileData projectile, float tilePixel, Vector2 mapOffset)
+        private void DrawProjectile(DrawingHandleScreen handle, Vector2 groundPos, float height, ProjectileData projectile, float tilePixel, Vector2 mapOffset)
         {
-            var visualDrop = GetProjectileVisualDrop(projectile, pos);
-            var center = mapOffset + (pos + visualDrop) * tilePixel;
-            var facing = FacingFromVector(projectile.Direction == Vector2.Zero ? projectile.Velocity : projectile.Direction, FacingDirection.Down);
+            var center = mapOffset + (groundPos + GetProjectileVisualOffset(projectile, height)) * tilePixel;
+            var facing = FacingFromVector(projectile.Direction == Vector2.Zero ? projectile.PlanarVelocity : projectile.Direction, FacingDirection.Down);
 
             var texture = GetDirectionalSprite(projectile.SpritePath, projectile.SpriteState, facing) ?? GetSprite(projectile.SpritePath, projectile.SpriteState);
             if (texture == null)
@@ -578,24 +575,9 @@ public sealed partial class DeepMaintenanceUiFragment
             handle.DrawTextureRect(texture, box, projectile.Tint);
         }
 
-        private static Vector2 GetProjectileCollisionCenter(ProjectileData projectile)
+        private static Vector2 GetProjectileVisualOffset(ProjectileData projectile, float height)
         {
-            return projectile.Position + GetProjectileVisualDrop(projectile, projectile.Position);
-        }
-
-        private static Vector2 GetProjectileVisualDrop(ProjectileData projectile, Vector2 position)
-        {
-            var initialLifetime = MathF.Max(0.001f, projectile.InitialLifetime);
-            var traveled = Vector2.Distance(projectile.SourcePosition, position);
-            var expected = MathF.Max(0.001f, projectile.InitialSpeed * initialLifetime);
-            var lifeProgress = Math.Clamp(MathF.Max(1f - projectile.Lifetime / initialLifetime, traveled / expected), 0f, 1f);
-            var start = MathF.Min(0.5f, Math.Clamp(projectile.Prototype.FinalDropStart, 0f, 1f));
-            if (lifeProgress <= start)
-                return Vector2.Zero;
-
-            var t = (lifeProgress - start) / MathF.Max(0.001f, 1f - start);
-            var amount = t * t * MathF.Max(0f, projectile.Prototype.FinalDropDistance) * projectile.HeightScale;
-            return new Vector2(0f, amount);
+            return new Vector2(0f, -MathF.Max(0f, height) * projectile.SpriteLiftMultiplier);
         }
 
         private void DrawFloorExit(DrawingHandleScreen handle, float tilePixel, Vector2 mapOffset)
@@ -695,6 +677,13 @@ public sealed partial class DeepMaintenanceUiFragment
         private bool TryBuildTooltipText(float tilePixel, Vector2 mapOffset, out string text)
         {
             text = string.Empty;
+
+            if (_activeCurse == CurseType.Blind)
+            {
+                text = "???";
+                return true;
+            }
+
             var worldPos = (_lastMousePosition - mapOffset) / MathF.Max(0.001f, tilePixel);
 
             if (CurrentRoom.Type == RoomType.Shop)
@@ -1149,13 +1138,13 @@ public sealed partial class DeepMaintenanceUiFragment
 
             foreach (var projectile in _playerProjectiles)
             {
-                var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
+                var drawPos = Vector2.Lerp(projectile.PreviousCollisionPosition, projectile.CollisionPosition, tickAlpha);
                 DrawDebugHitbox(handle, GetProjectileHitbox(projectile, drawPos), Color.Yellow, tilePixel, mapOffset);
             }
 
             foreach (var projectile in _enemyProjectiles)
             {
-                var drawPos = Vector2.Lerp(projectile.PreviousPosition, projectile.Position, tickAlpha);
+                var drawPos = Vector2.Lerp(projectile.PreviousCollisionPosition, projectile.CollisionPosition, tickAlpha);
                 DrawDebugHitbox(handle, GetProjectileHitbox(projectile, drawPos), Color.Yellow, tilePixel, mapOffset);
             }
 
@@ -1257,7 +1246,10 @@ public sealed partial class DeepMaintenanceUiFragment
                     RoomType.Boss => discovered ? Color.Red : new Color(110, 35, 35),
                     RoomType.Treasure => discovered ? Color.Gold : new Color(110, 95, 32),
                     RoomType.Secret => discovered ? new Color(180, 145, 255) : new Color(75, 60, 95),
+                    RoomType.SuperSecret => discovered ? new Color(210, 170, 255) : new Color(88, 70, 112),
                     RoomType.Shop => discovered ? new Color(132, 224, 126) : new Color(55, 97, 51),
+                    RoomType.Devil => discovered ? new Color(220, 95, 95) : new Color(90, 40, 40),
+                    RoomType.Angel => discovered ? new Color(150, 195, 255) : new Color(60, 85, 120),
                     _ => discovered ? Color.LightGray : new Color(55, 55, 55),
                 };
 

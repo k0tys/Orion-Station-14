@@ -24,7 +24,7 @@ public sealed partial class DeepMaintenanceUiFragment
                 }
             }
 
-            if (roomType is RoomType.Start or RoomType.Boss or RoomType.Treasure or RoomType.Shop)
+            if (roomType is RoomType.Start or RoomType.Boss or RoomType.Treasure or RoomType.Shop or RoomType.Devil or RoomType.Angel or RoomType.SuperSecret)
                 return tiles;
 
             var clusterCount = _random.Next(1, 4);
@@ -154,6 +154,68 @@ public sealed partial class DeepMaintenanceUiFragment
             }
         }
 
+        private void TryAddSuperSecretRoom(Dictionary<Vector2i, int> indexByPos, List<Vector2i> occupiedPositions)
+        {
+            var chance = Math.Clamp(_activeFloorConfig?.SuperSecretRoomChance ?? 0f, 0f, 1f);
+            if (_random.NextDouble() > chance)
+                return;
+
+            var candidates = new List<(Vector2i Position, Vector2i Connection)>();
+            foreach (var anchor in occupiedPositions)
+            {
+                foreach (var direction in CardinalDirections())
+                {
+                    var candidate = anchor + direction;
+                    if (indexByPos.ContainsKey(candidate))
+                        continue;
+
+                    var connections = 0;
+                    Vector2i onlyConnection = default;
+                    foreach (var check in CardinalDirections())
+                    {
+                        var candidateNeighborPos = candidate + check;
+                        if (!indexByPos.TryGetValue(candidateNeighborPos, out var neighborIndex))
+                            continue;
+
+                        var neighbor = _rooms[neighborIndex];
+                        if (neighbor.Type is RoomType.Boss or RoomType.Treasure or RoomType.Start or RoomType.Secret or RoomType.SuperSecret)
+                            continue;
+
+                        connections++;
+                        onlyConnection = check;
+                    }
+
+                    if (connections == 1)
+                        candidates.Add((candidate, onlyConnection));
+                }
+            }
+
+            if (candidates.Count == 0)
+                return;
+
+            var selected = candidates[_random.Next(candidates.Count)];
+            var room = new RoomData(RoomType.SuperSecret, selected.Position, BuildTileMap(RoomType.Secret))
+            {
+                IsSecret = true,
+                Cleared = false,
+                DoorTargetOpen = false,
+                DoorVisualOpen = false,
+            };
+
+            var roomIndex = _rooms.Count;
+            _rooms.Add(room);
+            indexByPos[selected.Position] = roomIndex;
+            occupiedPositions.Add(selected.Position);
+
+            var connectedNeighborPos = selected.Position + selected.Connection;
+            if (!indexByPos.TryGetValue(connectedNeighborPos, out var neighborIndexValue))
+                return;
+
+            var reverse = new Vector2i(-selected.Connection.X, -selected.Connection.Y);
+            room.Neighbors[selected.Connection] = neighborIndexValue;
+            _rooms[neighborIndexValue].Neighbors[reverse] = roomIndex;
+        }
+
         private void RevealSecretDoorways(Vector2 center)
         {
             foreach (var direction in CardinalDirections())
@@ -263,6 +325,8 @@ public sealed partial class DeepMaintenanceUiFragment
                 RandomFloatRange(EnemyAggroDelayMinSeconds, EnemyAggroDelayMaxSeconds),
                 MathF.Max(0f, spawnGraceSeconds));
 
+            TryApplyChampionModifier(enemy);
+
             if (_currentFloor <= 1)
                 return enemy;
 
@@ -274,6 +338,49 @@ public sealed partial class DeepMaintenanceUiFragment
             return enemy;
         }
 
+        private void TryApplyChampionModifier(EnemyData enemy)
+        {
+            if (!enemy.Prototype.ChampionEligible)
+                return;
+
+            var chance = (_activeFloorConfig?.ChampionChance ?? 0f) + Math.Max(0, _currentFloor - 1) * (_activeFloorConfig?.ChampionChancePerFloor ?? 0f);
+            if (_random.NextDouble() > Math.Clamp(chance, 0f, 0.85f))
+                return;
+
+            if (!TryChooseStringFromPool(_activeFloorConfig?.ChampionPool ?? new List<DeepMaintenanceWeightedStringEntry>(), out var championId))
+                championId = "Tanky";
+
+            enemy.IsChampion = true;
+            enemy.ChampionType = championId;
+            switch (championId.ToLowerInvariant())
+            {
+                case "tanky":
+                    enemy.Hp += Math.Max(2, (int) MathF.Ceiling(enemy.Prototype.MaxHp * 0.55f));
+                    enemy.ChampionSpeedMultiplier = 0.88f;
+                    ApplyVisualStatusEffect(enemy, "champion", new Color(180, 90, 240), 9999f);
+                    break;
+                case "fast":
+                    enemy.ChampionSpeedMultiplier = 1.3f;
+                    ApplyVisualStatusEffect(enemy, "champion", new Color(255, 190, 70), 9999f);
+                    break;
+                case "rapidfire":
+                    enemy.ShootCooldown *= 0.65f;
+                    ApplyVisualStatusEffect(enemy, "champion", new Color(255, 120, 120), 9999f);
+                    break;
+                case "freezing":
+                    enemy.ChampionDamageMultiplier = 1.15f;
+                    ApplyVisualStatusEffect(enemy, "champion", new Color(120, 210, 255), 9999f);
+                    break;
+                case "explosiveondeath":
+                    enemy.ChampionDamageMultiplier = 1.1f;
+                    ApplyVisualStatusEffect(enemy, "champion", new Color(255, 150, 85), 9999f);
+                    break;
+                default:
+                    ApplyVisualStatusEffect(enemy, "champion", new Color(210, 120, 255), 9999f);
+                    break;
+            }
+        }
+
         private void SpawnEnemies(RoomData room)
         {
             room.Enemies.Clear();
@@ -283,6 +390,9 @@ public sealed partial class DeepMaintenanceUiFragment
                 case RoomType.Start:
                 case RoomType.Treasure:
                 case RoomType.Shop:
+                case RoomType.Devil:
+                case RoomType.Angel:
+                case RoomType.SuperSecret:
                     return;
                 case RoomType.Boss:
                 {

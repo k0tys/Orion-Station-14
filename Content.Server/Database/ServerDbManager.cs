@@ -279,6 +279,8 @@ namespace Content.Server.Database
         Task<int> GetServerCurrency(NetUserId userId); // Goobstation
         Task SetServerCurrency(NetUserId userId, int currency); // Goobstation
         Task<int> ModifyServerCurrency(NetUserId userId, int currencyDelta); // Goobstation
+        Task<string> GetTokenInventoryJson(NetUserId userId); // Orion
+        Task SetTokenInventoryJson(NetUserId userId, string inventoryJson); // Orion
 
         Task<bool> SetLastRolledAntag(NetUserId userId, TimeSpan to); // Goobstation
         Task<TimeSpan> GetLastRolledAntag(NetUserId userId); // Goobstation
@@ -802,6 +804,20 @@ namespace Content.Server.Database
             DbReadOpsMetric.Inc();
             return RunDbCommand(() => _db.ModifyServerCurrency(userId, currencyDelta));
         }
+
+        // Orion-Start
+        public Task<string> GetTokenInventoryJson(NetUserId userId)
+        {
+            DbReadOpsMetric.Inc();
+            return RunDbCommand(() => _db.GetTokenInventoryJson(userId));
+        }
+
+        public Task SetTokenInventoryJson(NetUserId userId, string inventoryJson)
+        {
+            DbWriteOpsMetric.Inc();
+            return RunDbCommand(() => _db.SetTokenInventoryJson(userId, inventoryJson));
+        }
+        // Orion-End
 
         public Task<TimeSpan> GetLastRolledAntag(NetUserId userId) // Goobstation
         {

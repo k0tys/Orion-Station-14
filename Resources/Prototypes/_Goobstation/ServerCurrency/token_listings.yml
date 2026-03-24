@@ -15,6 +15,7 @@
   description: gs-balanceui-shop-buy-token-antag-desc
   price: 3000
   adminNote: gs-balanceui-remark-token-antag
+  tokenType: Antagonist # Orion
 
 - type: tokenListing
   id: AdminAbuseToken
@@ -23,6 +24,7 @@
   description: gs-balanceui-shop-buy-token-admin-abuse-desc
   price: 1000
   adminNote: gs-balanceui-remark-token-admin-abuse
+  tokenType: Event # Orion
 
 - type: tokenListing
   id: HatToken
@@ -31,3 +33,4 @@
   description: gs-balanceui-shop-buy-token-hat-desc
   price: 750
   adminNote: gs-balanceui-remark-token-hat
+  tokenType: Cosmetic # Orion

@@ -901,6 +901,30 @@ namespace Content.Server.Database
             return dbPlayer.ServerCurrency;
         }
 
+        // Orion-Start
+        public async Task<string> GetTokenInventoryJson(NetUserId userId)
+        {
+            await using var db = await GetDb();
+
+            return await db.DbContext.Player
+                .Where(dbPlayer => dbPlayer.UserId == userId)
+                .Select(dbPlayer => dbPlayer.TokenInventoryJson)
+                .SingleOrDefaultAsync() ?? "{}";
+        }
+
+        public async Task SetTokenInventoryJson(NetUserId userId, string inventoryJson)
+        {
+            await using var db = await GetDb();
+
+            var dbPlayer = await db.DbContext.Player.Where(dbPlayer => dbPlayer.UserId == userId).SingleOrDefaultAsync();
+            if (dbPlayer == null)
+                return;
+
+            dbPlayer.TokenInventoryJson = inventoryJson;
+            await db.DbContext.SaveChangesAsync();
+        }
+        // Orion-End
+
         public async Task<TimeSpan> GetLastRolledAntag(NetUserId userId) // Goobstation
         {
             await using var db = await GetDb();

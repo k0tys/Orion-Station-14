@@ -29,4 +29,15 @@ public sealed class TokenListingPrototype : IPrototype
 
     [DataField("adminNote", required: true)]
     public string AdminNote { get; private set; } = string.Empty;
+
+    // Orion-Start
+    [DataField(required: true)]
+    public string TokenType { get; private set; } = string.Empty;
+
+    [DataField]
+    public bool UsableInLobby { get; private set; } = true;
+
+    [DataField]
+    public bool UsableInRound { get; private set; } = true;
+    // Orion-End
 }

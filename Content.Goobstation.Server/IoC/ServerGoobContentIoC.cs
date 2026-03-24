@@ -15,6 +15,7 @@ using Content.Goobstation.Server.Polls;
 using Content.Goobstation.Server.Redial;
 using Content.Goobstation.Server.ServerCurrency;
 using Content.Goobstation.Shared.MisandryBox.JumpScare;
+using Content.Server._Orion.ServerCurrency;
 
 namespace Content.Goobstation.Server.IoC;
 
@@ -29,5 +30,6 @@ internal static class ServerGoobContentIoC
         instance.Register<IJoinQueueManager, JoinQueueManager>();
         instance.Register<IFullScreenImageJumpscare, ServerFullScreenImageJumpscare>();
         instance.Register<ICommonCurrencyManager, ServerCurrencyManager>();
+        instance.Register<TokenInventoryManager>(); // Orion
     }
 }

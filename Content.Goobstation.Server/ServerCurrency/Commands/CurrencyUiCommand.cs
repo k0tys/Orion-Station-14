@@ -46,4 +46,30 @@ namespace Content.Goobstation.Server.ServerCurrency.Commands
             eui.OpenEui(ui, player);
         }
     }
+
+    // Orion-Start
+    [AnyCommand]
+    public sealed class TokenInventoryUiCommand : IConsoleCommand
+    {
+        public string Command => "tokeninventory";
+
+        public string Description => "Open the token inventory UI";
+
+        public string Help => $"{Command}";
+
+        public void Execute(IConsoleShell shell, string argStr, string[] args)
+        {
+            var player = shell.Player;
+            if (player == null)
+            {
+                shell.WriteLine("This does not work from the server console.");
+                return;
+            }
+
+            var eui = IoCManager.Resolve<EuiManager>();
+            var ui = new CurrencyEui();
+            eui.OpenEui(ui, player);
+        }
+    }
+    // Orion-End
 }

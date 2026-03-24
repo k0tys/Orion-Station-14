@@ -837,6 +837,8 @@ namespace Content.Server.Database
 
         public TimeSpan? LastRolledAntag { get; set; } // Goobstation
 
+        public string TokenInventoryJson { get; set; } = "{}"; // Orion
+
         public DateTime? LastReadRules { get; set; }
 
         public List<AdminNote> AdminNotesReceived { get; set; } = null!;

@@ -1,0 +1,10 @@
+balanceui-inventory-label = Token
+balanceui-inventory-empty = You have no available tokens.
+balanceui-inventory-use = Use
+balanceui-inventory-row = { $name } (x{ $amount })
+token-buy-success = Purchased and stored: { $name }
+token-use-success = Token used: { $name }
+token-use-fail-missing = You do not have this token.
+token-use-fail-state = This token cannot be used right now.
+token-admin-alert = [TOKEN] { $name } ({ $userId }) used { $tokenName } [{ $tokenType }] at { $when }.
+token-character-menu-button = Token

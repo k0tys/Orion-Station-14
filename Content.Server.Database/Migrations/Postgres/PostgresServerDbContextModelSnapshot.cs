@@ -769,6 +769,11 @@ namespace Content.Server.Database.Migrations.Postgres
                         .HasColumnType("integer")
                         .HasColumnName("server_currency");
 
+                    b.Property<string>("TokenInventoryJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_inventory_json");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");

@@ -727,6 +727,11 @@ namespace Content.Server.Database.Migrations.Sqlite
                         .HasColumnType("INTEGER")
                         .HasColumnName("server_currency");
 
+                    b.Property<string>("TokenInventoryJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("token_inventory_json");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("TEXT")
                         .HasColumnName("user_id");

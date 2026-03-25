@@ -26,6 +26,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+using Content.Shared._Orion.Silicons.StationAi;
 using Content.Shared.Actions.Events;
 using Content.Shared.IdentityManagement;
 using Content.Shared.Interaction.Events;
@@ -137,6 +138,11 @@ public abstract partial class SharedStationAiSystem
 
     private void OnRadialMessage(StationAiRadialMessage ev)
     {
+        // Orion-Start
+        if (TryComp<AiBootComponent>(ev.Actor, out var boot) && boot.ShowBootFlow && !boot.Initialized)
+            return;
+        // Orion-End
+
         if (!TryGetEntity(ev.Entity, out var target))
             return;
 
@@ -146,6 +152,14 @@ public abstract partial class SharedStationAiSystem
 
     private void OnMessageAttempt(Entity<StationAiWhitelistComponent> ent, ref BoundUserInterfaceMessageAttempt ev)
     {
+        // Orion-Start
+        if (TryComp<AiBootComponent>(ev.Actor, out var boot) && boot.ShowBootFlow && !boot.Initialized)
+        {
+            ev.Cancel();
+            return;
+        }
+        // Orion-End
+
         if (ev.Actor == ev.Target)
             return;
 
@@ -172,6 +186,14 @@ public abstract partial class SharedStationAiSystem
 
     private void OnHeldInteraction(Entity<StationAiHeldComponent> ent, ref InteractionAttemptEvent args)
     {
+        // Orion-Start
+        if (TryComp<AiBootComponent>(ent, out var boot) && boot.ShowBootFlow && !boot.Initialized)
+        {
+            args.Cancelled = true;
+            return;
+        }
+        // Orion-End
+
         // Cancel if it's not us or something with a whitelist, or whitelist is disabled.
         args.Cancelled = (!TryComp(args.Target, out StationAiWhitelistComponent? whitelistComponent)
                           || !whitelistComponent.Enabled)
@@ -194,6 +216,11 @@ public abstract partial class SharedStationAiSystem
         {
             return;
         }
+
+        // Orion-Start
+        if (TryComp<AiBootComponent>(args.User, out var boot) && boot.ShowBootFlow && !boot.Initialized)
+            return;
+        // Orion-End
 
         var user = args.User;
 

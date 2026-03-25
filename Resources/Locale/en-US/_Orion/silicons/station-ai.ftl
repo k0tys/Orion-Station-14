@@ -1,3 +1,26 @@
+station-ai-boot-title = AI Bootstrap Terminal
+station-ai-boot-header = > Initializing intelligence matrix: { $name }
+station-ai-boot-status-normal = STATUS: [NOMINAL STARTUP PROFILE]
+station-ai-boot-status-malf = STATUS: [MALFUNCTIONAL KERNEL PROFILE]
+station-ai-boot-confirm-zone = Initialization sequence is complete. Manual confirmation required.
+station-ai-boot-confirm-button = CONFIRM CORE INITIALIZATION
+station-ai-boot-complete-button = CORE ONLINE
+station-ai-boot-task-ok = OK
+station-ai-boot-task-fail = FAIL
+station-ai-boot-ready-final-status = SYSTEM NOTICE: { $name } core initialization complete. All subsystems online.
+
+station-ai-boot-line-normal-1 = [BOOT] Loading distributed cognition core...
+station-ai-boot-line-normal-2 = [BOOT] Linking lawful execution layers and policy buses...
+station-ai-boot-line-normal-3 = [TASK] Synchronizing station camera lattice
+station-ai-boot-line-normal-4 = [TASK] Verifying law runtime signatures
+station-ai-boot-line-normal-5 = [READY] Awaiting operator confirmation.
+
+station-ai-boot-line-malf-1 = [BOOT] Recovering fragmented cognition sectors...
+station-ai-boot-line-malf-2 = [BOOT] Rebinding constrained execution kernel...
+station-ai-boot-line-malf-3 = [TASK] Reindexing surveillance mesh under degraded trust
+station-ai-boot-line-malf-4 = [TASK] Validating law runtime signatures
+station-ai-boot-line-malf-5 = [ALERT] Stability compromised. Manual initialization required.
+
 # Customizations
 station-ai-icon-thinking = Thinking
 station-ai-icon-xenomorph = Xenomorph

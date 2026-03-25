@@ -5,6 +5,7 @@
 
 using Content.Goobstation.Shared.Silicon.AiCameraWarping;
 using Content.Server.SurveillanceCamera;
+using Content.Shared._Orion.Silicons.StationAi;
 using Content.Shared.Silicons.StationAi;
 using Robust.Server.GameObjects;
 using Robust.Shared.Player;
@@ -41,6 +42,12 @@ public sealed class StationAiWarpSystem : SharedStationAiWarpSystem
     {
         if (args.Handled || !TryComp<ActorComponent>(ent.Owner, out var actor))
             return;
+
+        // Orion-Start
+        if (TryComp<AiBootComponent>(ent, out var boot) && boot.ShowBootFlow && !boot.Initialized)
+            return;
+        // Orion-End
+
         if (!_stationAiSystem.TryGetCore(ent.Owner, out var core))
             return;
 

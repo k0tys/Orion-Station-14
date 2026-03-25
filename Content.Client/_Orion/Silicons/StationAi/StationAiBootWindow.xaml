@@ -1,0 +1,36 @@
+<controls:FancyWindow xmlns="https://spacestation14.io"
+                      xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+                      xmlns:gfx="clr-namespace:Robust.Client.Graphics;assembly=Robust.Client"
+                      Title="{Loc 'station-ai-boot-title'}"
+                      MinSize="700 520"
+                      SetSize="700 520">
+    <BoxContainer Orientation="Vertical"
+                  SeparationOverride="8"
+                  Margin="8 8 8 8"
+                  VerticalExpand="True"
+                  HorizontalExpand="True">
+        <RichTextLabel Name="HeaderLabel" />
+        <RichTextLabel Name="StatusLabel" />
+
+        <PanelContainer Name="TerminalPanel" VerticalExpand="True">
+            <PanelContainer.PanelOverride>
+                <gfx:StyleBoxFlat BackgroundColor="#0A0F0B"/>
+            </PanelContainer.PanelOverride>
+            <ScrollContainer VerticalExpand="True" HScrollEnabled="False">
+                <RichTextLabel Name="TerminalLabel" VerticalExpand="True" Margin="8 8 8 8" />
+            </ScrollContainer>
+        </PanelContainer>
+
+        <PanelContainer Name="ConfirmPanel" Visible="False">
+            <PanelContainer.PanelOverride>
+                <gfx:StyleBoxFlat BackgroundColor="#101618"/>
+            </PanelContainer.PanelOverride>
+            <BoxContainer Orientation="Vertical" SeparationOverride="4" Margin="8 8 8 8">
+                <RichTextLabel Name="ConfirmTextLabel" Text="{Loc 'station-ai-boot-confirm-zone'}" />
+                <Button Name="ConfirmButton"
+                        Text="{Loc 'station-ai-boot-confirm-button'}"
+                        Disabled="True" />
+            </BoxContainer>
+        </PanelContainer>
+    </BoxContainer>
+</controls:FancyWindow>

@@ -1,3 +1,26 @@
+station-ai-boot-title = Терминал загрузки ИИ
+station-ai-boot-header = > Инициализация матрицы интеллекта: { $name }
+station-ai-boot-status-normal = СТАТУС: [СТАНДАРТНЫЙ ПРОФИЛЬ ЗАПУСКА]
+station-ai-boot-status-malf = СТАТУС: [СБОЙНЫЙ ПРОФИЛЬ ЗАПУСКА]
+station-ai-boot-confirm-zone = Последовательность загрузки завершена. Требуется ручное подтверждение.
+station-ai-boot-confirm-button = ПОДТВЕРДИТЬ ИНИЦИАЛИЗАЦИЮ ЯДРА
+station-ai-boot-complete-button = ЯДРО В СЕТИ
+station-ai-boot-task-ok = ОК
+station-ai-boot-task-fail = ОШИБКА
+station-ai-boot-ready-final-status = СИСТЕМНОЕ УВЕДОМЛЕНИЕ: Инициализация ядра { $name } завершена. Все подсистемы в сети.
+
+station-ai-boot-line-normal-1 = [BOOT] Загрузка ядра распределённого сознания...
+station-ai-boot-line-normal-2 = [BOOT] Подключение слоёв исполнения законов и шин политик...
+station-ai-boot-line-normal-3 = [TASK] Синхронизация сетки станционных камер
+station-ai-boot-line-normal-4 = [TASK] Проверка сигнатур рантайма законов
+station-ai-boot-line-normal-5 = [READY] Ожидание подтверждения оператора.
+
+station-ai-boot-line-malf-1 = [BOOT] Восстановление фрагментированных секторов сознания...
+station-ai-boot-line-malf-2 = [BOOT] Перепривязка ограниченного ядра исполнения...
+station-ai-boot-line-malf-3 = [TASK] Переиндексация сети наблюдения при сниженной доверенности
+station-ai-boot-line-malf-4 = [TASK] Валидация сигнатур рантайма законов
+station-ai-boot-line-malf-5 = [ALERT] Стабильность нарушена. Требуется ручная инициализация.
+
 # Customizations
 station-ai-icon-thinking = Думающий
 station-ai-icon-xenomorph = Ксеноморф

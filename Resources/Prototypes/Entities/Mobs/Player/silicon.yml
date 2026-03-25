@@ -397,6 +397,12 @@
       enum.SiliconLawsUiKey.Key:
         type: SiliconLawBoundUserInterface
         requireInputValidation: false
+      # Orion-Start
+      enum.StationAiBootUiKey.Key:
+        type: StationAiBootBoundUserInterface
+        requireInputValidation: false
+      # Orion-End
+  - type: AiBoot # Orion
   - type: ComplexInteraction
   - type: Actions
   - type: Access

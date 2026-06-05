@@ -2,8 +2,8 @@
   parent: MobCivilian
   id: BaseMobDeathSquad
   name: Death squad operative
-  description: Elite special operations operative.
   suffix: AI
+  description: Elite special operations operative.
   components:
   - type: Loadout
     prototypes: [ DeathSquadPulseRifleGear ]

@@ -1,5 +1,5 @@
 - type: startingGear
-  id: DeathSquadPulseRifleGear
+  id: DeathSquadBaseGear
   equipment:
     jumpsuit: ClothingUniformJumpsuitDeathSquad
     back: ClothingBackpackDeathSquad
@@ -10,22 +10,17 @@
     gloves: ClothingHandsGlovesDeathsquadUnremovable
     outerClothing: ClothingOuterHardsuitDeathsquadUnremovable
     head: ClothingHeadHelmetHardsuitDeathsquad 
-    shoes: ClothingShoesBootsMagDeathsquad
     id: DeathsquadPDA
     belt: ClothingBeltDeathsquadWebbing
 
 - type: startingGear
-  id: DeathSquadPhoronSabreGear
+  id: DeathSquadPulseRifleGear
+  parent: DeathSquadBaseGear
   equipment:
-    jumpsuit: ClothingUniformJumpsuitDeathSquad
-    back: ClothingBackpackDeathSquad
-    mask: ClothingMaskGasDeathSquad
-    suitstorage: OxygenTankFilled   
-    eyes: ClothingEyesGlassesDeathsquad
-    neck: ExecutiveIDCard
-    gloves: ClothingHandsGlovesDeathsquadUnremovable
-    outerClothing: ClothingOuterHardsuitDeathsquadUnremovable
-    head: ClothingHeadHelmetHardsuitDeathsquad 
+    shoes: ClothingShoesBootsMagDeathsquad
+
+- type: startingGear
+  id: DeathSquadPhoronSabreGear
+  parent: DeathSquadBaseGear
+  equipment:
     shoes: ClothingShoesBootsMagDeathsquadOn
-    id: DeathsquadPDA
-    belt: ClothingBeltDeathsquadWebbing

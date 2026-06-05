@@ -269,8 +269,6 @@
   - type: Sprite
     layers:
     - state: red
-    - sprite: Mobs\Species\Human\parts.rsi
-      state: full
   - type: ConditionalSpawner
     prototypes:
     - MobDeathSquadPhoronSabreBitrunning
@@ -285,8 +283,6 @@
   - type: Sprite
     layers:
     - state: red
-    - sprite: Mobs\Species\Human\parts.rsi
-      state: full
   - type: ConditionalSpawner
     prototypes:
     - MobDeathSquadPulseRifleBitrunning

@@ -28,14 +28,6 @@
   chatTriggers:
   - yip
   - yips
-  # Orion-Start
-  - тяв
-  - тяв.
-  - тяв!
-  - тявкает
-  - тявкает.
-  - тявкает!
-  # Orion-End
 
 - type: emote
   id: Coo
@@ -51,11 +43,3 @@
   chatTriggers:
   - coo
   - coos
-  # Orion-Start
-  - воркует
-  - воркует.
-  - воркует!
-  - курлычет
-  - курлычет.
-  - курлычет!
-  # Orion-End

@@ -1,9 +1,0 @@
-ent-MaterialAshwoodPlank = ashwood
-    .suffix = Full
-    .desc = { ent-MaterialBase.desc }
-ent-MaterialAshwoodPlank10 = { ent-MaterialAshwoodPlank }
-    .suffix = 10
-    .desc = { ent-MaterialAshwoodPlank.desc }
-ent-MaterialAshwoodPlank1 = { ent-MaterialAshwoodPlank }
-    .suffix = Single
-    .desc = { ent-MaterialAshwoodPlank.desc }

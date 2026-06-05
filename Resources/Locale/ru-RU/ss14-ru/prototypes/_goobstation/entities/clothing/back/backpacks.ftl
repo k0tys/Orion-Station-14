@@ -1,7 +1,7 @@
-ent-ClothingBackpackCentcomm = рюкзак ЦК
+ent-ClothingBackpackCentcomm = рюкзак Центком
     .desc = Роскошный рюкзак с запахом денег.
-ent-ClothingBackpackBlueshield = рюкзак офицера "Синий Щит"
-    .desc = Очень плотный рюкзак, в котором можно хранить ваше вооружение.
+ent-ClothingBackpackBlueshield = рюкзак Синего Щита
+    .desc = Очень защитный рюкзак с запахом энергетического пистолета.
 ent-ClothingBackpackUnremoveable = { ent-ClothingBackpack }
     .suffix = Неснимаемый
     .desc = { ent-ClothingBackpack.desc }

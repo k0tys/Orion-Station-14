@@ -15,12 +15,12 @@ Use this before finishing a gameplay task.
 
 - prototypes updated if serialized fields or content tuning changed
 - visuals or sound collections updated if the feature needs them
-- Orion-only additions placed under `_Orion` when appropriate, or under the existing inherited/vendor subtree that owns the feature
+- fork-only additions placed under `_Orion` when appropriate
 
 ## Text
 
 - every player-facing string localized
-- `en-US` updated in the same pass, with `ru-RU` updated when the touched feature already maintains it or the wording is known
+- `en-US` updated in the same pass
 
 ## Validation
 

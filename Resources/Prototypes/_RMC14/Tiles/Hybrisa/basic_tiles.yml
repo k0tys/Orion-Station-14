@@ -45,18 +45,18 @@
 - type: tile
   parent: CMPlanetBase
   id: RMCPlanetHybrisaUndergroundWeedable
-  name: tiles-rmc-floor
+  name: floor
   sprite: /Textures/_RMC14/Tiles/hybrisa/underground.png
 
 - type: tile
   parent: RMCPlanetHybrisaUndergroundWeedable
   id: RMCPlanetHybrisaUnderground
-  name: tiles-rmc-unweedable-floor
+  name: unweedable floor
 
 - type: tile
   parent: RMCPlanetHybrisaDirt
   id: RMCPlanetHybrisaDirtPlating
-  name: tiles-rmc-unweedable-dirt
+  name: unweedable dirt
 
 # Metal
 
@@ -69,13 +69,13 @@
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaCementFlat
-  name: tiles-rmc-cement
+  name: cement
   sprite: /Textures/_RMC14/Tiles/hybrisa/cementflat.png
 
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaRampNorth
-  name: tiles-rmc-ramp
+  name: ramp
   sprite: /Textures/_RMC14/Tiles/hybrisa/rampsmaller_north.png
 
 - type: tile
@@ -96,31 +96,31 @@
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaStripeRedNorth
-  name: tiles-rmc-red-stripe
+  name: red stripe
   sprite: /Textures/_RMC14/Tiles/hybrisa/stripe_red_north.png
 
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaStripeRedSouth
-  name: tiles-rmc-red-stripe
+  name: red stripe
   sprite: /Textures/_RMC14/Tiles/hybrisa/stripe_red_south.png
 
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaStripeRedEast
-  name: tiles-rmc-red-stripe
+  name: red stripe
   sprite: /Textures/_RMC14/Tiles/hybrisa/stripe_red_east.png
 
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaStripeRedWest
-  name: tiles-rmc-red-stripe
+  name: red stripe
   sprite: /Textures/_RMC14/Tiles/hybrisa/stripe_red_west.png
 
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaNSPAEmblem
-  name: tiles-rmc-metal-floor
+  name: metal floor
   sprite: /Textures/_RMC14/Tiles/hybrisa/NSPAemblem.png
 
 - type: tile
@@ -173,7 +173,7 @@
 - type: tile
   parent: CMPlanetBase
   id: RMCPlanetHybrisaAsphalt
-  name: tiles-rmc-asphalt
+  name: asphalt
   sprite: /Textures/_RMC14/Tiles/hybrisa/asphalt_old.png
 
 - type: tile
@@ -219,7 +219,7 @@
 - type: tile
   parent: CMPlanetBase
   id: RMCPlanetHybrisaCement
-  name: tiles-rmc-cement
+  name: cement
   sprite: /Textures/_RMC14/Tiles/hybrisa/cement1.png
 
 - type: tile
@@ -235,7 +235,7 @@
 - type: tile
   parent: CMPlanetBase
   id: RMCPlanetHybrisaSidewalk
-  name: tiles-rmc-sidewalk
+  name: sidewalk
   sprite: /Textures/_RMC14/Tiles/hybrisa/sidewalkfull.png
 
 - type: tile
@@ -303,7 +303,7 @@
 - type: tile
   parent: RMCFloorHybrisaBasicBase
   id: RMCFloorHybrisaEngineerShip
-  name: tiles-rmc-strange-metal-floor
+  name: strange metal floor
   sprite: /Textures/_RMC14/Tiles/hybrisa/floor.png
 
 - type: tile

@@ -14,13 +14,13 @@
     belt: ClothingBeltDeathsquadWebbing
 
 - type: startingGear
-  id: DeathSquadPulseRifleGear
   parent: DeathSquadBaseGear
+  id: DeathSquadPulseRifleGear
   equipment:
     shoes: ClothingShoesBootsMagDeathsquad
 
 - type: startingGear
-  id: DeathSquadPhoronSabreGear
   parent: DeathSquadBaseGear
+  id: DeathSquadPhoronSabreGear
   equipment:
     shoes: ClothingShoesBootsMagDeathsquadOn

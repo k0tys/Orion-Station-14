@@ -1,5 +1,5 @@
 - type: entity
-  parent: MobCivilian
+  parent: BaseMobHuman
   id: BaseMobDeathSquad
   name: Death squad operative
   suffix: AI

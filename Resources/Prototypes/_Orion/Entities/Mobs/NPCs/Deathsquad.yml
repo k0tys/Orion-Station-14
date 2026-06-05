@@ -1,0 +1,46 @@
+- type: entity
+  parent: MobCivilian
+  id: BaseMobDeathSquad
+  name: Death squad operative
+  description: Elite special operations operative.
+  suffix: AI
+  components:
+  - type: Loadout
+    prototypes: [ DeathSquadPulseRifleGear ]
+  - type: BitrunningDomainEnemyObjective
+  - type: NpcFactionMember
+    factions:
+    - Syndicate
+  - type: HTN
+    rootTask:
+      task: SimpleHumanoidHostileCompound 
+  - type: MobThresholds
+    thresholds:
+      0: 1
+      200: 2   
+      225: 3
+      250: 4
+  - type: Perishable 
+    molsPerSecondPerUnitMass: 0
+
+- type: entity
+  parent: BaseMobDeathSquad
+  id: MobDeathSquadPhoronSabreBitrunning
+  suffix: Bitrunning, Energy Sword
+  components:
+  - type: Loadout
+    prototypes: [ DeathSquadPhoronSabreGear ]
+  - type: InnateTool
+    tools:
+    - id: PhoronSabreOn   
+
+- type: entity
+  parent: BaseMobDeathSquad
+  id: MobDeathSquadPulseRifleBitrunning
+  suffix: Bitrunning, Pulse Rifle
+  components:
+  - type: Loadout
+    prototypes: [ DeathSquadPulseRifleGear ]
+  - type: InnateTool
+    tools:
+    - id: WeaponPulseRifle

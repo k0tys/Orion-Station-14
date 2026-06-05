@@ -21,6 +21,3 @@ bitrunning-domain-corsair-cove-desc = Battle your way to the hidden treasure, se
 
 bitrunning-domain-zealot-arena-name = Zealot Arena
 bitrunning-domain-zealot-arena-desc = Dance, puppets, dance!
-
-bitrunning-domain-Special-squad-name = Special Squad
-bitrunning-domain-Special-squad-desc = After a successful revolution, a "special" ERT unit was sent to your station. The Syndicate has sent you supplies for the battle, so don't let them down.

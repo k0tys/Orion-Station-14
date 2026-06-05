@@ -79,8 +79,8 @@
 
 - type: entity
   parent: ClothingShoesBootsMagDeathsquad
-  id: ClothingShoesBootsMagDeathsquadOn 
-  suffix: неснимаемый
+  id: ClothingShoesBootsMagDeathsquadOn
+  suffix: Unremoveable
   components:
   - type: ItemToggle
     activated: true

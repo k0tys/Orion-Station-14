@@ -1,6 +1,6 @@
 - type: entity
   parent: PhoronSabre
-  id: PhoronSabreOn   
+  id: PhoronSabreOn
   suffix: On
   components:
   - type: ItemToggle

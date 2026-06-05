@@ -71,6 +71,6 @@
 - type: entity
   parent: ClothingOuterHardsuitDeathsquad
   id: ClothingOuterHardsuitDeathsquadUnremovable
-  suffix: неснимаемый
+  suffix: Unremoveable
   components:
   - type: Unremoveable

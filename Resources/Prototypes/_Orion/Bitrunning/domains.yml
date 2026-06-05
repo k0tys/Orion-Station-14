@@ -165,8 +165,8 @@
 
 - type: bitrunningVirtualDomain
   id: SpecialSquad
-  name: bitrunning-domain-Special-squad-name
-  description: bitrunning-domain-Special-squad-desc
+  name: bitrunning-domain-special-squad-name
+  description: bitrunning-domain-special-squad-desc
   difficulty: Extreme
   cost: 5
   serverRewardPoints: 8

@@ -6,7 +6,7 @@
   description: Elite special operations operative.
   components:
   - type: Loadout
-    prototypes: [ DeathSquadPulseRifleGear ]
+    prototypes: [ DeathSquadBaseGear ]
   - type: BitrunningDomainEnemyObjective
   - type: NpcFactionMember
     factions:
@@ -16,10 +16,9 @@
       task: SimpleHumanoidHostileCompound 
   - type: MobThresholds
     thresholds:
-      0: 1
-      200: 2   
-      225: 3
-      250: 4
+      0: Alive
+      200: Critical
+      250: Dead
   - type: Perishable 
     molsPerSecondPerUnitMass: 0
 
@@ -28,8 +27,6 @@
   id: MobDeathSquadPhoronSabreBitrunning
   suffix: Bitrunning, Energy Sword
   components:
-  - type: Loadout
-    prototypes: [ DeathSquadPhoronSabreGear ]
   - type: InnateTool
     tools:
     - id: PhoronSabreOn   
@@ -39,8 +36,6 @@
   id: MobDeathSquadPulseRifleBitrunning
   suffix: Bitrunning, Pulse Rifle
   components:
-  - type: Loadout
-    prototypes: [ DeathSquadPulseRifleGear ]
   - type: InnateTool
     tools:
     - id: WeaponPulseRifle

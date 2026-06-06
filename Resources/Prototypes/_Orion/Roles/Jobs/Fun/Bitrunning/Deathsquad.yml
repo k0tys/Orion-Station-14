@@ -9,18 +9,7 @@
     neck: ExecutiveIDCard
     gloves: ClothingHandsGlovesDeathsquadUnremovable
     outerClothing: ClothingOuterHardsuitDeathsquadUnremovable
+    shoes: ClothingShoesBootsMagDeathsquadOn
     head: ClothingHeadHelmetHardsuitDeathsquad 
     id: DeathsquadPDA
     belt: ClothingBeltDeathsquadWebbing
-
-- type: startingGear
-  parent: DeathSquadBaseGear
-  id: DeathSquadPulseRifleGear
-  equipment:
-    shoes: ClothingShoesBootsMagDeathsquad
-
-- type: startingGear
-  parent: DeathSquadBaseGear
-  id: DeathSquadPhoronSabreGear
-  equipment:
-    shoes: ClothingShoesBootsMagDeathsquadOn

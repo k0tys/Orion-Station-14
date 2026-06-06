@@ -4,8 +4,8 @@ meta:
   engineVersion: 266.0.0
   forkId: ""
   forkVersion: ""
-  time: 06/06/2026 14:27:06
-  entityCount: 1027
+  time: 06/06/2026 15:25:41
+  entityCount: 1025
 maps: []
 grids:
 - 1
@@ -1878,24 +1878,6 @@ entities:
       flags: HideLabel
 - proto: ActionToggleBlock
   entities:
-  - uid: 868
-    mapInit: true
-    paused: true
-    components:
-    - type: Transform
-      parent: 867
-    - type: Action
-      container: 867
-      originalIconColor: '#FFFFFFFF'
-  - uid: 870
-    mapInit: true
-    paused: true
-    components:
-    - type: Transform
-      parent: 869
-    - type: Action
-      container: 869
-      originalIconColor: '#FFFFFFFF'
   - uid: 872
     mapInit: true
     paused: true
@@ -2092,7 +2074,7 @@ entities:
       pos: -6.5,5.5
       parent: 1
     - type: Door
-      secondsUntilStateChange: -13840.754
+      secondsUntilStateChange: -14178.399
       state: Opening
     - type: DeviceLinkSource
       lastSignals:
@@ -3308,7 +3290,7 @@ entities:
       pos: -5.5,41.5
       parent: 1
     - type: Door
-      secondsUntilStateChange: -3463.664
+      secondsUntilStateChange: -3801.3098
       state: Opening
   - uid: 901
     components:
@@ -4947,31 +4929,13 @@ entities:
   - uid: 867
     components:
     - type: Transform
-      pos: -12.513028,29.750061
+      pos: -12.306405,29.840704
       parent: 1
-    - type: Blocking
-      blockingToggleActionEntity: 868
-      user: invalid
-    - type: ActionsContainer
-    - type: ContainerContainer
-      containers:
-        actions: !type:Container
-          ents:
-          - 868
-  - uid: 869
+  - uid: 868
     components:
     - type: Transform
-      pos: -12.513028,29.750061
+      pos: -12.72828,29.840704
       parent: 1
-    - type: Blocking
-      blockingToggleActionEntity: 870
-      user: invalid
-    - type: ActionsContainer
-    - type: ContainerContainer
-      containers:
-        actions: !type:Container
-          ents:
-          - 870
   - uid: 871
     components:
     - type: Transform

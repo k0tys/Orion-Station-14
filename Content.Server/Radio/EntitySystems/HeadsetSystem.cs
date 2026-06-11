@@ -18,6 +18,7 @@ using Content.Server._EinsteinEngines.Language;
 using Content.Server.Chat.Systems;
 using Content.Server.Emp;
 using Content.Server.Radio.Components;
+using Content.Shared._Orion.Radio;
 using Content.Shared.Chat;
 using Content.Shared.Examine;
 using Content.Shared.Inventory;
@@ -40,7 +41,6 @@ public sealed class HeadsetSystem : SharedHeadsetSystem
     [Dependency] private readonly LanguageSystem _language = default!;
     [Dependency] private readonly EntityWhitelistSystem _whitelist = default!; // Goobstation
     [Dependency] private readonly InventorySystem _inventory = default!; // Orion
-    [Dependency] private readonly SharedAudioSystem _audio = default!; // Orion
 
     public override void Initialize()
     {
@@ -186,12 +186,6 @@ public sealed class HeadsetSystem : SharedHeadsetSystem
                 args.Channel,
                 headsetEntity.Value
             );
-
-            var sound = args.Channel.OnSendSound ?? DefaultOnSound;
-            _audio.PlayEntity(sound, uid, uid);
-
-            args.Channel = null;
-            break;
         }
     }
     // Orion-End
@@ -231,7 +225,7 @@ public sealed class HeadsetSystem : SharedHeadsetSystem
     // Orion-Start: Radio sound
 
     private static readonly SoundSpecifier DefaultOnSound =
-        new SoundPathSpecifier("/Audio/_Orion/Radio/basic.ogg", AudioParams.Default.WithVolume(-6).WithMaxDistance(2));
+        new SoundPathSpecifier("/Audio/_Orion/Radio/basic.ogg");
 
     // Orion-End
     private void OnHeadsetReceive(EntityUid uid, HeadsetComponent component, ref RadioReceiveEvent args)
@@ -253,6 +247,22 @@ public sealed class HeadsetSystem : SharedHeadsetSystem
                 Message = canUnderstand ? args.OriginalChatMsg : args.LanguageObfuscatedChatMsg
             };
             _netMan.ServerSendMessage(msg, actor.PlayerSession.Channel);
+
+            // Orion-Start
+            var sound = args.Channel.OnSendSound ?? DefaultOnSound;
+            if (sound is SoundPathSpecifier sps)
+            {
+                RaiseNetworkEvent(new PlayRadioBarkEvent
+                {
+                    Path = sps.Path.ToString(),
+                    Params = sps.Params,
+                }, actor.PlayerSession.Channel);
+            }
+            else if (sound is SoundCollectionSpecifier)
+            {
+                Log.Warning($"Radio channel {args.Channel.ID} uses SoundCollectionSpecifier, which is not supported for PlayRadioBarkEvent. Falling back to silent playback.");
+            }
+            // Orion-End
         }
         // Einstein Engines - Language end
     }

@@ -74,21 +74,3 @@ ent-SpawnMobPirateCutlassBitrunning = спавнер пирата
 ent-SpawnMobPirateFlintlockBitrunning = спавнер пирата
     .suffix = ИИ, Кремнёвый пистолет, Битраннинг
     .desc = { ent-MarkerBase.desc }
-<<<<<<< Updated upstream
-=======
-ent-SpawnMobDeathSquadPulseRifleBitrunning = спавнер оперативника Отряда Смерти
-    .suffix = ИИ, Импульсная винтовка, Битраннинг
-    .desc = { ent-MarkerBase.desc }
-ent-SpawnMobDeathSquadPhoronSabreBitrunning = спавнер оперативника Отряда Смерти
-    .suffix = ИИ, Энергетический меч, Битраннинг
-    .desc = { ent-MarkerBase.desc }
-ent-SpawnMobNukeopsSoldierBitrunning = Спавнер солдата ядерного оперативника 
-    .suffix = ИИ, Битраннинг
-    .desc = { ent-MarkerBase.desc }
-ent-SpawnMobSyndicateSoldierBitrunning = Спавнер солдата Синдиката
-    .suffix = ИИ, Битраннинг
-    .desc = { ent-MarkerBase.desc }
-ent-SpawnMobExperimentalSoldierBitrunning = Спавнер экспериментального солдата Синдиката
-    .suffix = ИИ, Битраннинг
-    .desc = { ent-MarkerBase.desc }
->>>>>>> Stashed changes

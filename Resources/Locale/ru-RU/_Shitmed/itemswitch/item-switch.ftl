@@ -15,7 +15,7 @@ itemswitch-component-state-claws = когти
 # justice
 itemswitch-component-state-ion = ионный
 itemswitch-component-state-lethal = летальный
-itemswitch-component-state-empowered = уничтожение
+itemswitch-component-state-emprowered = уничтожение
 
 # # also for security
 itemswitch-component-state-off = выключен

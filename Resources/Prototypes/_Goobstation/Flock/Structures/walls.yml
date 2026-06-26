@@ -501,7 +501,6 @@
   parent: WallFlockBase
   id: WallFeatherZoneShuttle2
   name: strange shuttle wall
-  suffix: Alt # CorvaxGoob
   components:
   - type: Sprite
     sprite: _Goobstation/Flock/Structures/Walls/shuttle.rsi

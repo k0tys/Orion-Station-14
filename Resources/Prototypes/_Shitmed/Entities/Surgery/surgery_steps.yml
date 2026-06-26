@@ -802,7 +802,7 @@
     - type: Drill
     addOrganOnAdd:
       brain:
-      #- type: OhioAccent CorvaxGoob ohio-accent-removal
+      - type: OhioAccent
       - type: RatvarianLanguage
       - type: Clumsy
     duration: 5

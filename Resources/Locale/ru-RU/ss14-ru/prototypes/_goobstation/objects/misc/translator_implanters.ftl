@@ -13,6 +13,3 @@ ent-AdvancedSpaceItalianTranslatorImplanter = имплантер
 ent-YowKriolTranslatorImplanter = { ent-BaseTranslatorImplanter }
     .suffix = Продвинутый переводчик Йовикрол
     .desc = { ent-BaseTranslatorImplanter.desc }
-ent-SignTranslatorImplanter = { ent-BaseTranslatorImplanter }
-    .suffix = Переводчик Жестов
-    .desc = { ent-BaseTranslatorImplanter.desc }

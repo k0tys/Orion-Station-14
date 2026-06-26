@@ -36,8 +36,3 @@
   id: EntertainmentPack
   recipes:
   - CrayonRainbowLarge
-
-- type: latheRecipePack
-  id: BartendingPack
-  recipes:
-  - DrinkShakerBluespace

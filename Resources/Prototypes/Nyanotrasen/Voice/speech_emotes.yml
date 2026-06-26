@@ -22,7 +22,7 @@
 #  blacklist:
 #    components:
 #    - BorgChassis
-#  chatMessages: ["chat-emote-msg-hisses"]
+#  chatMessages: [hisses.]
 #  chatTriggers:
 #    - hiss
 #    - hisses
@@ -31,7 +31,7 @@
 
 - type: emote
   id: Meow
-  name: chat-emote-name-catmeow # Orion-Edit: Localization
+  name: Meow
   category: Vocal
   icon: _Goobstation/Interface/Emotes/meow.png
   whitelist:
@@ -41,7 +41,7 @@
   blacklist:
     components:
     - BorgChassis
-  chatMessages: ["chat-emote-msg-catmeow"]
+  chatMessages: [meows.]
   chatTriggers:
     - meow
     - meows
@@ -53,27 +53,10 @@
     - nyas
     - mraow
     - mraows
-    # Orion-Start
-    - мяу
-    - мяу.
-    - мяу!
-    - мяукает
-    - мяукает.
-    - мяукает!
-    - мяв
-    - мяв.
-    - мяв!
-    - ня
-    - ня.
-    - ня!
-    - мрау
-    - мрау.
-    - мрау!
-    # Orion-End
 
 - type: emote
   id: Mew
-  name: chat-emote-name-mew # Orion-Edit: Localization
+  name: Mew
   category: Vocal
   icon: _Goobstation/Interface/Emotes/mew.png
   whitelist:
@@ -83,27 +66,16 @@
   blacklist:
     components:
     - BorgChassis
-  chatMessages: ["chat-emote-msg-mew"]
+  chatMessages: [mews.]
   chatTriggers:
     - mew
     - mews
     - mewing
     - mewed
-    # Orion-Start
-    - мью
-    - мью.
-    - мью!
-    - мяукнул
-    - мяукнул.
-    - мяукнул!
-    - мяукнула
-    - мяукнула.
-    - мяукнула!
-    # Orion-End
 
 - type: emote
   id: Growl
-  name: chat-emote-name-growl # Orion-Edit: Localization
+  name: Growl
   category: Vocal
   icon: _Goobstation/Interface/Emotes/growl.png
   whitelist:
@@ -113,27 +85,16 @@
   blacklist:
     components:
     - BorgChassis
-  chatMessages: ["chat-emote-msg-growl"]
+  chatMessages: [growls.]
   chatTriggers:
     - growl
     - growls
     - growling
     - growled
-    # Orion-Start
-    - рычит
-    - рычит.
-    - рычит!
-    - зарычал
-    - зарычал.
-    - зарычал!
-    - зарычала
-    - зарычала.
-    - зарычала!
-    # Orion-End
 
 - type: emote
   id: Purr
-  name: chat-emote-name-purr # Orion-Edit: Localization
+  name: Purr
   category: Vocal
   icon: _Goobstation/Interface/Emotes/purr.png
   whitelist:
@@ -143,23 +104,9 @@
   blacklist:
     components:
     - BorgChassis
-  chatMessages: ["chat-emote-msg-purr"]
+  chatMessages: [purrs.]
   chatTriggers:
     - purr
     - purrs
     - purring
     - purred
-    # Orion-Start
-    - мурчит
-    - мурчит.
-    - мурчит!
-    - мурлыкает
-    - мурлыкает.
-    - мурлыкает!
-    - замурчал
-    - замурчал.
-    - замурчал!
-    - замурчала
-    - замурчала.
-    - замурчала!
-    # Orion-End

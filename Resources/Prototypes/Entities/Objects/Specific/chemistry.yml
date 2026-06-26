@@ -483,10 +483,6 @@
     sprite: Objects/Specific/Chemistry/beaker_cryostasis.rsi
     layers:
       - state: beakernoreact
-  # Orion-Start
-  - type: Item
-    sprite: Objects/Specific/Chemistry/beaker_cryostasis.rsi
-  # Orion-End
   - type: SolutionContainerVisuals
     maxFillLevels: 0
   - type: SolutionContainerManager
@@ -511,10 +507,6 @@
     sprite: Objects/Specific/Chemistry/beaker_bluespace.rsi
     layers:
       - state: beakerbluespace
-  # Orion-Start
-  - type: Item
-    sprite: Objects/Specific/Chemistry/beaker_bluespace.rsi
-  # Orion-End
   - type: SolutionContainerVisuals
     maxFillLevels: 0
   - type: SolutionContainerManager

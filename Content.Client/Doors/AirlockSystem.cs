@@ -43,14 +43,6 @@ public sealed class AirlockSystem : SharedAirlockSystem
             door.OpenSpriteStates.Add((DoorVisualLayers.BaseUnlit, comp.OpenSpriteState));
             door.ClosedSpriteStates.Add((DoorVisualLayers.BaseUnlit, comp.ClosedSpriteState));
         }
-        // Orion-Start
-        else
-        {
-            // Orion: Register BaseUnlit end-states so DoorSystem.OnAnimationCompleted restores them. Allows removing LayerSetAnimationTime(0) in OnAppearanceChange that caused jitter.
-            door.OpenSpriteStates.Add((DoorVisualLayers.BaseUnlit, comp.ClosingSpriteState));
-            door.ClosedSpriteStates.Add((DoorVisualLayers.BaseUnlit, comp.OpeningSpriteState));
-        }
-        // Orion-End
 
         ((Animation)door.OpeningAnimation).AnimationTracks.Add(new AnimationTrackSpriteFlick()
         {
@@ -81,11 +73,6 @@ public sealed class AirlockSystem : SharedAirlockSystem
 
         if (!comp.AnimatePanel)
             return;
-
-        // For some reason the open panel sprite is used for both open and
-        // closed sprites. I really don't get it.
-        door.OpenSpriteStates.Add((WiresVisualLayers.MaintenancePanel, comp.OpenPanelSpriteState));
-        door.ClosedSpriteStates.Add((WiresVisualLayers.MaintenancePanel, comp.OpenPanelSpriteState));
 
         ((Animation)door.OpeningAnimation).AnimationTracks.Add(new AnimationTrackSpriteFlick()
         {
@@ -143,7 +130,6 @@ public sealed class AirlockSystem : SharedAirlockSystem
             );
         }
 
-        /* Orion-Edit-Start: LayerSetAnimationTime(0) here caused one-frame jitter when DoorState.Open arrived animation.
         switch (state)
         {
             case DoorState.Open:
@@ -155,6 +141,5 @@ public sealed class AirlockSystem : SharedAirlockSystem
                 _sprite.LayerSetAnimationTime((uid, args.Sprite), DoorVisualLayers.BaseUnlit, 0);
                 break;
         }
-        */ // Orion-Edit-End
     }
 }

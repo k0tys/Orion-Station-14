@@ -14,7 +14,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 using Content.Shared.Whitelist;
-using Robust.Shared.Audio;
 using Robust.Shared.Prototypes;
 
 namespace Content.Shared.Radio;
@@ -61,12 +60,4 @@ public sealed partial class RadioChannelPrototype : IPrototype
 
     [DataField]
     public EntityWhitelist? ReceiveWhitelist = null;
-
-    // Orion-Start: Radio sound
-    /// <summary>
-    /// Sound played when a radio message is sent
-    /// </summary>
-    [DataField]
-    public SoundSpecifier? OnSendSound = null;
-    // Orion-End
 }

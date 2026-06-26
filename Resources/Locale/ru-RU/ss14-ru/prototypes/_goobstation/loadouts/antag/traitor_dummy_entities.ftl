@@ -1,6 +1,6 @@
-ent-LoadoutDummyTraitorPda = КПК
+ent-LoadoutDummyTraitorPda = { "" }
     .desc = { "" }
-ent-LoadoutDummyTraitorPen = Ручка
+ent-LoadoutDummyTraitorPen = { "" }
     .desc = { "" }
-ent-LoadoutDummyTraitorImplant = Имплант Аплинк
+ent-LoadoutDummyTraitorImplant = { "" }
     .desc = { "" }

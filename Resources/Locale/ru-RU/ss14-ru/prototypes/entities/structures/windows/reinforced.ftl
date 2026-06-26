@@ -1,4 +1,4 @@
-ent-ReinforcedWindow = бронеокно
+ent-ReinforcedWindow = бронированное окно
     .desc = { ent-Window.desc }
 ent-WindowReinforcedDirectional = направленное бронеокно
     .desc = Смотри не заляпай.

@@ -56,10 +56,6 @@
   keycode: ";"
   frequency: 1459
   color: "#2cdb2c"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/common.ogg
-  # Orion-End
 
 - type: radioChannel
   id: CentCom
@@ -68,10 +64,6 @@
   frequency: 1337
   color: "#2681a5"
   longRange: true
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/cc.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Command
@@ -79,10 +71,6 @@
   keycode: 'к' # Orion-Edit
   frequency: 1353
   color: "#fcdf03"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/command.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Engineering
@@ -90,10 +78,6 @@
   keycode: 'и' # Orion-Edit
   frequency: 1357
   color: "#ff733c"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/eng.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Medical
@@ -101,10 +85,6 @@
   keycode: 'м' # Orion-Edit
   frequency: 1355
   color: "#57b8f0"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/med.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Science
@@ -112,10 +92,6 @@
   keycode: 'н' # Orion-Edit
   frequency: 1351
   color: "#cd7ccd"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/science.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Security
@@ -123,10 +99,6 @@
   keycode: 'о' # Orion-Edit
   frequency: 1359
   color: "#ff4242"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/security.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Service
@@ -134,10 +106,6 @@
   keycode: 'с' # Orion-Edit
   frequency: 1349
   color: "#539c00"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/service.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Supply
@@ -145,10 +113,6 @@
   keycode: 'п' # Orion-Edit
   frequency: 1347
   color: "#b48b57"
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/cargo.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Syndicate
@@ -157,10 +121,6 @@
   frequency: 1213
   color: "#8f4a4b"
   longRange: true
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/syndie.ogg
-  # Orion-End
 
 - type: radioChannel
   id: Handheld
@@ -169,10 +129,6 @@
   color: "#967101"
   # long range since otherwise it'd defeat the point of a handheld radio independent of telecomms
   longRange: true
-  # Orion-Start
-  onSendSound:
-    path: /Audio/_Orion/Radio/handheld.ogg
-  # Orion-End
 
 # Goobstation - replaced with collective mind
 # commented out so anyone trying to use it gets errors and sees this

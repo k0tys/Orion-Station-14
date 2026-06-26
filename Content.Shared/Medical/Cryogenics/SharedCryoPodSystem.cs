@@ -31,7 +31,6 @@ using Content.Shared.DoAfter;
 using Content.Shared.DragDrop;
 using Content.Shared.Emag.Systems;
 using Content.Shared.Examine;
-using Content.Shared.Ghost;
 using Content.Shared.Interaction;
 using Content.Shared.MedicalScanner;
 using Content.Shared.Mobs.Components;
@@ -349,11 +348,6 @@ public abstract partial class SharedCryoPodSystem : EntitySystem
     {
         if (!args.CanAccess || !args.CanInteract)
             return;
-
-        // Orion-Start
-        if (TryComp<GhostComponent>(args.User, out var ghost) && !ghost.CanGhostInteract)
-            return;
-        // Orion-End
 
         // Eject verb
         if (cryoPodComponent.BodyContainer.ContainedEntity != null)

@@ -25,17 +25,9 @@
   id: Boop
   name: chat-emote-name-boop
   category: Vocal
-  chatMessages: ["chat-emote-msg-boop"] # Orion-Edit: Localization
+  chatMessages: [ boops. ]
   chatTriggers:
   - boops
-  # Orion-Start
-  - буп
-  - буп.
-  - буп!
-  - бупает
-  - бупает.
-  - бупает!
-  # Orion-End
   whitelist:
     components:
     - Silicon
@@ -45,17 +37,9 @@
   id: Whirr
   name: chat-emote-name-whirr
   category: Vocal
-  chatMessages: ["chat-emote-msg-whirr"] # Orion-Edit: Localization
+  chatMessages: [ whirrs. ]
   chatTriggers:
   - whirrs
-  # Orion-Start
-  - жужжит сервоприводами
-  - жужжит сервоприводами.
-  - жужжит сервоприводами!
-  - гудит сервоприводами
-  - гудит сервоприводами.
-  - гудит сервоприводами!
-  # Orion-End
   whitelist:
     components:
     - Silicon
@@ -77,11 +61,6 @@
     - mars
     - marsing
     - marsed
-    # Orion-Start
-    - марсит
-    - марсит.
-    - марсит!
-    # Orion-End
 
 - type: emoteSounds
   id: UnisexPlasmaman

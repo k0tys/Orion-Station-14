@@ -1,7 +1,6 @@
-using Content.Shared.Roles;
-using Robust.Shared.Audio;
 using Robust.Shared.GameStates;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Audio;
 
 namespace Content.Goobstation.Shared.Slasher.Components;
 
@@ -92,15 +91,6 @@ public sealed partial class SlasherSoulStealComponent : Component
     /// </summary>
     [ViewVariables]
     public bool HasAscended;
-
-    /// <summary>
-    /// Optional starting gear to equip when this slasher ascends (set by kit selection).
-    /// </summary>
-    [ViewVariables]
-    public ProtoId<StartingGearPrototype>? AscensionGear;
-
-    [ViewVariables]
-    public string AscendanceAnnouncementKey = "slasher-soulsteal-ascendance";
 
     /// <summary>
     /// Number of total souls required to unlock possession ability.

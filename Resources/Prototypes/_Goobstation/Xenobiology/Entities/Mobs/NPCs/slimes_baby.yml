@@ -12,7 +12,7 @@
     - MobSlimeXenobioBabyOrange
     - MobSlimeXenobioBabyPurple
     - MobSlimeXenobioBabyBlue
-    - MobSlimeXenobioBabyMetal
+    - MobSlimeXenobioBabyPyrite
 
 - type: entity
   parent: MobSlimeXenobioBaby
@@ -91,7 +91,7 @@
     producedExtract: YellowSlimeExtract
     potentialMutations:
     - MobSlimeXenobioBabyOrange
-    - MobSlimeXenobioBabyMetal
+    - MobSlimeXenobioBabyPyrite
     - MobSlimeXenobioBabyBluespace
 
 - type: entity
@@ -138,7 +138,7 @@
     potentialMutations:
     - MobSlimeXenobioBabyBlue
     - MobSlimeXenobioBabyPyrite
-    - MobSlimeXenobioBabyMetal
+    - MobSlimeXenobioBabySilver
 
 - type: entity
   parent: MobSlimeXenobioBaby

@@ -111,7 +111,7 @@
     proto: felinid
   # Orion-Start
   - type: Inventory
-#    speciesId: reptilian # Orion-Edit: We don't want to see tails from lizards on suits.
+    speciesId: reptilian
     femaleDisplacements:
       jumpsuit:
         sizeMaps:
@@ -188,7 +188,7 @@
     species: Tajaran
   # Orion-Start
   - type: Inventory
-#    speciesId: reptilian # Orion-Edit: We don't want to see tails from lizards on suits.
+    speciesId: reptilian
     femaleDisplacements:
       jumpsuit:
         sizeMaps:

@@ -38,19 +38,17 @@
           - ItemMask
         restitution: 0.3  # fite me
         friction: 0.2
-  # Orion-Edit-Start: Optimization
-#  - type: Damageable
-#    damageContainer: StructuralInorganic
-#    damageModifierSet: StrongMetallic # We only want explosions breaking them (for the most part)
-#  - type: Destructible
-#    thresholds:
-#    - trigger:
-#        !type:DamageTrigger
-#        damage: 75
-#      behaviors:
-#      - !type:DoActsBehavior
-#        acts: [ "Destruction" ]
-  # Orion-Edit-End
+  - type: Damageable
+    damageContainer: StructuralInorganic
+    damageModifierSet: StrongMetallic # We only want explosions breaking them (for the most part)
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 75
+      behaviors:
+      - !type:DoActsBehavior
+        acts: [ "Destruction" ]
   - type: Tag
     tags:
     - Cartridge

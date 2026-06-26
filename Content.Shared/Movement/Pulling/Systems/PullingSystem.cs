@@ -357,9 +357,6 @@ public sealed class PullingSystem : EntitySystem
         if (args.Handled)
             return;
 
-        if (!_blocker.CanInteract(ent, null))
-            return;
-
         args.Handled = TryStopPull(ent, ent, ent);
     }
 
